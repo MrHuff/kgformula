@@ -73,7 +73,7 @@ def genBiv(n,x_mar=torch.randn,y_mar=torch.randn,log_or=gaussLOR,margin_indep =T
     X,Y = swaps(x,y,N,log_or)
     return X, Y
 
-def do_distribution(n,dist='ber',rho_xy=0,rho_xz=0.3):
+def do_distribution(n,dist='ber',rho_xy=0,rho_xz=0.3,get_p_x_cond_z=False):
     try_n = 4*n
 
     if dist =='t':
@@ -103,8 +103,10 @@ def do_distribution(n,dist='ber',rho_xy=0,rho_xz=0.3):
     x = x[keep]
     y = y[keep]
     z = z[keep]
-
-    return x,y,z
+    if get_p_x_cond_z:
+        return x,y,z,top
+    else:
+        return x,y,z
 
 if __name__ == '__main__':
     print(do_distribution(50))

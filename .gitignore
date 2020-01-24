@@ -1,0 +1,16 @@
+*.aux
+*.log
+notes/gformulakerneltest.pdf
+*.png
+g_env/*
+*.json
+*.py~
+*.xml
+*.iml
+.idea/*
+*__pycache__*
+*.out
+*checkpoints*
+*idea*
+
+
