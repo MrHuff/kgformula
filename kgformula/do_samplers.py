@@ -74,39 +74,39 @@ def genBiv(n,x_mar=torch.randn,y_mar=torch.randn,log_or=gaussLOR,margin_indep =T
     return X, Y
 
 def do_distribution(n,dist='ber',rho_xy=0,rho_xz=0.3,get_p_x_cond_z=False):
-    try_n = 4*n
+    with torch.no_grad():
+        try_n = 4*n
+        if dist =='t':
+            dist = StudentT(df=3)
+            x = dist.sample((try_n,1))+1
+        if dist == 'ber':
+            dist = Bernoulli(probs=0.5)
+            x = dist.sample((try_n,1))
+        y = torch.zeros_like(x)
+        z = torch.zeros_like(x)
 
-    if dist =='t':
-        dist = StudentT(df=3)
-        x = dist.sample((try_n,1))+1
-    if dist == 'ber':
-        dist = Bernoulli(probs=0.5)
-        x = dist.sample((try_n,1))
-    y = torch.zeros_like(x)
-    z = torch.zeros_like(x)
+        k=10 #adjust to speed things up
 
-    k=10 #adjust to speed things up
+        for i in range(try_n):
+            rho_i = torch.clamp(torch.tanh(x[i]),min = -1+1e-9,max = 1-1e-9)
+            tmp_Z,tmp_Y = genBiv(k,y_mar = lambda p: torch.randn(p)+x[i]*rho_xy,log_or=wrapper(rho_i))
+            wh = np.random.choice(k,1)
+            z[i] = tmp_Z[wh]
+            y[i] = tmp_Y[wh]
 
-    for i in range(try_n):
-        rho_i = torch.clamp(torch.tanh(x[i]),min = -1+1e-9,max = 1-1e-9)
-        tmp_Z,tmp_Y = genBiv(k,y_mar = lambda p: torch.randn(p)+x[i]*rho_xy,log_or=wrapper(rho_i))
-        wh = np.random.choice(k,1)
-        z[i] = tmp_Z[wh]
-        y[i] = tmp_Y[wh]
+        top = torch.exp(-( x -(torch.tensor(rho_xz*z+1)) )**2/2)*1/torch.sqrt(torch.tensor(2*math.pi)) #pdf of normal distribution
+        bottom = dist.probs #pdf of bernoulli, its just 0.5
+        wts = top/bottom
+        wts = wts/torch.max(wts)
 
-    top = torch.exp(-( x -(torch.tensor(rho_xz*z+1)) )**2/2)*1/torch.sqrt(torch.tensor(2*math.pi)) #pdf of normal distribution
-    bottom = dist.probs #pdf of bernoulli, its just 0.5
-    wts = top/bottom
-    wts = wts/torch.max(wts)
-
-    keep = torch.rand_like(x)<wts # Compare to a uniform distribution (rejection rampling step)
-    x = x[keep]
-    y = y[keep]
-    z = z[keep]
-    if get_p_x_cond_z:
-        return x,y,z,top
-    else:
-        return x,y,z
+        keep = torch.rand_like(x)<wts # Compare to a uniform distribution (rejection rampling step)
+        x = x[keep].unsqueeze(-1)
+        y = y[keep].unsqueeze(-1)
+        z = z[keep].unsqueeze(-1)
+        if get_p_x_cond_z:
+            return x,y,z,top[keep].unsqueeze(-1)
+        else:
+            return x,y,z
 
 if __name__ == '__main__':
     print(do_distribution(50))

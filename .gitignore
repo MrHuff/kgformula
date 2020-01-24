@@ -12,5 +12,6 @@ g_env/*
 *.out
 *checkpoints*
 *idea*
+*.pt
 
 
