@@ -18,7 +18,7 @@ if __name__ == '__main__':
     c = weighted_stat(X=X,Y=Y,Z=Z,get_p_x_cond_z=w)
     reference_metric = c.calculate_weighted_statistic()
     list_of_metrics = []
+    print(reference_metric)
     for i in range(100):
-        c.permute_weights()
-        list_of_metrics.append(c.calculate_weighted_statistic())
-
+        list_of_metrics.append(c.permutation_calculate_weighted_statistic())
+    print(list_of_metrics)

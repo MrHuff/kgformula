@@ -54,17 +54,21 @@ class weighted_stat():
         with torch.no_grad():
             X_ker = self.kernel_X(self.X)
             Y_ker = self.kernel_Y(self.Y)
-            return (X_ker*Y_ker).mean()
+            return (X_ker*Y_ker).sum()/self.n**2
+
+    def permutation_calculate_weighted_statistic(self):
+        idx = torch.randperm(self.n)
+        with torch.no_grad():
+            X_ker = self.kernel_X(self.X) * self.w_adjusted[idx]
+            Y_ker = self.kernel_Y(self.Y)
+            return (X_ker*Y_ker).sum()/(self.w_adjusted_sum*self.n)
 
     def calculate_weighted_statistic(self):
         with torch.no_grad():
-            X_ker = self.kernel_X(self.X) * self.w_adjusted_current
+            X_ker = self.kernel_X(self.X) * self.w_adjusted
             Y_ker = self.kernel_Y(self.Y)
-            return (X_ker*Y_ker).sum()/self.w_adjusted_sum
+            return (X_ker*Y_ker).sum()/(self.w_adjusted_sum*self.n)
 
-    def permute_weights(self):
-        idx = torch.randperm(self.n)
-        self.w_adjusted_current = self.w_adjusted_current[idx]
 
 
 
