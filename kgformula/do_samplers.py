@@ -108,7 +108,7 @@ def do_distribution(n,dist='ber',rho_xy=0,rho_xz=0.3,get_p_x_cond_z=False):
         else:
             return x,y,z
 
-if __name__ == '__main__':
-    print(do_distribution(50))
+# if __name__ == '__main__':
+#     print(do_distribution(50))
 
 

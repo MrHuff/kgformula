@@ -16,3 +16,9 @@ if __name__ == '__main__':
 
     #Cheating case
     c = weighted_stat(X=X,Y=Y,Z=Z,get_p_x_cond_z=w)
+    reference_metric = c.calculate_weighted_statistic()
+    list_of_metrics = []
+    for i in range(100):
+        c.permute_weights()
+        list_of_metrics.append(c.calculate_weighted_statistic())
+
