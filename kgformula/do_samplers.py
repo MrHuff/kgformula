@@ -73,7 +73,8 @@ def genBiv(n,x_mar=torch.randn,y_mar=torch.randn,log_or=gaussLOR,margin_indep =T
     X,Y = swaps(x,y,N,log_or)
     return X, Y
 
-def do_distribution(n,dist='ber',rho_xy=0,rho_xz=0.3,get_p_x_cond_z=False):
+def do_distribution(n,dist='ber',rho_xy=0,rho_xz=0.3,get_p_x_cond_z=False,seed = 1):
+    torch.manual_seed(seed)
     with torch.no_grad():
         try_n = 4*n
         if dist =='t':
