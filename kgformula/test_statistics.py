@@ -24,7 +24,6 @@ class weighted_stat():
         setattr(self,name,ker)
 
     def get_median_ls(self,X):
-        print(X.shape)
         with torch.no_grad():
             d = self.kernel_base.covar_dist(x1=X,x2=X)
             return torch.sqrt(torch.median(d[d > 0]))
@@ -59,9 +58,9 @@ class weighted_stat():
     def permutation_calculate_weighted_statistic(self):
         idx = torch.randperm(self.n)
         with torch.no_grad():
-            X_ker = self.kernel_X(self.X) * self.w_adjusted[idx]
+            X_ker = self.kernel_X(self.X) * self.w_adjusted
             Y_ker = self.kernel_Y(self.Y)
-            return (X_ker*Y_ker).sum()/(self.w_adjusted_sum*self.n)
+            return (X_ker[idx]*Y_ker).sum()/(self.w_adjusted_sum*self.n)
 
     def calculate_weighted_statistic(self):
         with torch.no_grad():
