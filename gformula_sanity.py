@@ -10,7 +10,7 @@ if __name__ == '__main__':
         os.mkdir('./simluated_do_null/')
         seeds = 100
         for i in range(seeds):
-            X, Y, Z, w = do_distribution(n=100, get_p_x_cond_z=True)
+            X, Y, Z, w = do_distribution(n=100, get_p_x_cond_z=True) #rho_xy=0 -> H_0: x indp. y is True. -> Expect a uniform p-value distribution.
             torch.save((X,Y,Z,w),f'./simluated_do_null/data_seed={i}.pt')
     else:
         seeds = 100

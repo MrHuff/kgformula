@@ -13,6 +13,7 @@ class weighted_stat():
         self.get_p_x_cond_z = get_p_x_cond_z
         self.kernel_base = gpytorch.kernels.Kernel()
         self.reg_lambda = reg_lambda
+        self.H = torch.ones(*(self.n,self.n))*(1-1/self.n)
         for name,data in zip(['kernel_X','kernel_Y','kernel_Z'],[X,Y,Z]):
             self.kernel_ls_init(name,data)
         self.get_weights()
@@ -53,20 +54,22 @@ class weighted_stat():
         with torch.no_grad():
             X_ker = self.kernel_X(self.X)
             Y_ker = self.kernel_Y(self.Y)
-            return (X_ker*Y_ker).sum()/self.n**2
+            return (X_ker@self.H@Y_ker).sum()/self.n**2
 
     def permutation_calculate_weighted_statistic(self):
         idx = torch.randperm(self.n)
         with torch.no_grad():
             X_ker = self.kernel_X(self.X) * self.w_adjusted
             Y_ker = self.kernel_Y(self.Y)
-            return (X_ker[idx]*Y_ker).sum()/(self.w_adjusted_sum*self.n)
+            centered = X_ker[idx]@self.H
+            return (centered@Y_ker.evaluate()).sum()/(self.w_adjusted_sum*self.n**2)
 
     def calculate_weighted_statistic(self):
         with torch.no_grad():
             X_ker = self.kernel_X(self.X) * self.w_adjusted
             Y_ker = self.kernel_Y(self.Y)
-            return (X_ker*Y_ker).sum()/(self.w_adjusted_sum*self.n)
+            centered = X_ker@self.H
+            return (centered@Y_ker.evaluate()).sum()/(self.w_adjusted_sum*self.n**2)
 
 
 
