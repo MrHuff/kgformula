@@ -31,6 +31,19 @@ def swaps(x, y,N=500,log_or = gaussLOR):
             x[wh[1],] = xs[0]
     return x,y
 
+def vanilla_conditional_indep_sample(N=500,H_0_ground_truth=True,rho_xz=0.5,seed=1):
+    torch.manual_seed(seed)
+    z = torch.randn(*(N,1))
+    if H_0_ground_truth:
+        x = rho_xz*z+1 + torch.randn_like(z)*0.5
+        y = torch.randn_like(z)
+    else:
+        x = rho_xz*z+1 + torch.randn_like(z)*0.5
+        y = 0.1*z+0.9*x + 0.1*torch.randn_like(x)
+    dist = torch.distributions.Normal(1,0.5)
+    w = dist.log_prob(x-rho_xz*z).exp()
+    return x,y,z,w
+
 # def parallel_swaps(x, y,N=500,log_or = gaussLOR):
 #     assert(x.shape[0]==y.shape[0])
 #     exp = Exponential(rate=1)
