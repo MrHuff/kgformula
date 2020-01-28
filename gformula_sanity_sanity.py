@@ -6,8 +6,8 @@ from kgformula.utils import hypothesis_acceptance,calculate_power
 from matplotlib import pyplot as plt
 if __name__ == '__main__':
 
-    if not os.path.exists('./simluated_do_null/'):
-        os.mkdir('./simluated_do_null/')
+    if not os.path.exists('./simluated_do_null_sanity/'):
+        os.mkdir('./simluated_do_null_sanity/')
         seeds = 100
         for i in range(seeds):
             X, Y, Z, w = vanilla_conditional_indep_sample(N=500,H_0_ground_truth=True,rho_xz=0.5,seed=i) #rho_xy=0 -> H_0: x indp. y is True. -> Expect a uniform p-value distribution.
