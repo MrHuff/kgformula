@@ -11,7 +11,7 @@ if __name__ == '__main__':
         os.mkdir('./simulated_do_null_fixed/')
         seeds = 1000
         for i in range(seeds):
-            X, Y, Z, w = simulate_xyz(n=1000, beta=beta, cor=cor, fam=1, oversamp=2)
+            X, Y, Z, w = simulate_xyz(n=1000, beta=beta, cor=cor, fam=1, oversamp=2,seed=i)
             torch.save((X,Y,Z,w),f'./simulated_do_null_fixed/data_seed={i}.pt')
     else:
         seeds = 100
