@@ -151,30 +151,28 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     if fam_x[1] == 4:
         mu = expit(X)
         d = Beta(concentration1=phi*mu,concentration0=phi*(1-mu))
-        _prob = d.log_prob(dat[:,0])/qden(dat[:,0])
+        _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
         wts = _prob.exp()
-        wts = wts.clamp_max(20)
     elif fam_x[1]==1:
         mu = X
         d = Normal(loc = mu,scale = phi**0.5)
-        _prob = d.log_prob(dat[:,0])/qden(dat[:,0])
+        _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
         wts = _prob.exp()
-        wts = wts.clamp_max(20)
     elif fam_x[1]==3:
         mu = torch.exp(X)
         d = Gamma(rate=1/(mu*phi),concentration=1/phi)
-        _prob = d.log_prob(dat[:,0])/qden(dat[:,0])
+        _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
         wts = _prob.exp()
-        wts = wts.clamp_max(20)
     else:
         raise Exception("fam_x must be 1, 3 or 4")
   ## reject samples based on value of X|Z
     if torch.isnan(wts).all():
         raise Exception("Problem with weights")
+    inv_wts=1/wts
     wts = wts/wts.max()
     keep_index = torch.rand_like(wts)<wts
     dat = dat[keep_index,:]
-    return dat,wts[keep_index]
+    return dat,inv_wts[keep_index]
 
 def simulate_xyz(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fam_z=1,oversamp = 10, seed=1):
     data,w = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp, seed)
@@ -185,4 +183,4 @@ def simulate_xyz(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=
     else:
         print(f'Ok: {data.shape[0]}')
         data = data[0:n,:]
-    return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2].unsqueeze(-1),w
+    return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2].unsqueeze(-1),w[0:n]
