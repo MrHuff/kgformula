@@ -4,11 +4,13 @@ import gpytorch
 from torch.distributions import Normal,StudentT,Bernoulli,Beta,Uniform,Exponential
 import copy
 class weighted_stat():
-    def __init__(self,X,Y,Z,w,do_null = True,reg_lambda=1e-3,cuda=False,device=0):
+    def __init__(self,X,Y,Z,w,do_null = True,reg_lambda=1e-3,cuda=False,device=0,half_mode=False):
         self.n = X.shape[0]
         self.H = torch.ones(*(self.n, self.n)) * (1 - 1 / self.n)
+        self.half_mode = half_mode
         if cuda:
             self.H = self.H.cuda(device)
+
         else:
             device = 'cpu'
         self.X = X if not cuda else X.cuda(device)
@@ -19,11 +21,14 @@ class weighted_stat():
         self.device = device
         self.cuda = cuda
         self.do_null=do_null
-
         self.kernel_base = gpytorch.kernels.Kernel()
         self.reg_lambda = reg_lambda
-        for name,data in zip(['kernel_X','kernel_Y'],[X,Y]):
+        for name,data in zip(['kernel_X','kernel_Y'],[self.X,self.Y]):
             self.kernel_ls_init(name,data)
+        if self.half_mode:
+            self.H = self.H.half()
+            self.w = self.w.half()
+            self.W = self.W.half()
 
     def kernel_ls_init(self,name,data):
         ker = gpytorch.kernels.RBFKernel()
@@ -31,33 +36,35 @@ class weighted_stat():
         ker._set_lengthscale(ls)
         if self.cuda:
             ker = ker.cuda(self.device)
-        setattr(self,name,ker)
+        if self.half_mode:
+            setattr(self,name,ker(data).evaluate().half())
+        else:
+            setattr(self,name,ker(data).evaluate())
 
     def get_median_ls(self,X):
         with torch.no_grad():
             d = self.kernel_base.covar_dist(x1=X,x2=X)
             ret = torch.sqrt(torch.median(d[d > 0]))
             return ret
+
     def calculate_statistic(self):
         with torch.no_grad():
-            X_ker = self.kernel_X(self.X)
-            Y_ker = self.kernel_Y(self.Y)
-            return (X_ker@self.H@Y_ker).sum()
+            return (self.kernel_X@self.H)@self.kernel_Y.sum()
 
     def permutation_calculate_weighted_statistic(self):
         idx = torch.randperm(self.n)
         with torch.no_grad():
-            X_ker = self.kernel_X(self.X) * self.w
-            Y_ker = self.kernel_Y(self.Y)[idx]
+            X_ker = self.kernel_X * self.w
             centered = X_ker@self.H
-            return (centered@Y_ker.evaluate()).sum()
+            centered_Y = self.kernel_Y@self.H
+            return (centered*centered_Y[idx]).sum() #WHY WOULD THIS MATTER?!?!?!? [idx] placement is really weird
 
     def calculate_weighted_statistic(self):
         with torch.no_grad():
-            X_ker = self.kernel_X(self.X) * self.w
-            Y_ker = self.kernel_Y(self.Y)
+            X_ker = self.kernel_X * self.w
             centered = X_ker@self.H
-            return (centered@Y_ker.evaluate()).sum()
+            centered_Y = self.kernel_Y@self.H
+            return (centered*centered_Y).sum()
 
 class weigted_statistic_new(weighted_stat):
     def __init__(self,X,Y,Z,w,do_null = True,reg_lambda=1e-3,cuda=False,device=0):
@@ -66,16 +73,13 @@ class weigted_statistic_new(weighted_stat):
     def permutation_calculate_weighted_statistic(self):
         idx = torch.randperm(self.n)
         with torch.no_grad():
-            X_ker = self.kernel_X(self.X)
-            Y_ker = self.kernel_Y(self.Y)[idx]
-            A = self.H@gpytorch.matmul(X_ker,self.H)*(self.H@gpytorch.matmul(Y_ker,self.H))
+            Y_ker = self.kernel_Y
+            A = (self.H@self.kernel_X[idx]@self.H@self.W)*(self.H@Y_ker@self.H)
             return A.sum()
 
     def calculate_weighted_statistic(self):
         with torch.no_grad():
-            X_ker = self.kernel_X(self.X)
-            Y_ker = self.kernel_Y(self.Y)
-            A = self.H@gpytorch.matmul(X_ker,self.H)*(self.H@gpytorch.matmul(Y_ker,self.H))
+            A = (self.H@self.kernel_X@self.H@self.W)*(self.H@self.kernel_Y@self.H)
             return A.sum()
 
 class wild_bootstrap_deviance():
@@ -98,7 +102,7 @@ class wild_bootstrap_deviance():
         self.cuda = cuda
         self.do_null=do_null
         self.kernel_base = gpytorch.kernels.Kernel()
-        for name,data in zip(['kernel_X','kernel_Y','kernel_Z'],[X,Y,Z]):
+        for name,data in zip(['kernel_X','kernel_Y','kernel_Z'],[self.X,self.Y,self.Z]):
             self.kernel_ls_init(name,data)
 
         if distribution=='normal':
@@ -109,7 +113,7 @@ class wild_bootstrap_deviance():
             self.d = Exponential(1)
         elif distribution=='ber':
             self.d = Bernoulli(0.5)
-
+        self.calculate_base_components()
     def sample_W(self):
         w = self.d.sample((self.n,1))
         W = w@w.t()
@@ -123,7 +127,7 @@ class wild_bootstrap_deviance():
         ker._set_lengthscale(ls)
         if self.cuda:
             ker = ker.cuda(self.device)
-        setattr(self,name,ker)
+        setattr(self,name,ker(data).evaluate())
 
     def get_median_ls(self,X):
         with torch.no_grad():
@@ -133,17 +137,16 @@ class wild_bootstrap_deviance():
 
     def calculate_base_components(self):
         with torch.no_grad():
-            M = self.kernel_Z(self.Z).evaluate()
-            Mav = M@self.ones@self.ones.t()
-            W = torch.solve(self.kernel_X(self.X)*M+self.diag,Mav)
+            Mav = self.kernel_Z@self.ones@self.ones.t()
+            W,_ = torch.solve(Mav,self.kernel_X*self.kernel_Z+self.diag)
             self.C = self.cov(W)
 
     def calculate_weighted_statistic(self):
-        return torch.sum(self.C*self.kernel_Y(self.Y))
+        return torch.sum(self.C*self.kernel_Y)
 
     def permutation_calculate_weighted_statistic(self):
         W = self.sample_W()
-        return torch.sum(W*self.C*self.kernel_Y(self.Y))
+        return torch.sum(W*self.C*self.kernel_Y)
 
     def cov(self,m, rowvar=False):
         '''Estimate a covariance matrix given data.

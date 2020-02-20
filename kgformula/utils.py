@@ -16,3 +16,4 @@ def hypothesis_acceptance(power,alpha=0.05,null_hypothesis=True):
 def calculate_power(bootstrapped_list,test_statistic):
     power = 1-1/(bootstrapped_list.shape[0]+1) *(1 + (bootstrapped_list<=test_statistic).sum())
     return power
+
