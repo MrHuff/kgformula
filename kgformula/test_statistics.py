@@ -3,6 +3,62 @@ from kgformula.utils import calculate_power,hypothesis_acceptance
 import gpytorch
 from torch.distributions import Normal,StudentT,Bernoulli,Beta,Uniform,Exponential
 import copy
+
+
+class density_estimator():
+    def __init__(self,numerator_sample,denominator_sample,alpha=0.5,reg_lambda=1e-3,cuda=False,device=0,type='linear'):
+        self.up = numerator_sample if not cuda else numerator_sample.cuda(device)
+        self.down = denominator_sample if not cuda else denominator_sample.cuda(device)
+        self.cuda = cuda
+        self.n = self.up.shape[0]
+        self.device = device
+        self.diag = reg_lambda*torch.eye(self.n)
+        if self.cuda:
+            self.diag = self.diag.cuda()
+        self.kernel_base = gpytorch.kernels.Kernel()
+
+        if type=='linear':
+            self.linear_x_of_z()
+        elif type=='gp':
+            self.kernel_ls_init('kernel_tmp', self.down)
+            self.gp_x_of_z()
+        self.kernel_ls_init('kernel_up',self.up)
+        self.kernel_ls_init('kernel_down',self.up,self.down_estimator)
+
+        with torch.no_grad():
+            self.h_hat = self.kernel_up.mean(dim=1,keepdim=True)
+            self.H = alpha/self.n * torch.mm(self.kernel_up, self.kernel_up) + (1-alpha)/self.n * torch.mm(self.kernel_down, self.kernel_down) + self.diag
+            self.w,_ = torch.solve(self.h_hat, self.H)
+
+    def return_weights(self):
+        return self.w.squeeze()
+
+    def linear_x_of_z(self):
+        with torch.no_grad():
+            self.down_estimator = self.down@(torch.inverse(self.down.t()@self.down)@(self.down.t()@self.up))
+
+    def gp_x_of_z(self):
+        with torch.no_grad():
+            s,_ = torch.solve(self.up,self.kernel_tmp+self.diag)
+            self.down_estimator = self.kernel_tmp@s
+
+    def get_median_ls(self,X):
+        with torch.no_grad():
+            d = self.kernel_base.covar_dist(x1=X,x2=X)
+            ret = torch.sqrt(torch.median(d[d > 0]))
+            return ret
+
+    def kernel_ls_init(self,name,data,data_2=None):
+        ker = gpytorch.kernels.RBFKernel()
+        ls = self.get_median_ls(data)
+        ker._set_lengthscale(ls)
+        if self.cuda:
+            ker = ker.cuda(self.device)
+            if data_2 is None:
+                setattr(self,name,ker(data).evaluate())
+            else:
+                setattr(self,name,ker(data,data_2).evaluate())
+
 class weighted_stat():
     def __init__(self,X,Y,Z,w,do_null = True,reg_lambda=1e-3,cuda=False,device=0,half_mode=False):
         self.n = X.shape[0]
