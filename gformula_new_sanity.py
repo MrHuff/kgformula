@@ -7,6 +7,7 @@ from kgformula.utils import hypothesis_acceptance,calculate_power
 import GPUtil
 from matplotlib import pyplot as plt
 from scipy.stats import kstest
+import pandas as pd
 
 if __name__ == '__main__':
     #Log p-values, add vector of p-values
@@ -24,35 +25,44 @@ if __name__ == '__main__':
         test_stat = 2
         seeds = 1000
         bins = 25
-        p_value_list = []
         device = GPUtil.getFirstAvailable()[0]
-        for i in tqdm.trange(seeds):
-            X,Y,Z,w = torch.load(f'./{data_dir}/data_seed={i}.pt')
-            if plot:
-                plt.scatter(Z.numpy(),X.numpy())
-                plt.show()
-            #Cheating case
-            if test_stat == 3:
-                c = weigted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=True, device=device)
-            elif test_stat == 2:
-                c = weighted_stat(X=X,Y=Y,Z=Z,w=w,cuda=True,device=device,half_mode=False)
-            elif test_stat == 1:
-                c = wild_bootstrap_deviance(X=X,Y=Y,Z=Z,cuda=True,device=device)
-            reference_metric = c.calculate_weighted_statistic()
-            list_of_metrics = []
-            for i in range(250):
-                list_of_metrics.append(c.permutation_calculate_weighted_statistic())
-            array = torch.tensor(list_of_metrics).float()
-            p = calculate_power(array,reference_metric)
-            p_value_list.append(p.item())
+        ks_data = []
+        runs = 5
+        for j in range(runs):
+            p_value_list = []
+            for i in tqdm.trange(seeds):
+                X,Y,Z,w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+                if plot:
+                    plt.scatter(Z.numpy(),X.numpy())
+                    plt.show()
+                #Cheating case
+                if test_stat == 3:
+                    c = weigted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=True, device=device)
+                elif test_stat == 2:
+                    c = weighted_stat(X=X,Y=Y,Z=Z,w=w,cuda=True,device=device,half_mode=False)
+                elif test_stat == 1:
+                    c = wild_bootstrap_deviance(X=X,Y=Y,Z=Z,cuda=True,device=device)
+                reference_metric = c.calculate_weighted_statistic()
+                list_of_metrics = []
+                for i in range(250):
+                    list_of_metrics.append(c.permutation_calculate_weighted_statistic())
+                array = torch.tensor(list_of_metrics).float()
+                p = calculate_power(array,reference_metric)
+                p_value_list.append(p.item())
 
-        plt.hist(p_value_list, bins=bins)
-        plt.savefig(f'./{data_dir}/p_value_plot_null=True_test_stat={test_stat}_seeds={seeds}.png')
-        plt.close()
-        p_value_array = torch.tensor(p_value_list)
+            plt.hist(p_value_list, bins=bins)
+            plt.savefig(f'./{data_dir}/p_value_plot_null=True_test_stat={test_stat}_seeds={seeds}.png')
+            plt.close()
+            p_value_array = torch.tensor(p_value_list)
+            torch.save(p_value_array,f'./{data_dir}/p_value_array_seeds={seeds}.pt')
+            plt.hist((p_value_array+1e-3).log().numpy(),bins=bins)
+            plt.savefig(f'./{data_dir}/logp_value_plot_null=True_test_stat={test_stat}_seeds={seeds}.png')
+            plt.close()
+            ks_stat,p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
+            print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
+            ks_data.append([ks_stat, p_val_ks_test])
 
-        torch.save(p_value_array,f'./{data_dir}/p_value_array_seeds={seeds}.pt')
-        plt.hist((p_value_array+1e-3).log().numpy(),bins=bins)
-        plt.savefig(f'./{data_dir}/logp_value_plot_null=True_test_stat={test_stat}_seeds={seeds}.png')
-        ks_stat,p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
-        print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
+        df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
+        s = df.describe()
+        s.to_csv(f'./{data_dir}/summar_{test_stat}_seeds={seeds}.csv')
+

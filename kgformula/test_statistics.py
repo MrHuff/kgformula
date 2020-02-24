@@ -34,6 +34,7 @@ class density_estimator():
         return self.w.squeeze()
 
     def linear_x_of_z(self):
+        self.down = torch.cat([self.down,torch.ones_like(self.down)],dim=1)
         with torch.no_grad():
             self.down_estimator = self.down@(torch.inverse(self.down.t()@self.down)@(self.down.t()@self.up))
 

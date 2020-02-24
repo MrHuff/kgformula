@@ -13,5 +13,6 @@ g_env/*
 *checkpoints*
 *idea*
 *.pt
+*.csv
 
 
