@@ -12,9 +12,7 @@ def get_sigma(N,cors):
         Sigma[0, 1] = cors[0]
         Sigma[1, 0] = cors[0]
     else:
-        Sigma = torch.ones(*(2, 2, N))
-        Sigma[0, 1, :] = cors
-        Sigma[1, 0, :] = cors
+        Sigma = torch.stack([cors,torch.sqrt(1-cors**2)],dim=1) #Nx2
     return Sigma
 
 def rfgmCopula(n,d,alpha):
@@ -42,12 +40,10 @@ def rnormCopula2(n=100,mean = torch.zeros(*(2,1)),cov=torch.eye(2),df=1):
         M = M.repeat(n,1)
         samples = M + torch.randn(*(n,2))@l
     else:
-        samples = []
         M = mean.t()
-        for i in range(n):
-            l = torch.cholesky(cov[:,:,i])
-            samples.append(M+torch.randn(*(n,2))@l)
-        samples = torch.cat(samples)
+        M = M.repeat(n,1)
+        v = torch.randn(n)
+        samples = M + torch.stack([v,v*cov[:,0]+torch.randn(n)*cov[:,1]],dim=1)
     return torch.from_numpy(t.cdf(samples.numpy(),df=df)).float()
 
 def expit(x):
@@ -115,6 +111,8 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
 
     if type(cor) is not list:
         cor = torch.tensor([cor,0]).unsqueeze(-1)
+    else:
+        cor = torch.tensor(cor).unsqueeze(-1)
 
     N = round(oversamp*n)
     tmp = sim_X(N,fam_x[0],theta)
@@ -126,12 +124,12 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     a = beta['y'][0]
     b = beta['y'][1]
     if fam_y==1:
-        p = Normal(loc=a+b*dat[:,1],scale=1)
+        p = Normal(loc=a+b*dat[:,0],scale=1)
         dat[:,1] = p.icdf(dat[:,1])
     elif fam_y==2:
-        dat[:, 1] = torch.from_numpy(t.ppf(dat[:,1].numpy(),df=par2)) + a + b*dat[:,1]
+        dat[:, 1] = torch.from_numpy(t.ppf(dat[:,1].numpy(),df=par2)) + a + b*dat[:,0]
     elif fam_y == 3:
-        p = Exponential(rate=1/(a+b*dat[:,1]).exp())
+        p = Exponential(rate=1/(a+b*dat[:,0]).exp())
         dat[:,1] = p.icdf(dat[:,1])
     else:
         raise Exception("fam_y must be 1, 2 or 3")

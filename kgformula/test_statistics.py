@@ -1,5 +1,5 @@
 import torch
-from kgformula.utils import calculate_power,hypothesis_acceptance
+from kgformula.utils import calculate_pval,hypothesis_acceptance
 import gpytorch
 from torch.distributions import Normal,StudentT,Bernoulli,Beta,Uniform,Exponential
 import copy
@@ -60,32 +60,39 @@ class density_estimator():
             else:
                 setattr(self,name,ker(data,data_2).evaluate())
 
-class weighted_stat():
+class weighted_stat(): #HAPPY MISTAKE?!?!??!?!?!?!?!?
     def __init__(self,X,Y,Z,w,do_null = True,reg_lambda=1e-3,cuda=False,device=0,half_mode=False):
-        self.n = X.shape[0]
-        self.H = torch.ones(*(self.n, self.n)) * (1 - 1 / self.n)
-        self.half_mode = half_mode
-        if cuda:
-            self.H = self.H.cuda(device)
+        with torch.no_grad():
+            self.n = X.shape[0]
+            self.H = torch.ones(*(self.n, 1)) * (1 - 1 / self.n)
+            self.H_2 = torch.eye(self.n)-torch.ones(*(self.n, self.n))/self.n
 
-        else:
-            device = 'cpu'
-        self.X = X if not cuda else X.cuda(device)
-        self.Y = Y if not cuda else Y.cuda(device)
-        self.Z = Z if not cuda else Z.cuda(device)
-        self.w = w.unsqueeze(-1) if not cuda else w.unsqueeze(-1).cuda(device)
-        self.W = self.w@self.w.t()
-        self.device = device
-        self.cuda = cuda
-        self.do_null=do_null
-        self.kernel_base = gpytorch.kernels.Kernel()
-        self.reg_lambda = reg_lambda
-        for name,data in zip(['kernel_X','kernel_Y'],[self.X,self.Y]):
-            self.kernel_ls_init(name,data)
-        if self.half_mode:
-            self.H = self.H.half()
-            self.w = self.w.half()
-            self.W = self.W.half()
+            self.half_mode = half_mode
+            if cuda:
+                self.H = self.H.cuda(device)
+                self.H_2 = self.H_2.cuda(device)
+
+            else:
+                device = 'cpu'
+            self.X = X if not cuda else X.cuda(device)
+            self.Y = Y if not cuda else Y.cuda(device)
+            self.Z = Z if not cuda else Z.cuda(device)
+            self.w = w.unsqueeze(-1) if not cuda else w.unsqueeze(-1).cuda(device)
+            self.W = self.w@self.w.t()
+            self.device = device
+            self.cuda = cuda
+            self.do_null=do_null
+            self.kernel_base = gpytorch.kernels.Kernel()
+            self.reg_lambda = reg_lambda
+            for name,data in zip(['kernel_X','kernel_Y'],[self.X,self.Y]):
+                self.kernel_ls_init(name,data)
+            if self.half_mode:
+                self.H = self.H.half()
+                self.w = self.w.half()
+                self.W = self.W.half()
+            self.X_ker = self.kernel_X*self.w
+            self.center_X = self.X_ker@self.H
+            self.center_Y = self.kernel_Y@self.H
 
     def kernel_ls_init(self,name,data):
         ker = gpytorch.kernels.RBFKernel()
@@ -104,39 +111,32 @@ class weighted_stat():
             ret = torch.sqrt(torch.median(d[d > 0]))
             return ret
 
-    def calculate_statistic(self):
-        with torch.no_grad():
-            return (self.kernel_X@self.H)@self.kernel_Y.sum()
-
     def permutation_calculate_weighted_statistic(self):
         idx = torch.randperm(self.n)
         with torch.no_grad():
-            X_ker = self.kernel_X * self.w
-            centered = X_ker@self.H
-            centered_Y = self.kernel_Y@self.H
-            return (centered*centered_Y[idx]).sum() #WHY WOULD THIS MATTER?!?!?!? [idx] placement is really weird
+            return (self.center_X*self.center_Y[idx]).sum() #WHY WOULD THIS MATTER?!?!?!? [idx] placement is really weird
 
     def calculate_weighted_statistic(self):
         with torch.no_grad():
-            X_ker = self.kernel_X * self.w
-            centered = X_ker@self.H
-            centered_Y = self.kernel_Y@self.H
-            return (centered*centered_Y).sum()
+            return (self.center_X*self.center_Y).sum()
 
 class weigted_statistic_new(weighted_stat):
     def __init__(self,X,Y,Z,w,do_null = True,reg_lambda=1e-3,cuda=False,device=0):
         super(weigted_statistic_new, self).__init__(X, Y, Z, w, do_null, reg_lambda, cuda, device)
+        with torch.no_grad():
+            self.center_X = self.H_2@(self.kernel_X@self.H_2)
+            self.X_W = self.center_X@self.W
+            self.center_Y = self.H_2@(self.kernel_Y@self.H_2)
 
     def permutation_calculate_weighted_statistic(self):
         idx = torch.randperm(self.n)
         with torch.no_grad():
-            Y_ker = self.kernel_Y
-            A = (self.H@self.kernel_X[idx]@self.H@self.W)*(self.H@Y_ker@self.H)
+            A = self.X_W*self.center_Y[idx]
             return A.sum()
 
     def calculate_weighted_statistic(self):
         with torch.no_grad():
-            A = (self.H@self.kernel_X@self.H@self.W)*(self.H@self.kernel_Y@self.H)
+            A = self.X_W*self.center_Y
             return A.sum()
 
 class wild_bootstrap_deviance():

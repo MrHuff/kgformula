@@ -10,9 +10,9 @@ from scipy.stats import kstest
 import pandas as pd
 if __name__ == '__main__':
     #Log p-values, add vector of p-values
-    beta = {'y':[0,0],'z':[0,0.5]}
+    beta = {'y':[0.0,0.5],'z':[0.0,0.5]}
     cor = 0.5
-    data_dir = 'simulated_do_null_fixed_estimates'
+    data_dir = 'simulated_do_not_null_fixed_estimates_2'
     if not os.path.exists(f'./{data_dir}/'):
         os.mkdir(f'./{data_dir}/')
         seeds = 1000
@@ -53,13 +53,13 @@ if __name__ == '__main__':
             p_value_list.append(p.item())
 
         plt.hist(p_value_list, bins=bins)
-        plt.savefig(f'./{data_dir}/p_value_plot_null=True_test_stat={test_stat}_seeds={seeds}_alpha={alpha}_estimator={estimator}.png')
+        plt.savefig(f'./{data_dir}/p_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_alpha={alpha}_estimator={estimator}.png')
         plt.close()
         p_value_array = torch.tensor(p_value_list)
 
-        torch.save(p_value_array,f'./{data_dir}/p_value_array_seeds={seeds}_alpha={alpha}_estimator={estimator}.pt')
+        torch.save(p_value_array,f'./{data_dir}/null=False_p_value_array_seeds={seeds}_alpha={alpha}_estimator={estimator}.pt')
         plt.hist((p_value_array+1e-3).log().numpy(),bins=bins)
-        plt.savefig(f'./{data_dir}/logp_value_plot_null=True_test_stat={test_stat}_seeds={seeds}_alpha={alpha}_estimator={estimator}.png')
+        plt.savefig(f'./{data_dir}/logp_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_alpha={alpha}_estimator={estimator}.png')
         plt.close()
         ks_stat,p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
         print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
