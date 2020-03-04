@@ -11,7 +11,7 @@ import pandas as pd
 
 if __name__ == '__main__':
     #Log p-values, add vector of p-values
-    beta = {'y':[0.0,0.5],'z':[0.0,0.5]}
+    beta = {'y':[0.0,0.5],'z':[0.0,0.0]}
     cor = 0.5
     data_dir = 'simulated_do_not_null_fixed_2'
     if not os.path.exists(f'./{data_dir}/'):
@@ -25,11 +25,12 @@ if __name__ == '__main__':
     test_stat = 2
     seeds = 1000
     bins = 25
-    device = GPUtil.getFirstAvailable()[0]
+    device = GPUtil.getFirstAvailable(order='memory')[0]
     ks_data = []
     runs = 5
     for j in range(runs):
         p_value_list = []
+        reference_metric_list = []
         for i in tqdm.trange(seeds):
             X,Y,Z,w = torch.load(f'./{data_dir}/data_seed={i}.pt')
             if plot:
@@ -53,6 +54,7 @@ if __name__ == '__main__':
             array = torch.tensor(list_of_metrics).float()
             p = calculate_pval(array, reference_metric)
             p_value_list.append(p.item())
+            reference_metric_list.append(reference_metric.item())
 
         plt.hist(p_value_list, bins=bins)
         plt.savefig(f'./{data_dir}/p_value_plot_null=False_test_stat={test_stat}_seeds={seeds}.png')
@@ -61,6 +63,9 @@ if __name__ == '__main__':
         torch.save(p_value_array,f'./{data_dir}/null=False_p_value_array_seeds={seeds}.pt')
         plt.hist((p_value_array+1e-3).log().numpy(),bins=bins)
         plt.savefig(f'./{data_dir}/logp_value_plot_null=False_test_stat={test_stat}_seeds={seeds}.png')
+        plt.close()
+        plt.hist(reference_metric_list)
+        plt.savefig(f'./{data_dir}/ref_metric_plot_null=False_test_stat={test_stat}_seeds={seeds}.png')
         plt.close()
         ks_stat,p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
         print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')

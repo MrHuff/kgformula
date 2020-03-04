@@ -11,9 +11,9 @@ import pandas as pd
 
 if __name__ == '__main__':
     #Log p-values, add vector of p-values
-    beta = {'y':[0,0],'z':[0,0.5]}
+    beta = {'y':[0.0,0.0],'z':[0.0,0.0]}
     cor = 0.5
-    data_dir = 'simulated_do_null_fixed'
+    data_dir = 'simulated_do_null_fixed_2'
     if not os.path.exists(f'./{data_dir}/'):
         os.mkdir(f'./{data_dir}/')
         seeds = 1000
@@ -21,10 +21,10 @@ if __name__ == '__main__':
             X, Y, Z, w = simulate_xyz(n=1000, beta=beta, cor=cor, fam=1, oversamp=10,seed=i)
             torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
     plot = False
-    test_stat = 3
+    test_stat = 2
     seeds = 1000
     bins = 25
-    device = GPUtil.getFirstAvailable()[0]
+    device = GPUtil.getFirstAvailable(order='memory')[0]
     ks_data = []
     runs = 5
     for j in range(runs):

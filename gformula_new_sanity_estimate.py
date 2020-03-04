@@ -23,10 +23,11 @@ if __name__ == '__main__':
     test_stat = 2
     seeds = 1000
     bins = 25
-    alpha = 0.0
+    alpha = 0.5
+    lamb = 1e-5
     estimator = 'linear'
-    device = GPUtil.getFirstAvailable()[0]
-    runs = 5
+    device = GPUtil.getFirstAvailable(order='memory')[0]
+    runs = 1
     ks_data = []
     for j in range(runs):
         p_value_list = []
@@ -36,7 +37,7 @@ if __name__ == '__main__':
                 plt.scatter(Z.numpy(),X.numpy())
                 plt.show()
             #Cheating case
-            d = density_estimator(numerator_sample=X,denominator_sample=Z,cuda=True,alpha=alpha,type=estimator)
+            d = density_estimator(numerator_sample=X,denominator_sample=Z,cuda=True,alpha=alpha,type=estimator,reg_lambda=lamb)
             w = d.return_weights()
             if test_stat == 3:
                 c = weigted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=True, device=device)

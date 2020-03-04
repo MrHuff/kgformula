@@ -12,31 +12,45 @@ class density_estimator():
         self.cuda = cuda
         self.n = self.up.shape[0]
         self.device = device
+        self.alpha = alpha
         self.diag = reg_lambda*torch.eye(self.n)
         if self.cuda:
             self.diag = self.diag.cuda()
         self.kernel_base = gpytorch.kernels.Kernel()
-
         if type=='linear':
             self.linear_x_of_z()
+            self.get_w_kdre()
         elif type=='gp':
             self.kernel_ls_init('kernel_tmp', self.down)
             self.gp_x_of_z()
+            self.get_w_kdre()
+        elif type=='semi':
+            self.semi_cheat_x_of_z()
+
+    def get_w_kdre(self):
         self.kernel_ls_init('kernel_up',self.up)
         self.kernel_ls_init('kernel_down',self.up,self.down_estimator)
-
         with torch.no_grad():
             self.h_hat = self.kernel_up.mean(dim=1,keepdim=True)
-            self.H = alpha/self.n * torch.mm(self.kernel_up, self.kernel_up) + (1-alpha)/self.n * torch.mm(self.kernel_down, self.kernel_down) + self.diag
-            self.w,_ = torch.solve(self.h_hat, self.H)
+            self.H = self.alpha/self.n * torch.mm(self.kernel_up, self.kernel_up) + (1-self.alpha)/self.n * torch.mm(self.kernel_down, self.kernel_down) + self.diag
+            self.theta,_ = torch.solve(self.h_hat, self.H)
+            self.w = self.kernel_up@self.theta
 
     def return_weights(self):
         return self.w.squeeze()
 
     def linear_x_of_z(self):
-        self.down = torch.cat([self.down,torch.ones_like(self.down)],dim=1)
+        down = torch.cat([self.down,torch.ones_like(self.down)],dim=1)
         with torch.no_grad():
-            self.down_estimator = self.down@(torch.inverse(self.down.t()@self.down)@(self.down.t()@self.up))
+            self.down_estimator = down@(torch.inverse(down.t()@down)@(down.t()@self.up))
+
+    def semi_cheat_x_of_z(self):
+        with torch.no_grad():
+            self.linear_x_of_z()
+            res = self.down - self.down_estimator
+            p_1 = Normal(0,scale=res.var()**0.5)
+            p_2 = Normal(0,scale=self.down.var()**0.5)
+            self.w = (p_2.log_prob(self.down-self.down.mean())-p_1.log_prob(res)).exp()
 
     def gp_x_of_z(self):
         with torch.no_grad():
@@ -90,8 +104,8 @@ class weighted_stat(): #HAPPY MISTAKE?!?!??!?!?!?!?!?
                 self.H = self.H.half()
                 self.w = self.w.half()
                 self.W = self.W.half()
-            self.X_ker = self.kernel_X*self.w
-            self.center_X = self.X_ker@self.H
+            self.X_ker = self.kernel_X
+            self.center_X = (self.X_ker@self.H)*self.w
             self.center_Y = self.kernel_Y@self.H
 
     def kernel_ls_init(self,name,data):
