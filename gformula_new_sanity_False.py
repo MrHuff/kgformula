@@ -22,7 +22,7 @@ if __name__ == '__main__':
             torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
 
     plot = False
-    test_stat = 2
+    test_stat = 3
     seeds = 1000
     bins = 25
     device = GPUtil.getFirstAvailable(order='memory')[0]
