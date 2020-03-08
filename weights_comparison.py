@@ -1,4 +1,4 @@
-from kgformula.test_statistics import weighted_stat,weigted_statistic_new,wild_bootstrap_deviance, density_estimator
+from kgformula.test_statistics import weighted_stat,weighted_statistic_new,wild_bootstrap_deviance, density_estimator
 from kgformula.fixed_do_samplers import simulate_xyz
 import os
 import torch

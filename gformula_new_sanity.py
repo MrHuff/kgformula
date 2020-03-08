@@ -1,4 +1,4 @@
-from kgformula.test_statistics import weighted_stat,weigted_statistic_new,wild_bootstrap_deviance
+from kgformula.test_statistics import weighted_stat,weighted_statistic_new,wild_bootstrap_deviance
 from kgformula.fixed_do_samplers import simulate_xyz
 import os
 import torch
@@ -21,7 +21,7 @@ if __name__ == '__main__':
             X, Y, Z, w = simulate_xyz(n=1000, beta=beta, cor=cor, fam=1, oversamp=10,seed=i)
             torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
     plot = False
-    test_stat = 2
+    test_stat = 3
     seeds = 1000
     bins = 25
     device = GPUtil.getFirstAvailable(order='memory')[0]
@@ -36,7 +36,7 @@ if __name__ == '__main__':
                 plt.show()
             #Cheating case
             if test_stat == 3:
-                c = weigted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=True, device=device)
+                c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=True, device=device)
             elif test_stat == 2:
                 c = weighted_stat(X=X,Y=Y,Z=Z,w=w,cuda=True,device=device,half_mode=False)
             elif test_stat == 1:

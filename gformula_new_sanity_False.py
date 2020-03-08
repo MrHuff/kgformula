@@ -1,4 +1,4 @@
-from kgformula.test_statistics import weighted_stat,weigted_statistic_new,wild_bootstrap_deviance
+from kgformula.test_statistics import weighted_stat,weighted_statistic_new,wild_bootstrap_deviance
 from kgformula.fixed_do_samplers import simulate_xyz
 import os
 import torch
@@ -42,7 +42,7 @@ if __name__ == '__main__':
                 break
             #Cheating case
             if test_stat == 3:
-                c = weigted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=True, device=device)
+                c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=True, device=device)
             elif test_stat == 2:
                 c = weighted_stat(X=X,Y=Y,Z=Z,w=w,cuda=True,device=device,half_mode=False)
             elif test_stat == 1:
