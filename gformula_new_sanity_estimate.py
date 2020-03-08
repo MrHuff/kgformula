@@ -20,12 +20,12 @@ if __name__ == '__main__':
             X, Y, Z, w = simulate_xyz(n=1000, beta=beta, cor=cor, fam=1, oversamp=10,seed=i)
             torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
     plot = False
-    test_stat = 2
+    test_stat = 3
     seeds = 1000
     bins = 25
     alpha = 0.5
-    lamb = 1e-5
-    estimator = 'linear'
+    lamb = 1e-2
+    estimator = 'semi'
     device = GPUtil.getFirstAvailable(order='memory')[0]
     runs = 1
     ks_data = []

@@ -98,7 +98,8 @@ class weighted_stat(): #HAPPY MISTAKE?!?!??!?!?!?!?!?
             self.Y = Y if not cuda else Y.cuda(device)
             self.Z = Z if not cuda else Z.cuda(device)
             self.w = w.unsqueeze(-1) if not cuda else w.unsqueeze(-1).cuda(device)
-            self.W = self.w@self.w.t()*self.n^-1
+            self.W = self.w@self.w.t()
+            self.W = self.W/self.n
             self.do_null=do_null
             self.kernel_base = gpytorch.kernels.Kernel()
             self.reg_lambda = reg_lambda
@@ -144,14 +145,18 @@ class weighted_statistic_new(weighted_stat):
             self.sum_mean_X = self.X_ker.mean()
             self.X_ker_H_4 = self.X_ker@self.H_4
             self.X_ker_H_2= self.X_ker@self.H_2
-            self.X_ker_n_1 = self.X_ker@self.one_n_1*self.n^-1
-            self.X_ker_ones =self.X_ker@self.ones*self.n^-1
+            self.X_ker_n_1 = self.X_ker@self.one_n_1
+            self.X_ker_n_1 = self.X_ker_n_1/self.n
+            self.X_ker_ones =self.X_ker@self.ones
+            self.X_ker_ones =self.X_ker_ones/self.n
 
             self.sum_mean_Y = self.Y_ker.mean()
             self.Y_ker_H_4 = self.Y_ker@self.H_4
             self.Y_ker_H_2= self.Y_ker@self.H_2
-            self.Y_ker_n_1 = self.Y_ker@self.one_n_1*self.n^-1
-            self.Y_ker_ones =self.Y_ker@self.ones*self.n^-1
+            self.Y_ker_n_1 = self.Y_ker@self.one_n_1
+            self.Y_ker_ones =self.Y_ker@self.ones
+            self.Y_ker_n_1 = self.Y_ker_n_1/self.n
+            self.Y_ker_ones =self.Y_ker_ones/self.n
 
             self.term_1 = 0.5*self.W*self.X_ker_H_4
             self.term_2 = 0.5*self.W*self.X
@@ -168,8 +173,10 @@ class weighted_statistic_new(weighted_stat):
             Y_ker = self.ker_obj_Y(y).evaluate()
             Y_ker_H_4 = Y_ker @ self.H_4
             Y_ker_H_2 = Y_ker @ self.H_2
-            Y_ker_n_1 = Y_ker @ self.one_n_1 * self.n ^ -1
-            Y_ker_ones = Y_ker @ self.ones * self.n ^ -1
+            Y_ker_n_1 = Y_ker @ self.one_n_1
+            Y_ker_n_1 = Y_ker_n_1/self.n
+            Y_ker_ones = Y_ker @ self.ones
+            Y_ker_ones = Y_ker_ones/self.n
             test_stat = self.term_1 * Y_ker + self.term_2 * Y_ker_H_4 + self.term_3 * Y_ker_ones + self.term_4 * (
                         self.X_ker_n_1 @ Y_ker_n_1.t()) + self.term_5 * Y_ker_H_2 + self.term_6 + self.term_7
             return test_stat.sum()

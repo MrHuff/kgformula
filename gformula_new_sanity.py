@@ -11,9 +11,9 @@ import pandas as pd
 
 if __name__ == '__main__':
     #Log p-values, add vector of p-values
-    beta = {'y':[0.0,0.0],'z':[0.0,0.0]}
+    beta = {'y':[0.0,0.0],'z':[0.0,0.5]}
     cor = 0.5
-    data_dir = 'simulated_do_null_fixed_2'
+    data_dir = 'simulated_do_null_fixed'
     if not os.path.exists(f'./{data_dir}/'):
         os.mkdir(f'./{data_dir}/')
         seeds = 1000
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     bins = 25
     device = GPUtil.getFirstAvailable(order='memory')[0]
     ks_data = []
-    runs = 5
+    runs = 1
     for j in range(runs):
         p_value_list = []
         for i in tqdm.trange(seeds):
