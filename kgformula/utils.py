@@ -147,14 +147,14 @@ class simulation_object():
 
             plt.hist(p_value_list, bins=bins)
             plt.savefig(
-                f'./{data_dir}/p_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_alpha={alpha}_estimate={estimate}_estimator={estimator}.png')
+                f'./{data_dir}/p_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}.png')
             plt.close()
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
-                       f'./{data_dir}/null=False_p_value_array_seeds={seeds}_alpha={alpha}_estimate={estimate}_estimator={estimator}.pt')
+                       f'./{data_dir}/null=False_p_value_array_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}.pt')
             plt.hist((p_value_array + 1e-3).log().numpy(), bins=bins)
             plt.savefig(
-                f'./{data_dir}/logp_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_alpha={alpha}_estimate={estimate}_estimator={estimator}.png')
+                f'./{data_dir}/logp_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}.png')
             plt.close()
             plt.hist(reference_metric_list, bins=100)
             plt.savefig(f'./{data_dir}/ref_metric_plot_estimate={estimate}_estimator={estimator}_test_stat={test_stat}_seeds={seeds}.png')
@@ -164,9 +164,9 @@ class simulation_object():
             ks_data.append([ks_stat, p_val_ks_test])
 
         df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
-        df.to_csv(f'./{data_dir}/df_{test_stat}_seeds={seeds}_alpha={alpha}_estimate={estimate}_estimator={estimator}.csv')
+        df.to_csv(f'./{data_dir}/df_{test_stat}_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}.csv')
         s = df.describe()
-        s.to_csv(f'./{data_dir}/summary_{test_stat}_seeds={seeds}_alpha={alpha}_estimate={estimate}_estimator={estimator}.csv')
+        s.to_csv(f'./{data_dir}/summary_{test_stat}_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}.csv')
 
     # def debug_w(self):
     #     test_stat = 2

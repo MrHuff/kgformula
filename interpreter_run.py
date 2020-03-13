@@ -8,7 +8,7 @@ if __name__ == '__main__':
         'bootstrap_runs':250,
         'alpha':0.5,
         'estimator':'kmm',
-        'lamb':1e-2,
+        'lamb':0,
         'runs':1,
         'test_stat':3,
         'cuda':True
