@@ -49,7 +49,7 @@ class density_estimator():
         self.alpha = alpha
         self.diag = reg_lambda*torch.eye(self.n)
         if self.cuda:
-            self.diag = self.diag.cuda()
+            self.diag = self.diag.cuda(self.device)
         self.kernel_base = gpytorch.kernels.Kernel()
 
         if type=='linear':
@@ -117,7 +117,7 @@ class density_estimator():
 
     def kernel_ls_init_keops(self,ls,data,data_2=None):
         with torch.no_grad():
-            ker = keops_RBFkernel(ls=1/ls.unsqueeze(0),x=data,y=data_2)
+            ker = keops_RBFkernel(ls=1/ls.unsqueeze(0),x=data,y=data_2,device_id=self.device)
             return ker()/(self.n-1)
 
 

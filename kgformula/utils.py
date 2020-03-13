@@ -40,12 +40,14 @@ def job_parser():
     parser.add_argument('--data_dir', type=str, nargs='?')
     parser.add_argument('--estimate', default=False, help='estimate w',type=str2bool, nargs='?')
     parser.add_argument('--debug_plot', default=False, help='estimate w',type=str2bool, nargs='?')
+    parser.add_argument('--cuda', default=True, help='cuda',type=str2bool, nargs='?')
     parser.add_argument('--seeds', type=int, nargs='?', default=1000, help='seeds')
     parser.add_argument('--bootstrap_runs', type=int, nargs='?', default=250, help='bootstrap_runs')
     parser.add_argument('--alpha', type=float, nargs='?', default=0.5, help='alpha')
     parser.add_argument('--estimator', type=str, nargs='?',default='kmm')
     parser.add_argument('--lamb', type=float, nargs='?', default=0.5, help='lamb')
     parser.add_argument('--runs', type=int, nargs='?', default=1, help='runs')
+    parser.add_argument('--test_stat', type=int, nargs='?', default=1, help='runs')
 
     return parser
 
@@ -105,28 +107,35 @@ class simulation_object():
         alpha = self.args['alpha']
         estimator = self.args['estimator']
         lamb = self.args['lamb']
-        device = GPUtil.getFirstAvailable(order='memory')[0]
         runs = self.args['runs']
+        cuda = self.args['cuda']
+        if cuda:
+            device = GPUtil.getFirstAvailable(order='memory')[0]
+        else:
+            device = 'cpu'
         ks_data = []
 
         for j in range(runs):
             p_value_list = []
             reference_metric_list = []
             for i in tqdm.trange(seeds):
-                X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+                if cuda:
+                    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
+                else:
+                    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt')
                 if debug_plot:
                     plt.scatter(Z.numpy(), X.numpy())
                     plt.show()
                 # Cheating case
                 if estimate:
-                    d = density_estimator(x=X, z=Z, cuda=True, alpha=alpha, type=estimator, reg_lambda=lamb)
+                    d = density_estimator(x=X, z=Z, cuda=cuda, alpha=alpha, type=estimator, reg_lambda=lamb,device=device)
                     w = d.return_weights()
                 if test_stat == 3:
-                    c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=True, device=device)
+                    c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=cuda, device=device)
                 elif test_stat == 2:
-                    c = weighted_stat(X=X, Y=Y, Z=Z, w=w, cuda=True, device=device, half_mode=False)
+                    c = weighted_stat(X=X, Y=Y, Z=Z, w=w, cuda=cuda, device=device, half_mode=False)
                 elif test_stat == 1:
-                    c = wild_bootstrap_deviance(X=X, Y=Y, Z=Z, cuda=True, device=device)
+                    c = wild_bootstrap_deviance(X=X, Y=Y, Z=Z, cuda=cuda, device=device)
                 reference_metric = c.calculate_weighted_statistic()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):
@@ -138,26 +147,26 @@ class simulation_object():
 
             plt.hist(p_value_list, bins=bins)
             plt.savefig(
-                f'./{data_dir}/p_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_alpha={alpha}_estimator={estimator}.png')
+                f'./{data_dir}/p_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_alpha={alpha}_estimate={estimate}_estimator={estimator}.png')
             plt.close()
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
-                       f'./{data_dir}/null=False_p_value_array_seeds={seeds}_alpha={alpha}_estimator={estimator}.pt')
+                       f'./{data_dir}/null=False_p_value_array_seeds={seeds}_alpha={alpha}_estimate={estimate}_estimator={estimator}.pt')
             plt.hist((p_value_array + 1e-3).log().numpy(), bins=bins)
             plt.savefig(
-                f'./{data_dir}/logp_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_alpha={alpha}_estimator={estimator}.png')
+                f'./{data_dir}/logp_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_alpha={alpha}_estimate={estimate}_estimator={estimator}.png')
             plt.close()
             plt.hist(reference_metric_list, bins=100)
-            plt.savefig(f'./{data_dir}/ref_metric_plot_null=False_test_stat={test_stat}_seeds={seeds}.png')
+            plt.savefig(f'./{data_dir}/ref_metric_plot_estimate={estimate}_estimator={estimator}_test_stat={test_stat}_seeds={seeds}.png')
             plt.close()
             ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
             print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
             ks_data.append([ks_stat, p_val_ks_test])
 
         df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
-        df.to_csv(f'./{data_dir}/df_{test_stat}_seeds={seeds}_alpha={alpha}_estimator={estimator}.csv')
+        df.to_csv(f'./{data_dir}/df_{test_stat}_seeds={seeds}_alpha={alpha}_estimate={estimate}_estimator={estimator}.csv')
         s = df.describe()
-        s.to_csv(f'./{data_dir}/summary_{test_stat}_seeds={seeds}_alpha={alpha}_estimator={estimator}.csv')
+        s.to_csv(f'./{data_dir}/summary_{test_stat}_seeds={seeds}_alpha={alpha}_estimate={estimate}_estimator={estimator}.csv')
 
     # def debug_w(self):
     #     test_stat = 2
