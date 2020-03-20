@@ -69,11 +69,12 @@ class density_estimator():
 
     def kernel_mean_matching(self):
         with torch.no_grad():
-            list_idx = torch.from_numpy(get_i_not_j_indices(self.n))
+            list_idx = torch.from_numpy(get_i_not_j_indices(self.n)) #Seems to be working alright!
             torch_idx_x,torch_idx_z = list_idx.unbind(dim=1)
             data_extended = torch.cat([self.x[torch_idx_x],self.z[torch_idx_z]],dim=1)
             data = torch.cat([self.x,self.z],dim=1)
-            ls = self.kernel_ls_init('kernel_up', data)
+            self.kernel_ls_init('kernel_up', data)
+            ls = self.get_median_ls_XY(data,data_extended)
             # self.kernel_ls_init('kernel_down',data,data_extended,ls)
             # y = self.kernel_down.sum(dim=1).unsqueeze(-1)/(self.n-1)
             y = self.kernel_ls_init_keops(ls=ls,data=data,data_2=data_extended)
@@ -109,6 +110,16 @@ class density_estimator():
             s,_ = torch.solve(self.x, self.kernel_tmp + self.diag)
             self.down_estimator = self.kernel_tmp@s
 
+    def get_median_ls_XY(self,X,Y):
+        with torch.no_grad():
+            if X.shape[0]>5000:
+                X = X[torch.randperm(5000),:]
+            if Y.shape[0]>5000:
+                Y = Y[torch.randperm(5000),:]
+            d = self.kernel_base.covar_dist(x1=X,x2=Y)
+            ret = torch.sqrt(torch.median(d[d > 0]))
+            return ret
+
     def get_median_ls(self,X):
         with torch.no_grad():
             d = self.kernel_base.covar_dist(x1=X,x2=X)
@@ -119,7 +130,6 @@ class density_estimator():
         with torch.no_grad():
             ker = keops_RBFkernel(ls=1/ls.unsqueeze(0),x=data,y=data_2,device_id=self.device)
             return ker()/(self.n-1)
-
 
     def kernel_ls_init(self,name,data,data_2=None,ls=None):
         ker = gpytorch.kernels.RBFKernel()

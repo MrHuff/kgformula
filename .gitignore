@@ -15,5 +15,4 @@ g_env/*
 *.pt
 *.csv
 interpreter_run.py
-
-
+*.zip

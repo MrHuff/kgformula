@@ -8,7 +8,7 @@ if __name__ == '__main__':
         'bootstrap_runs':250,
         'alpha':0.5,
         'estimator':'kmm',
-        'lamb':0,
+        'lamb':1.0, #Bro, regularization seems to shift the p-value distribution to the left wtf.
         'runs':1,
         'test_stat':3,
         'cuda':True
