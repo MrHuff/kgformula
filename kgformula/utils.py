@@ -182,6 +182,13 @@ class simulation_object():
         x, mean, std, median = get_mean_and_std(data)
         self.plot_and_save(x, mean, std, median, name)
 
+    def big_histogram(self,data,name):
+        data_dir = self.args['data_dir']
+        arr = data.flatten().cpu().numpy()
+        plt.hist(arr,bins=self.args['seeds'])
+        plt.savefig(f'./{data_dir}/{name}_histogram_big.png')
+        plt.clf()
+
     def error_classification(self,errors):
         errors = errors.flatten().cpu().unsqueeze(-1).numpy()
         low = np.quantile(errors, 0.3)
@@ -204,7 +211,7 @@ class simulation_object():
             scatter = plt.scatter(X.cpu().numpy(), Z.cpu().numpy(),c=c,alpha=0.3,marker=".",cmap=colours)
             plt.legend(handles=scatter.legend_elements()[0], labels=classes)
             plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_median_scatter.png')
-
+            plt.clf()
     def debug_w(self,lambdas,expected_shape,estimator='truth'):
         data_dir = self.args['data_dir']
         seeds = self.args['seeds']
@@ -245,7 +252,7 @@ class simulation_object():
 
             if estimator=='truth':
                 self.do_error_plot(plot_true, 'w_true')
-
+                self.big_histogram(plot_true,'w_true')
             elif estimator=='kmm':
                 plot_kmm = torch.stack(dmw_kmm,dim=0)
                 print(f'shape of plot_kmm = {plot_kmm.shape}')
@@ -253,4 +260,5 @@ class simulation_object():
                 error_plot = torch.abs(plot_true-plot_kmm)
                 self.do_error_plot(error_plot, 'error_w_kmm')
                 self.diagnostic_plot(error_plot,big_X,big_Z,'diagnostic_plot')
+                self.big_histogram(plot_kmm,f'w_kmm_lambda={lamb}')
 
