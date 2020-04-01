@@ -7,7 +7,7 @@ if __name__ == '__main__':
         'seeds':1000,
         'bootstrap_runs':250,
         'alpha':0.5,
-        'estimator':'kmm',
+        'estimator':'classification',
         'lamb':0.1, #Bro, regularization seems to shift the p-value distribution to the left wtf.
         'runs':1,
         'test_stat':3,

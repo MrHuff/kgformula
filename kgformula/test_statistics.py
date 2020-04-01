@@ -104,24 +104,32 @@ class density_estimator():
             self.kernel_mean_matching()
 
         elif type == 'classifier':
-            self.model = logistic_regression(d=self.x.shape[1])
             dataset = self.create_classification_data()
+            self.model = logistic_regression(d=dataset.X.shape[1]).to(self.x.device)
             self.w = self.train_classifier(dataset)
 
     def train_classifier(self,dataset):
-        dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
+        # dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
         loss_func = torch.nn.BCEWithLogitsLoss()
-        opt = torch.optim.Adam(self.model.parameters())
+        opt = torch.optim.Adam(self.model.parameters(),lr=1e-6)
+        # opt = torch.optim.LBFGS(self.model.parameters(),lr=1e-1)
         for j in range(self.est_params['epochs']):
-            for i,X,y in enumerate(dataloader):
-                pred = self.model(X)
-                l = loss_func(pred,y)
-                opt.zero_grad()
-                l.backward()
-                opt.step()
+            # for i,(X,y) in enumerate(dataloader):
+            opt.zero_grad()
+            pred = self.model(dataset.X)
+            l = loss_func(pred.squeeze(),dataset.y.squeeze())
+            l.backward()
+            opt.step()
+                # def closure():
+                #     pred = self.model(X)
+                #     opt.zero_grad()
+                #     l.backward()
+                #     l = loss_func(pred.squeeze(),y)
+                #     return l
+                # opt.step(closure)
             with torch.no_grad():
                 pred = self.model(dataset.X)
-                auc = auc_check(pred,dataset.y)
+                auc = auc_check(pred.squeeze(),dataset.y.squeeze())
                 print(f'auc epoch {j}: {auc}')
 
         return (1-pred)/pred
@@ -133,8 +141,8 @@ class density_estimator():
             data_neg = torch.cat([self.x[torch_idx_x], self.z[torch_idx_z]], dim=1)
             idx = np.random.choice(data_neg.shape[0],self.est_params['sigma_n'])
             data_neg = data_neg[idx,:]
-            neg_samples = torch.ones(data_neg.shape[0])
-            pos_samples = torch.ones(self.x.shape[0])
+            neg_samples = torch.zeros(data_neg.shape[0]).to(self.x.device)
+            pos_samples = torch.ones(self.x.shape[0]).to(self.x.device)
             data_pos = torch.cat([self.x, self.z], dim=1)
             X = torch.cat([data_pos,data_neg],dim=0)
             y = torch.cat([pos_samples,neg_samples],dim=0)

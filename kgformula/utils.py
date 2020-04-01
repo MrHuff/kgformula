@@ -108,7 +108,7 @@ class simulation_object():
         seeds = self.args['seeds']
         bootstrap_runs  = self.args['bootstrap_runs']
         bins = 25
-        alpha = self.args['alpha']
+        est_params = self.args['est_params']
         estimator = self.args['estimator']
         lamb = self.args['lamb']
         runs = self.args['runs']
@@ -127,7 +127,7 @@ class simulation_object():
                     plt.show()
                 # Cheating case
                 if estimate:
-                    d = density_estimator(x=X, z=Z, cuda=self.cuda, alpha=alpha, type=estimator, reg_lambda=lamb,device=self.device)
+                    d = density_estimator(x=X, z=Z, cuda=self.cuda, est_params=est_params, type=estimator, reg_lambda=lamb,device=self.device)
                     w = d.return_weights()
                     if exp_reg_weights:
                         w = w.exp()
@@ -279,13 +279,19 @@ class simulation_object():
                     # Cheating case
                     dmw_true.append(w)
                     if estimator=='kmm':
-                        d = density_estimator(x=X, z=Z, cuda=True, alpha=0, type='kmm', reg_lambda=lamb,device=self.device)
+                        d = density_estimator(x=X, z=Z, cuda=True, est_params=None, type='kmm', reg_lambda=lamb,device=self.device)
                         w_estimator = d.return_weights()
                         dmw_estimator.append(w_estimator)
                     elif estimator=='semi':
-                        d = density_estimator(x=X, z=Z, cuda=True, alpha=0, type='semi', reg_lambda=lamb,device=self.device)
+                        d = density_estimator(x=X, z=Z, cuda=True, est_params=None, type='semi', reg_lambda=lamb,device=self.device)
                         w_estimator = d.return_weights()
                         dmw_estimator.append(w_estimator)
+                    elif estimator=='classifier':
+                        d = density_estimator(x=X, z=Z, cuda=True, est_params=self.args['est_params'], type='classifier', reg_lambda=lamb,
+                                              device=self.device)
+                        w_estimator = d.return_weights()
+                        dmw_estimator.append(w_estimator)
+
                     c_0 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
                     orginal = c_0.calculate_weighted_statistic()
                     og_stat_list.append(orginal.item())
