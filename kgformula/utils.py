@@ -1,6 +1,7 @@
 import argparse
 import GPUtil
 from matplotlib import pyplot as plt
+from mpl_toolkits import mplot3d
 from scipy.stats import kstest
 import tqdm
 import pandas as pd
@@ -10,6 +11,7 @@ from kgformula.fixed_do_samplers import simulate_xyz
 import os
 import numpy as np
 from matplotlib.colors import ListedColormap
+
 def str2bool(v):
     if isinstance(v, bool):
        return v
@@ -76,14 +78,13 @@ def calculate_pval(bootstrapped_list, test_statistic):
     pval = 1-1/(bootstrapped_list.shape[0]+1) *(1 + (bootstrapped_list<=test_statistic).sum())
     return pval
 
-def get_mean_and_std(data):
+def get_median_and_std(data):
     with torch.no_grad():
         mean = data.mean(dim=0)
         median,_ = data.median(dim=0)
         std = data.var(dim=0)**0.5
         x = [i for i in range(1,data.shape[1]+1)]
         return x, mean.cpu().numpy(),std.cpu().numpy(),median.cpu().numpy()
-
 
 def run_job_func(args):
     j = simulation_object(args)
@@ -92,8 +93,14 @@ def run_job_func(args):
 class simulation_object():
     def __init__(self,args):
         self.args=args
+        self.cuda = self.args['cuda']
+        if self.cuda:
+            self.device = GPUtil.getFirstAvailable(order='memory')[0]
+        else:
+            self.device = 'cpu'
 
     def run(self):
+        exp_reg_weights = self.args['exp']
         estimate = self.args['estimate']
         debug_plot = self.args['debug_plot']
         data_dir = self.args['data_dir']
@@ -105,19 +112,14 @@ class simulation_object():
         estimator = self.args['estimator']
         lamb = self.args['lamb']
         runs = self.args['runs']
-        cuda = self.args['cuda']
-        if cuda:
-            device = GPUtil.getFirstAvailable(order='memory')[0]
-        else:
-            device = 'cpu'
         ks_data = []
-
+        suffix = f'_test_stat={test_stat}_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}_exp={exp_reg_weights}'
         for j in range(runs):
             p_value_list = []
             reference_metric_list = []
             for i in tqdm.trange(seeds):
-                if cuda:
-                    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
+                if self.cuda:
+                    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
                     X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt')
                 if debug_plot:
@@ -125,14 +127,16 @@ class simulation_object():
                     plt.show()
                 # Cheating case
                 if estimate:
-                    d = density_estimator(x=X, z=Z, cuda=cuda, alpha=alpha, type=estimator, reg_lambda=lamb,device=device)
+                    d = density_estimator(x=X, z=Z, cuda=self.cuda, alpha=alpha, type=estimator, reg_lambda=lamb,device=self.device)
                     w = d.return_weights()
+                    if exp_reg_weights:
+                        w = w.exp()
                 if test_stat == 3:
-                    c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=cuda, device=device)
+                    c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
                 elif test_stat == 2:
-                    c = weighted_stat(X=X, Y=Y, Z=Z, w=w, cuda=cuda, device=device, half_mode=False)
+                    c = weighted_stat(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device, half_mode=False)
                 elif test_stat == 1:
-                    c = wild_bootstrap_deviance(X=X, Y=Y, Z=Z, cuda=cuda, device=device)
+                    c = wild_bootstrap_deviance(X=X, Y=Y, Z=Z, cuda=self.cuda, device=self.device)
                 reference_metric = c.calculate_weighted_statistic()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):
@@ -144,47 +148,48 @@ class simulation_object():
 
             plt.hist(p_value_list, bins=bins)
             plt.savefig(
-                f'./{data_dir}/p_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}.png')
+                f'./{data_dir}/p_value_plot{suffix}.png')
             plt.close()
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
-                       f'./{data_dir}/null=False_p_value_array_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}.pt')
+                       f'./{data_dir}/p_val_array{suffix}.pt')
             plt.hist((p_value_array + 1e-3).log().numpy(), bins=bins)
             plt.savefig(
-                f'./{data_dir}/logp_value_plot_null=False_test_stat={test_stat}_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}.png')
+                f'./{data_dir}/logp_value_plot{suffix}.png')
             plt.close()
             reference_metric_list = reject_outliers(reference_metric_list)
             plt.hist(reference_metric_list, bins=100)
-            plt.savefig(f'./{data_dir}/ref_metric_plot_estimate={estimate}_estimator={estimator}_test_stat={test_stat}_lambda={lamb}_seeds={seeds}.png')
+            plt.savefig(f'./{data_dir}/ref_metric_plot{suffix}.png')
             plt.close()
             ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
             print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
             ks_data.append([ks_stat, p_val_ks_test])
 
         df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
-        df.to_csv(f'./{data_dir}/df_{test_stat}_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}.csv')
+        df.to_csv(f'./{data_dir}/df{suffix}.csv')
         s = df.describe()
-        s.to_csv(f'./{data_dir}/summary_{test_stat}_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}.csv')
+        s.to_csv(f'./{data_dir}/summary{suffix}.csv')
 
     def plot_and_save(self,x, mean, std, median, name='xyz'):
         reg = self.args['lamb']
         data_dir = self.args['data_dir']
         alpha = self.args['alpha']
-
-        plt.errorbar(x, mean, yerr=std)
-        plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}.png')
+        plt.plot(x, mean,marker=".")
+        plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_mean_scatter.png')
         plt.clf()
+
         plt.scatter(x, median)
         plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_median_scatter.png')
         plt.clf()
 
     def do_error_plot(self,data, name):
-        x, mean, std, median = get_mean_and_std(data)
+        x, mean, std, median = get_median_and_std(data)
         self.plot_and_save(x, mean, std, median, name)
 
     def big_histogram(self,data,name):
         data_dir = self.args['data_dir']
         arr = data.flatten().cpu().numpy()
+        # arr = reject_outliers(arr,m=1)
         plt.hist(arr,bins=self.args['seeds'])
         plt.savefig(f'./{data_dir}/{name}_histogram_big.png')
         plt.clf()
@@ -200,6 +205,7 @@ class simulation_object():
         errors[mask_mid] = 1
         errors[mask_high] = 2
         return errors
+
     def diagnostic_plot(self,errors, X, Z,name='xyz'):
         with torch.no_grad():
             reg = self.args['lamb']
@@ -212,25 +218,58 @@ class simulation_object():
             plt.legend(handles=scatter.legend_elements()[0], labels=classes)
             plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_median_scatter.png')
             plt.clf()
+
+    def estimator_error_plot(self,org,est,name):
+        reg = self.args['lamb']
+        data_dir = self.args['data_dir']
+        alpha = self.args['alpha']
+        o = np.array(org)
+        e = np.array(est)
+        error = (e-o)/o
+        plt.hist(error,bins=50)
+        plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_expectation_error.png')
+        plt.clf()
+
+    def surface_plot(self,X,Z,errors,name=''):
+        reg = self.args['lamb']
+        data_dir = self.args['data_dir']
+        alpha = self.args['alpha']
+        errors = errors.flatten().cpu().numpy()
+        ax = plt.axes(projection='3d')
+        ax.plot_trisurf(X.cpu().flatten().numpy(), Z.cpu().flatten().numpy(), errors, cmap='viridis', edgecolor='none')
+        ax.set_title('Surface plot')
+        plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_surface.png')
+        plt.clf()
+
+    def diagnose_technique(self,dmw,plot_true,big_X,big_Z,lamb,estimator,org,est):
+        plot_technique = torch.stack(dmw, dim=0)
+        print(f'shape of plot_{estimator} = {plot_technique.shape}')
+        self.do_error_plot(plot_technique, f'w_{estimator}')
+        error_plot = (plot_technique-plot_true)/plot_true
+        self.do_error_plot(error_plot, f'error_w_{estimator}')
+        self.diagnostic_plot(error_plot, big_X, big_Z, f'diagnostic_plot_{estimator}')
+        self.big_histogram(plot_technique, f'w_{estimator}_lambda={lamb}')
+        self.surface_plot(big_X,big_Z,error_plot,f'surface_plot_{estimator}')
+        self.estimator_error_plot(org,est,f'{estimator}')
+
     def debug_w(self,lambdas,expected_shape,estimator='truth'):
         data_dir = self.args['data_dir']
         seeds = self.args['seeds']
-        cuda = self.args['cuda']
-        if cuda:
-            device = GPUtil.getFirstAvailable(order='memory')[0]
-        else:
-            device = 'cpu'
+
         for lamb in lambdas:
             self.args['lamb'] = lamb
             dmw_true = []
-            dmw_kmm = []
+            dmw_estimator = []
             big_X = []
             big_Z = []
+            og_stat_list = []
+            est_stat_list = []
             for i in tqdm.trange(seeds):
-                if cuda:
-                    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
+                if self.cuda:
+                    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
                     X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+
                 if X.shape[0] != expected_shape:
                     print(X.shape[0])
                     continue
@@ -240,9 +279,20 @@ class simulation_object():
                     # Cheating case
                     dmw_true.append(w)
                     if estimator=='kmm':
-                        d = density_estimator(x=X, z=Z, cuda=True, alpha=0, type='kmm', reg_lambda=lamb,device=device)
-                        w_kmm = d.return_weights()
-                        dmw_kmm.append(w_kmm)
+                        d = density_estimator(x=X, z=Z, cuda=True, alpha=0, type='kmm', reg_lambda=lamb,device=self.device)
+                        w_estimator = d.return_weights()
+                        dmw_estimator.append(w_estimator)
+                    elif estimator=='semi':
+                        d = density_estimator(x=X, z=Z, cuda=True, alpha=0, type='semi', reg_lambda=lamb,device=self.device)
+                        w_estimator = d.return_weights()
+                        dmw_estimator.append(w_estimator)
+                    c_0 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
+                    orginal = c_0.calculate_weighted_statistic()
+                    og_stat_list.append(orginal.item())
+                    c_1 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w_estimator, cuda=self.cuda, device=self.device)
+                    est = c_1.calculate_weighted_statistic()
+                    est_stat_list.append(est.item())
+
             big_X  = torch.cat(big_X,dim=0)
             big_Z  = torch.cat(big_Z,dim=0)
             plot_true = torch.stack(dmw_true, dim=0)
@@ -253,12 +303,13 @@ class simulation_object():
             if estimator=='truth':
                 self.do_error_plot(plot_true, 'w_true')
                 self.big_histogram(plot_true,'w_true')
-            elif estimator=='kmm':
-                plot_kmm = torch.stack(dmw_kmm,dim=0)
-                print(f'shape of plot_kmm = {plot_kmm.shape}')
-                self.do_error_plot(plot_kmm, 'w_kmm')
-                error_plot = torch.abs(plot_true-plot_kmm)
-                self.do_error_plot(error_plot, 'error_w_kmm')
-                self.diagnostic_plot(error_plot,big_X,big_Z,'diagnostic_plot')
-                self.big_histogram(plot_kmm,f'w_kmm_lambda={lamb}')
+            else:
+                self.diagnose_technique(dmw=dmw_estimator,
+                                        plot_true=plot_true,
+                                        big_X=big_X,
+                                        big_Z=big_Z,
+                                        lamb=lamb,
+                                        estimator=estimator,
+                                        org=og_stat_list,
+                                        est=est_stat_list)
 

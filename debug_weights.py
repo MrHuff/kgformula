@@ -15,4 +15,5 @@ if __name__ == '__main__':
     }
     j = simulation_object(args)
     j.debug_w(lambdas=[0],expected_shape=1000,estimator='truth')
+    j.debug_w(lambdas=[0],expected_shape=1000,estimator='semi')
     j.debug_w(lambdas=[0,1e-5,0.01,0.1,1.0],expected_shape=1000,estimator='kmm')

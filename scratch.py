@@ -2,25 +2,31 @@ from kgformula.test_statistics import weighted_stat,weighted_statistic_new, dens
 from kgformula.utils import simulation_object
 import torch
 import numpy as np
-
+from matplotlib import pyplot as plt
 import time
 if __name__ == '__main__':
-    args = {
-        'data_dir': 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000',
-        'estimate': True,
-        'debug_plot': False,
-        'seeds': 2,
-        'bootstrap_runs': 250,
-        'alpha': 0.5,
-        'estimator': 'kmm',
-        'lamb': 1e-1,  # Bro, regularization seems to shift the p-value distribution to the left wtf.
-        'runs': 1,
-        'test_stat': 3,
-        'cuda': True
-    }
-    j = simulation_object(args)
-    j.debug_w(lambdas=[0], expected_shape=1000, estimator='truth')
-    j.debug_w(lambdas=[0,1e-5, 0.01, 0.1, 1.0], expected_shape=1000, estimator='kmm')
+    # args = {
+    #     'data_dir': 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000',
+    #     'estimate': True,
+    #     'debug_plot': False,
+    #     'seeds': 2,
+    #     'bootstrap_runs': 250,
+    #     'alpha': 0.5,
+    #     'estimator': 'kmm',
+    #     'lamb': 1e-1,  # Bro, regularization seems to shift the p-value distribution to the left wtf.
+    #     'runs': 1,
+    #     'test_stat': 3,
+    #     'cuda': True
+    # }
+    # j = simulation_object(args)
+    # j.debug_w(lambdas=[0], expected_shape=1000, estimator='truth')
+    # j.debug_w(lambdas=[0,1e-5, 0.01, 0.1, 1.0], expected_shape=1000, estimator='kmm')
+    data_dir = 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000'
+    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={0}.pt')
+    plt.scatter(np.arange(0,1000),w.numpy())
+    plt.show()
+
+
 
     # alpha=0
     # estimator = 'kmm'

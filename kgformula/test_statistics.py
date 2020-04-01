@@ -4,6 +4,17 @@ from torch.distributions import Normal,StudentT,Bernoulli,Beta,Uniform,Exponenti
 import numpy as np
 from pykeops.torch import LazyTensor,Genred
 import time
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+from sklearn import metrics
+
+def auc_check(y_pred,Y):
+    with torch.no_grad():
+        y_pred = (y_pred.float() > 0.5).cpu().float().numpy()
+        fpr, tpr, thresholds = metrics.roc_curve(Y.cpu().numpy(), y_pred, pos_label=1)
+        auc =  metrics.auc(fpr, tpr)
+        return auc
+
 class keops_RBFkernel(torch.nn.Module):
     def __init__(self,ls,x,y=None,device_id=0):
         super(keops_RBFkernel, self).__init__()
@@ -39,24 +50,49 @@ def get_i_not_j_indices(n):
     list_np = np.delete(list_np, vec_2, axis=0)
     return list_np
 
+class logistic_regression(torch.nn.Module):
+    def __init__(self,d):
+        super(logistic_regression, self).__init__()
+        self.W = torch.nn.Linear(in_features=d,  out_features=1,bias=True)
+
+    def forward(self,x):
+        return self.W(x)
+
+    def logistic_forward(self,x):
+        return torch.nn.functional.sigmoid(self.W(x))
+
+class classification_dataset(Dataset):
+    def __init__(self,X,y):
+        super(classification_dataset, self).__init__()
+        self.X = X
+        self.y = y
+
+    def __len__(self):
+        return self.X.shape[0]
+
+    def __getitem__(self, i):
+        return self.X[i,:],self.y[i]
+
 class density_estimator():
-    def __init__(self, x, z, alpha=0.5, reg_lambda=1e-3, cuda=False, device=0, type='linear'):
+    def __init__(self, x, z, est_params=None, reg_lambda=1e-3, cuda=False, device=0, type='linear'):
         self.x = x
         self.z = z
         self.cuda = cuda
         self.n = self.x.shape[0]
         self.device = device
-        self.alpha = alpha
         self.diag = reg_lambda*torch.eye(self.n)
+        self.est_params = est_params
         if self.cuda:
             self.diag = self.diag.cuda(self.device)
         self.kernel_base = gpytorch.kernels.Kernel()
 
         if type=='linear':
+            self.alpha = est_params['alpha']
             self.linear_x_of_z()
             self.get_w_kdre()
 
         elif type=='gp':
+            self.alpha = est_params['alpha']
             self.kernel_ls_init('kernel_tmp', self.z)
             self.gp_x_of_z()
             self.get_w_kdre()
@@ -66,6 +102,43 @@ class density_estimator():
 
         elif type == 'kmm':
             self.kernel_mean_matching()
+
+        elif type == 'classifier':
+            self.model = logistic_regression(d=self.x.shape[1])
+            dataset = self.create_classification_data()
+            self.w = self.train_classifier(dataset)
+
+    def train_classifier(self,dataset):
+        dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
+        loss_func = torch.nn.BCEWithLogitsLoss()
+        opt = torch.optim.Adam(self.model.parameters())
+        for j in range(self.est_params['epochs']):
+            for i,X,y in enumerate(dataloader):
+                pred = self.model(X)
+                l = loss_func(pred,y)
+                opt.zero_grad()
+                l.backward()
+                opt.step()
+            with torch.no_grad():
+                pred = self.model(dataset.X)
+                auc = auc_check(pred,dataset.y)
+                print(f'auc epoch {j}: {auc}')
+
+        return (1-pred)/pred
+
+    def create_classification_data(self):
+        with torch.no_grad():
+            list_idx = torch.from_numpy(get_i_not_j_indices(self.n))  # Seems to be working alright!
+            torch_idx_x, torch_idx_z = list_idx.unbind(dim=1)
+            data_neg = torch.cat([self.x[torch_idx_x], self.z[torch_idx_z]], dim=1)
+            idx = np.random.choice(data_neg.shape[0],self.est_params['sigma_n'])
+            data_neg = data_neg[idx,:]
+            neg_samples = torch.ones(data_neg.shape[0])
+            pos_samples = torch.ones(self.x.shape[0])
+            data_pos = torch.cat([self.x, self.z], dim=1)
+            X = torch.cat([data_pos,data_neg],dim=0)
+            y = torch.cat([pos_samples,neg_samples],dim=0)
+        return classification_dataset(X,y)
 
     def kernel_mean_matching(self):
         with torch.no_grad():
