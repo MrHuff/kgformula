@@ -4,15 +4,16 @@ import torch
 import numpy as np
 from matplotlib import pyplot as plt
 import time
+import GPUtil
 if __name__ == '__main__':
     estimator = 'classifier'
     lamb = 1e-2
     data_dir = 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000'
     i = 0
-    device = 0
-    X, Y, Z, _ = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{0}')
-    est_params = {'epochs':1000,'batch_size':X.shape[0]*2,'sigma_n':X.shape[0]}
-    d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb)
+    device = GPUtil.getFirstAvailable(order='memory')[0]
+    X, Y, Z, _ = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
+    est_params = {'lr': 1e-3*2,'max_its':5000}
+    d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb,device=device)
 
 
     # args = {

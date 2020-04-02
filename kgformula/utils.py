@@ -128,9 +128,12 @@ class simulation_object():
                 # Cheating case
                 if estimate:
                     d = density_estimator(x=X, z=Z, cuda=self.cuda, est_params=est_params, type=estimator, reg_lambda=lamb,device=self.device)
+                    if d.failed:
+                        continue
                     w = d.return_weights()
                     if exp_reg_weights:
                         w = w.exp()
+
                 if test_stat == 3:
                     c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
                 elif test_stat == 2:

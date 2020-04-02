@@ -7,7 +7,7 @@ import time
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from sklearn import metrics
-
+import torch.nn as nn
 def auc_check(y_pred,Y):
     with torch.no_grad():
         y_pred = (y_pred.float() > 0.5).cpu().float().numpy()
@@ -50,6 +50,26 @@ def get_i_not_j_indices(n):
     list_np = np.delete(list_np, vec_2, axis=0)
     return list_np
 
+class MLP(torch.nn.Module):
+    def __init__(self,d,f=12,k=2):
+        super(MLP, self).__init__()
+        self.model = nn.ModuleList()
+        self.model.append(nn.Linear(d, d*f))
+        self.model.append(nn.Tanh())
+        for i in range(k):
+            self.model.append(nn.Linear(d*f, d*f))
+            self.model.append(nn.Tanh())
+        self.model.append(nn.Linear(d*f, 1))
+        self.model.append(nn.Tanh())
+
+    def forward(self,x):
+        for l in self.model:
+            x = l(x)
+        return x
+
+    def logistic_forward(self,x):
+        return torch.nn.functional.sigmoid(self.W(x))
+
 class logistic_regression(torch.nn.Module):
     def __init__(self,d):
         super(logistic_regression, self).__init__()
@@ -75,6 +95,7 @@ class classification_dataset(Dataset):
 
 class density_estimator():
     def __init__(self, x, z, est_params=None, reg_lambda=1e-3, cuda=False, device=0, type='linear'):
+        self.failed = False
         self.x = x
         self.z = z
         self.cuda = cuda
@@ -105,19 +126,25 @@ class density_estimator():
 
         elif type == 'classifier':
             dataset = self.create_classification_data()
-            self.model = logistic_regression(d=dataset.X.shape[1]).to(self.x.device)
+            self.model = MLP(d=dataset.X.shape[1],f=256,k=1).to(self.x.device)
             self.w = self.train_classifier(dataset)
 
     def train_classifier(self,dataset):
         # dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
         loss_func = torch.nn.BCEWithLogitsLoss()
-        opt = torch.optim.Adam(self.model.parameters(),lr=1e-6)
+        opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
         # opt = torch.optim.LBFGS(self.model.parameters(),lr=1e-1)
-        for j in range(self.est_params['epochs']):
-            # for i,(X,y) in enumerate(dataloader):
+        auc=0
+        # for j in range(self.est_params['epochs']):
+        j = 0
+        while auc<0.9:
+
+            X = dataset.X
+            y = dataset.y
+        # for i,(X,y) in enumerate(dataloader):
             opt.zero_grad()
-            pred = self.model(dataset.X)
-            l = loss_func(pred.squeeze(),dataset.y.squeeze())
+            pred = self.model(X)
+            l = loss_func(pred.squeeze(),y.squeeze())
             l.backward()
             opt.step()
                 # def closure():
@@ -127,24 +154,32 @@ class density_estimator():
                 #     l = loss_func(pred.squeeze(),y)
                 #     return l
                 # opt.step(closure)
-            with torch.no_grad():
-                pred = self.model(dataset.X)
-                auc = auc_check(pred.squeeze(),dataset.y.squeeze())
-                print(f'auc epoch {j}: {auc}')
-
-        return (1-pred)/pred
+            if j%50==0:
+                with torch.no_grad():
+                    pred = self.model(X)
+                    auc = auc_check(pred.squeeze(),y.squeeze())
+                    # print(f'auc epoch {j}: {auc}')
+            j+=1
+            if j>self.est_params['max_its']:
+                self.failed = True
+                print('failed')
+                break
+        with torch.no_grad():
+            p = self.model(self.data_pos)
+        return (1-p)/p
 
     def create_classification_data(self):
         with torch.no_grad():
-            list_idx = torch.from_numpy(get_i_not_j_indices(self.n))  # Seems to be working alright!
-            torch_idx_x, torch_idx_z = list_idx.unbind(dim=1)
-            data_neg = torch.cat([self.x[torch_idx_x], self.z[torch_idx_z]], dim=1)
-            idx = np.random.choice(data_neg.shape[0],self.est_params['sigma_n'])
-            data_neg = data_neg[idx,:]
+            # list_idx = torch.from_numpy(get_i_not_j_indices(self.n))  # Seems to be working alright!
+            # torch_idx_x, torch_idx_z = list_idx.unbind(dim=1)
+            perm = torch.randperm(self.x.shape[0])
+            data_neg = torch.cat([self.x, self.z[perm]], dim=1)
+            # idx = np.random.choice(data_neg.shape[0],self.est_params['sigma_n'])
+            # data_neg = data_neg[idx,:]
             neg_samples = torch.zeros(data_neg.shape[0]).to(self.x.device)
             pos_samples = torch.ones(self.x.shape[0]).to(self.x.device)
-            data_pos = torch.cat([self.x, self.z], dim=1)
-            X = torch.cat([data_pos,data_neg],dim=0)
+            self.data_pos = torch.cat([self.x, self.z], dim=1)
+            X = torch.cat([self.data_pos,data_neg],dim=0)
             y = torch.cat([pos_samples,neg_samples],dim=0)
         return classification_dataset(X,y)
 

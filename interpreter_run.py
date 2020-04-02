@@ -6,13 +6,13 @@ if __name__ == '__main__':
         'debug_plot':False,
         'seeds':1000,
         'bootstrap_runs':250,
-        'alpha':0.5,
-        'estimator':'classification',
+        'est_params':{'lr': 1e-3*2,'max_its':5000},
+        'estimator':'classifier',
         'lamb':0.1, #Bro, regularization seems to shift the p-value distribution to the left wtf.
         'runs':1,
         'test_stat':3,
         'cuda':True,
-        'exp':True
+        'exp':False
     }
     j = simulation_object(args)
     j.run()
