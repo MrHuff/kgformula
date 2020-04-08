@@ -137,7 +137,7 @@ class density_estimator():
         auc=0
         # for j in range(self.est_params['epochs']):
         j = 0
-        while auc<0.9:
+        while auc<0.95:
 
             X = dataset.X
             y = dataset.y

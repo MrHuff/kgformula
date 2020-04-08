@@ -7,6 +7,7 @@ if __name__ == '__main__':
         'seeds':1000,
         'bootstrap_runs':250,
         'alpha':0.5,
+        'est_params':None,
         'estimator':'kmm',
         'lamb':1e-1, #Bro, regularization seems to shift the p-value distribution to the left wtf.
         'runs':1,
@@ -14,6 +15,6 @@ if __name__ == '__main__':
         'cuda':True
     }
     j = simulation_object(args)
-    j.debug_w(lambdas=[0],expected_shape=1000,estimator='truth')
-    j.debug_w(lambdas=[0],expected_shape=1000,estimator='semi')
+    # j.debug_w(lambdas=[0],expected_shape=1000,estimator='truth')
+    # j.debug_w(lambdas=[0],expected_shape=1000,estimator='semi')
     j.debug_w(lambdas=[0,1e-5,0.01,0.1,1.0],expected_shape=1000,estimator='kmm')

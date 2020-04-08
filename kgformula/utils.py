@@ -176,13 +176,12 @@ class simulation_object():
     def plot_and_save(self,x, mean, std, median, name='xyz'):
         reg = self.args['lamb']
         data_dir = self.args['data_dir']
-        alpha = self.args['alpha']
         plt.plot(x, mean,marker=".")
-        plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_mean_scatter.png')
+        plt.savefig(f'./{data_dir}/{name}_{reg}_mean_scatter.png')
         plt.clf()
 
         plt.scatter(x, median)
-        plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_median_scatter.png')
+        plt.savefig(f'./{data_dir}/{name}_{reg}_median_scatter.png')
         plt.clf()
 
     def do_error_plot(self,data, name):
@@ -213,35 +212,32 @@ class simulation_object():
         with torch.no_grad():
             reg = self.args['lamb']
             data_dir = self.args['data_dir']
-            alpha = self.args['alpha']
             c = self.error_classification(errors)
             classes = ['low_error:green','medium_error:yellow','high_error:red']
             colours = ListedColormap(['g', 'y', 'r'])
             scatter = plt.scatter(X.cpu().numpy(), Z.cpu().numpy(),c=c,alpha=0.3,marker=".",cmap=colours)
             plt.legend(handles=scatter.legend_elements()[0], labels=classes)
-            plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_median_scatter.png')
+            plt.savefig(f'./{data_dir}/{name}_{reg}_median_scatter.png')
             plt.clf()
 
     def estimator_error_plot(self,org,est,name):
         reg = self.args['lamb']
         data_dir = self.args['data_dir']
-        alpha = self.args['alpha']
         o = np.array(org)
         e = np.array(est)
         error = (e-o)/o
         plt.hist(error,bins=50)
-        plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_expectation_error.png')
+        plt.savefig(f'./{data_dir}/{name}_{reg}_expectation_error.png')
         plt.clf()
 
     def surface_plot(self,X,Z,errors,name=''):
         reg = self.args['lamb']
         data_dir = self.args['data_dir']
-        alpha = self.args['alpha']
         errors = errors.flatten().cpu().numpy()
         ax = plt.axes(projection='3d')
         ax.plot_trisurf(X.cpu().flatten().numpy(), Z.cpu().flatten().numpy(), errors, cmap='viridis', edgecolor='none')
         ax.set_title('Surface plot')
-        plt.savefig(f'./{data_dir}/{name}_{alpha}_{reg}_surface.png')
+        plt.savefig(f'./{data_dir}/{name}_{reg}_surface.png')
         plt.clf()
 
     def diagnose_technique(self,dmw,plot_true,big_X,big_Z,lamb,estimator,org,est):
@@ -298,9 +294,11 @@ class simulation_object():
                     c_0 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
                     orginal = c_0.calculate_weighted_statistic()
                     og_stat_list.append(orginal.item())
-                    c_1 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w_estimator, cuda=self.cuda, device=self.device)
-                    est = c_1.calculate_weighted_statistic()
-                    est_stat_list.append(est.item())
+
+                    if estimator is not 'truth':
+                        c_1 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w_estimator, cuda=self.cuda, device=self.device)
+                        est = c_1.calculate_weighted_statistic()
+                        est_stat_list.append(est.item())
 
             big_X  = torch.cat(big_X,dim=0)
             big_Z  = torch.cat(big_Z,dim=0)

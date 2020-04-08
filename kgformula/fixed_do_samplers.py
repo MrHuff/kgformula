@@ -28,7 +28,7 @@ def sim_X(n,dist,theta):
     elif dist== 4:
         d = Beta(concentration0=theta,concentration1=theta)
     elif dist== 3:
-        d = Gamma(concentration=1,rate=1/theta)
+        d = Gamma(concentration=1,rate=1/theta) #Exponential theta
     else:
         raise Exception("X distribution must be normal (1), beta (4) or gamma (3)")
     return {'data':d.sample((n,1)),'density':d.log_prob}
@@ -156,7 +156,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
         d = Normal(loc = mu,scale = phi**0.5)
         _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
         wts = _prob.exp()
-    elif fam_x[1]==3:
+    elif fam_x[1]==3: #Change
         mu = torch.exp(X)
         d = Gamma(rate=1/(mu*phi),concentration=1/phi)
         _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
