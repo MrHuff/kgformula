@@ -100,7 +100,6 @@ class simulation_object():
             self.device = 'cpu'
 
     def run(self):
-        exp_reg_weights = self.args['exp']
         estimate = self.args['estimate']
         debug_plot = self.args['debug_plot']
         data_dir = self.args['data_dir']
@@ -113,7 +112,13 @@ class simulation_object():
         lamb = self.args['lamb']
         runs = self.args['runs']
         ks_data = []
-        suffix = f'_test_stat={test_stat}_seeds={seeds}_lambda={lamb}_estimate={estimate}_estimator={estimator}_exp={exp_reg_weights}'
+        suffix = f'_test_stat={test_stat}_seeds={seeds}_estimate={estimate}_estimator={estimator}'
+        if estimator=='kmm':
+            suffix = suffix + f'_{lamb}'
+        elif estimator=='classifier':
+            for key,val in est_params.items():
+                suffix = suffix + f'_{key}={val}'
+
         for j in range(runs):
             p_value_list = []
             reference_metric_list = []
@@ -131,8 +136,6 @@ class simulation_object():
                     if d.failed:
                         continue
                     w = d.return_weights()
-                    if exp_reg_weights:
-                        w = w.exp()
 
                 if test_stat == 3:
                     c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)

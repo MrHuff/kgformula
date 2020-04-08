@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from sklearn import metrics
 import torch.nn as nn
+from torch.cuda.amp import GradScaler,autocast
 def auc_check(y_pred,Y):
     with torch.no_grad():
         y_pred = (y_pred.float() > 0.5).cpu().float().numpy()
@@ -82,11 +83,17 @@ class logistic_regression(torch.nn.Module):
         return torch.nn.functional.sigmoid(self.W(x))
 
 class classification_dataset(Dataset):
-    def __init__(self,X,y):
+    def __init__(self,X,y,bs=None):
         super(classification_dataset, self).__init__()
         self.X = X
         self.y = y
-
+        self.bs = int(round(bs*self.X.shape[0]))
+    def fast_sample(self):
+        if self.bs is None or self.bs>=1:
+            return self.X,self.y
+        else:
+            i_s = np.random.randint(0,self.X.shape[0]-1-self.bs)
+            return self.X[i_s:i_s+self.bs, :], self.y[i_s:i_s+self.bs]
     def __len__(self):
         return self.X.shape[0]
 
@@ -126,38 +133,44 @@ class density_estimator():
 
         elif type == 'classifier':
             dataset = self.create_classification_data()
-            self.model = MLP(d=dataset.X.shape[1],f=256,k=1).to(self.x.device)
+            self.model = MLP(d=dataset.X.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
             self.w = self.train_classifier(dataset)
 
     def train_classifier(self,dataset):
         # dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
         loss_func = torch.nn.BCEWithLogitsLoss()
         opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
-        # opt = torch.optim.LBFGS(self.model.parameters(),lr=1e-1)
+        if self.est_params['mixed']:
+            scaler = GradScaler()
         auc=0
-        # for j in range(self.est_params['epochs']):
         j = 0
-        while auc<0.95:
-
-            X = dataset.X
-            y = dataset.y
-        # for i,(X,y) in enumerate(dataloader):
+        while auc<self.est_params['auc']:
+            X,y = dataset.fast_sample()
             opt.zero_grad()
-            pred = self.model(X)
-            l = loss_func(pred.squeeze(),y.squeeze())
-            l.backward()
-            opt.step()
-                # def closure():
+
+            if self.est_params['mixed']:
+                with autocast():
+                    pred = self.model(X)
+                    l = loss_func(pred.squeeze(),y.squeeze())
+                scaler.scale(l).backward()
+                scaler.step(opt)
+                scaler.update()
+            else:
+                pred = self.model(X)
+                l = loss_func(pred.squeeze(),y.squeeze())
+                l.backward()
+                opt.step()
+            # def closure():
                 #     pred = self.model(X)
                 #     opt.zero_grad()
                 #     l.backward()
                 #     l = loss_func(pred.squeeze(),y)
                 #     return l
                 # opt.step(closure)
-            if j%50==0:
+            if j%(self.est_params['max_its']//50)==0:
                 with torch.no_grad():
-                    pred = self.model(X)
-                    auc = auc_check(pred.squeeze(),y.squeeze())
+                    pred = self.model(dataset.X)
+                    auc = auc_check(pred.squeeze(),dataset.y.squeeze())
                     # print(f'auc epoch {j}: {auc}')
             j+=1
             if j>self.est_params['max_its']:
@@ -170,10 +183,10 @@ class density_estimator():
 
     def create_classification_data(self):
         with torch.no_grad():
-            # list_idx = torch.from_numpy(get_i_not_j_indices(self.n))  # Seems to be working alright!
-            # torch_idx_x, torch_idx_z = list_idx.unbind(dim=1)
-            perm = torch.randperm(self.x.shape[0])
-            data_neg = torch.cat([self.x, self.z[perm]], dim=1)
+            list_idx = torch.from_numpy(get_i_not_j_indices(self.n))  # Seems to be working alright!
+            perm = torch.randperm(self.est_params['negative_samples'])
+            torch_idx_x, torch_idx_z = list_idx[perm].unbind(dim=1)
+            data_neg = torch.cat([self.x[torch_idx_x], self.z[torch_idx_z]], dim=1)
             # idx = np.random.choice(data_neg.shape[0],self.est_params['sigma_n'])
             # data_neg = data_neg[idx,:]
             neg_samples = torch.zeros(data_neg.shape[0]).to(self.x.device)
@@ -181,7 +194,7 @@ class density_estimator():
             self.data_pos = torch.cat([self.x, self.z], dim=1)
             X = torch.cat([self.data_pos,data_neg],dim=0)
             y = torch.cat([pos_samples,neg_samples],dim=0)
-        return classification_dataset(X,y)
+        return classification_dataset(X,y,bs=self.est_params['bs_ratio'])
 
     def kernel_mean_matching(self):
         with torch.no_grad():
