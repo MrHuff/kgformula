@@ -138,7 +138,7 @@ class density_estimator():
 
     def train_classifier(self,dataset):
         # dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
-        loss_func = torch.nn.BCEWithLogitsLoss()
+        loss_func = torch.nn.BCEWithLogitsLoss(self.pos_weight)
         opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
         if self.est_params['mixed']:
             scaler = GradScaler()
@@ -179,7 +179,7 @@ class density_estimator():
                 break
         with torch.no_grad():
             p = self.model(self.data_pos)
-        return (1-p)/p
+        return (1-p)/(p*self.pos_weight)
 
     def create_classification_data(self):
         with torch.no_grad():
@@ -189,6 +189,7 @@ class density_estimator():
             data_neg = torch.cat([self.x[torch_idx_x], self.z[torch_idx_z]], dim=1)
             # idx = np.random.choice(data_neg.shape[0],self.est_params['sigma_n'])
             # data_neg = data_neg[idx,:]
+            self.pos_weight = data_neg.shape[0]/self.x.shape[0]
             neg_samples = torch.zeros(data_neg.shape[0]).to(self.x.device)
             pos_samples = torch.ones(self.x.shape[0]).to(self.x.device)
             self.data_pos = torch.cat([self.x, self.z], dim=1)
