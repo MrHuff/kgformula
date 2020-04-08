@@ -171,7 +171,7 @@ class density_estimator():
                 with torch.no_grad():
                     pred = self.model(dataset.X)
                     auc = auc_check(pred.squeeze(),dataset.y.squeeze())
-                    # print(f'auc epoch {j}: {auc}')
+                    print(f'auc epoch {j}: {auc}')
             j+=1
             if j>self.est_params['max_its']:
                 self.failed = True
@@ -189,7 +189,7 @@ class density_estimator():
             data_neg = torch.cat([self.x[torch_idx_x], self.z[torch_idx_z]], dim=1)
             # idx = np.random.choice(data_neg.shape[0],self.est_params['sigma_n'])
             # data_neg = data_neg[idx,:]
-            self.pos_weight = data_neg.shape[0]/self.x.shape[0]
+            self.pos_weight = torch.tensor(data_neg.shape[0]/self.x.shape[0],device=self.x.device)
             neg_samples = torch.zeros(data_neg.shape[0]).to(self.x.device)
             pos_samples = torch.ones(self.x.shape[0]).to(self.x.device)
             self.data_pos = torch.cat([self.x, self.z], dim=1)
