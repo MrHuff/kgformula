@@ -6,21 +6,28 @@ from matplotlib import pyplot as plt
 import time
 import GPUtil
 if __name__ == '__main__':
-    estimator = 'classifier'
+    estimator = 'HSIC_classifier'
     lamb = 1e-2
     data_dir = 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000'
     i = 0
     device = GPUtil.getFirstAvailable(order='memory')[0]
     X, Y, Z, _ = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
-    est_params = {'lr': 1e-3,'max_its':10000,'width':512,'layers':1,'auc':0.95,'mixed':True,'bs_ratio':0.1,'negative_samples':1000*10}
-    s = time.time()
-    d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb,device=device)
-    e = time.time()
-    print('mixed: ',e-s)
-    est_params = {'lr': 1e-3,'max_its':10000,'width':512,'layers':1,'auc':0.95,'mixed':False,'bs_ratio':0.1,'negative_samples':1000*10}
+    # est_params = {'lr': 1e-3,'max_its':10000,'width':512,'layers':1,'auc':0.95,'mixed':True,'bs_ratio':0.1,'negative_samples':1000*10}
+    # s = time.time()
+    # d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb,device=device)
+    # e = time.time()
+    # print('mixed: ',e-s)
+    est_params = {'lr': 1e-3,
+                  'max_its':10000,
+                  'auc':0.95,
+                  'mixed':False,
+                  'bs_ratio':0.1,
+                  'negative_samples':1000*10,
+                  'x_params':{'d': 1, 'f': 12, 'k': 2, 'o': 3},
+                  'y_params' :{'d': 1, 'f': 12, 'k': 2, 'o': 3}
+                  }
     d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb,device=device)
     e_2 = time.time()
-    print('32: ',e_2-e)
 
     # args = {
     #     'data_dir': 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000',
