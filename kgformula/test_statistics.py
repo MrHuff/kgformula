@@ -143,6 +143,7 @@ class density_estimator():
         self.device = device
         self.diag = reg_lambda*torch.eye(self.n)
         self.est_params = est_params
+        self.type = type
         if self.cuda:
             self.diag = self.diag.cuda(self.device)
         self.kernel_base = gpytorch.kernels.Kernel()
@@ -173,6 +174,16 @@ class density_estimator():
             dataset = self.create_classification_data()
             self.model = HSIC_MLP_classifier(x_data_params=self.est_params['x_params'],y_data_params=self.est_params['y_params'])
             self.w = self.train_classifier_HSIC(dataset)
+
+    def retrain(self,x,z):
+        self.x = x
+        self.z = z
+        if self.type == 'HSIC_classifier':
+            dataset = self.create_classification_data()
+            self.w = self.train_classifier_HSIC(dataset)
+        elif self.type == 'classifier':
+            dataset = self.create_classification_data()
+            self.w = self.train_classifier(dataset)
 
     def train_classifier_HSIC(self, dataset):
         # dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
