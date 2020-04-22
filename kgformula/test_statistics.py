@@ -11,7 +11,7 @@ import torch.nn as nn
 from torch.cuda.amp import GradScaler,autocast  
 
 def NCE_objective(true_preds,fake_preds):
-    _err = true_preds.log() + (1-fake_preds).log().sum(dim=1)
+    _err = torch.log(1e-3+true_preds) + (1e-3+1-fake_preds).log().sum(dim=1)
     return _err.mean()
 
 def auc_check(y_pred,Y):
@@ -268,13 +268,13 @@ class density_estimator():
                 l.backward()
                 opt.step()
 
-            # if j%(self.est_params['max_its']//50)==0:
-            with torch.no_grad():
-                idx = torch.randperm(dataset.X.shape[0])
-                pred_T = self.forward_pred(dataset.X,dataset.Z)
-                pred_F = self.forward_pred(dataset.X,dataset.Z[idx])
-                auc = auc_check(torch.cat([pred_T,pred_F]),y_test)
-                print(f'auc epoch {j}: {auc}')
+            if j%(self.est_params['max_its']//50)==0:
+                with torch.no_grad():
+                    idx = torch.randperm(dataset.X.shape[0])
+                    pred_T = self.forward_pred(dataset.X,dataset.Z)
+                    pred_F = self.forward_pred(dataset.X,dataset.Z[idx])
+                    auc = auc_check(torch.cat([pred_T,pred_F]),y_test)
+                    print(f'auc epoch {j}: {auc}')
             j+=1
             if j>self.est_params['max_its']:
                 self.failed = True

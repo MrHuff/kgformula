@@ -38,14 +38,14 @@ if __name__ == '__main__':
 
     # e = time.time()
     # print('mixed: ',e-s)
-    est_params = {'lr': 1e-3,
+    est_params = {'lr': 1e-4,
                   'max_its':10000,
                   'auc':0.95,
                   'mixed':False,
                   'bs_ratio':0.1,
                   'negative_samples':1000,
-                  'x_params':{'d': 1, 'f': 12, 'k': 2, 'o': 3},
-                  'y_params' :{'d': 1, 'f': 12, 'k': 2, 'o': 3},
+                  'x_params':{'d': 1, 'f': 64, 'k': 2, 'o': 3},
+                  'y_params' :{'d': 1, 'f': 64, 'k': 2, 'o': 3},
                   'kappa':10
                   }
     d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb,device=device)
