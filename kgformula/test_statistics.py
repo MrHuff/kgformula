@@ -10,8 +10,9 @@ from sklearn import metrics
 import torch.nn as nn
 from torch.cuda.amp import GradScaler,autocast  
 
-def bce_pos_weight(input,target,pos_weight):
-    return (pos_weight*target*input.log()+(1-target)*(1-input).log()).mean()
+def NCE_objective(true_preds,fake_preds):
+    _err = true_preds.log() + (1-fake_preds).log().sum(dim=1)
+    return _err.mean()
 
 def auc_check(y_pred,Y):
     with torch.no_grad():
@@ -55,9 +56,9 @@ def get_i_not_j_indices(n):
     list_np = np.delete(list_np, vec_2, axis=0)
     return list_np
 
-class MLP(torch.nn.Module):
+class MLP_feature_map(torch.nn.Module):
     def __init__(self,d,f=12,k=2,o=1):
-        super(MLP, self).__init__()
+        super(MLP_feature_map, self).__init__()
         self.model = nn.ModuleList()
         self.model.append(nn.Linear(d, f))
         self.model.append(nn.Tanh())
@@ -72,15 +73,34 @@ class MLP(torch.nn.Module):
             x = l(x)
         return x
 
-    def logistic_forward(self,x):
-        return torch.nn.functional.sigmoid(self.W(x))
+class MLP(torch.nn.Module):
+    def __init__(self,d,f=12,k=2,o=1):
+        super(MLP, self).__init__()
+        self.model = nn.ModuleList()
+        self.model.append(nn.Linear(d, f))
+        self.model.append(nn.Tanh())
+        for i in range(k):
+            self.model.append(nn.Linear(f, f))
+            self.model.append(nn.Tanh())
+        self.model.append(nn.Linear(f, o))
+        self.model.append(nn.Tanh())
 
+    def forward(self,X,Z):
+        x = torch.cat([X,Z],dim=1)
+        for l in self.model:
+            x = l(x)
+        return torch.sigmoid(x)
+
+    def forward_predict(self,X,Z):
+        return self.forward(X,Z)
 class HSIC_MLP_classifier(torch.nn.Module):
     def __init__(self,x_data_params,y_data_params):
         super(HSIC_MLP_classifier, self).__init__()
-        self.MLP_x_feature_map = MLP(**x_data_params)
-        self.MLP_y_feature_map = MLP(**y_data_params)
-        self.MSE_obj = torch.nn.MSELoss()
+        self.MLP_x_feature_map = MLP_feature_map(**x_data_params)
+        self.MLP_y_feature_map = MLP_feature_map(**y_data_params)
+
+    def MSE_obj(self,xy,xy_ref):
+        return (xy-xy_ref).square().sum(1)
 
     def calculate_HSIC(self,x,y,x_ref,y_ref):
         xy = self.MLP_x_feature_map(x)*self.MLP_y_feature_map(y)
@@ -88,11 +108,15 @@ class HSIC_MLP_classifier(torch.nn.Module):
         return self.MSE_obj(xy,xy_ref)
 
     def forward(self,x,y,x_ref,y_ref):
-        return 1-self.calculate_HSIC(x,y,x_ref,y_ref).neg_().exp_()
+        return 1.-torch.exp(-self.calculate_HSIC(x,y,x_ref,y_ref))
+
+    def forward_predict(self,x,y):
+        idx = torch.randperm(y.shape[0])
+        return 1.-torch.exp(-self.calculate_HSIC(x,y,x,y[idx]))
 
     def get_w(self,x,y):
         idx = torch.randperm(y.shape[0])
-        return 1/(self.calculate_HSIC(x,y,x,y[idx]).exp_()-1)
+        return 1./(torch.exp(self.calculate_HSIC(x,y,x,y[idx]))-1)
 
 class logistic_regression(torch.nn.Module):
     def __init__(self,d):
@@ -106,32 +130,50 @@ class logistic_regression(torch.nn.Module):
         return torch.nn.functional.sigmoid(self.W(x))
 
 class classification_dataset(Dataset):
-    def __init__(self,X,y,bs=None,X_ref=None):
+    def __init__(self,X,Z,bs=1.0,kappa=1):
         super(classification_dataset, self).__init__()
         self.X = X
-        self.X_ref = X_ref
-        self.y = y
+        self.Z = Z
         self.bs = int(round(bs*self.X.shape[0]))
+        self.device = X.device
+        self.kappa = kappa
+        self.sample_indices_base = np.arange(self.X.shape[0])
+        self.HSIC_mode = False
 
-    def fast_sample(self):
-        if self.bs is None or self.bs>=1:
-            return self.X,self.y
+    def build_sampling_set(self,true_indices):
+        np_cat = []
+        for x in np.nditer(true_indices):
+            np_cat.append(np.delete(self.sample_indices_base,x)[None,:])
+        return np.concatenate(np_cat,axis=0)
+
+    def sample_no_replace(self,fake_set,kappa,replace=False):
+        np_cat = []
+        for row in fake_set:
+            np_cat.append(np.random.choice(row,kappa,replace))
+        return np.concatenate(np_cat)
+
+    def get_indices(self):
+        if self.bs ==self.X.shape[0]:
+            true_indices = self.sample_indices_base
         else:
-            i_s = np.random.randint(0,self.X.shape[0]-1-self.bs)
-            return self.X[i_s:i_s+self.bs, :], self.y[i_s:i_s+self.bs]
-
-    def get_hsic_ref_data(self):
-        if self.bs is None or self.bs>=1:
-            return self.X_ref
+            i_s = np.random.randint(0, self.X.shape[0] - 1 - self.bs)
+            true_indices = np.arange(i_s,i_s+self.bs)
+        fake_set = self.build_sampling_set(true_indices)
+        fake_indices = self.sample_no_replace(fake_set,self.kappa,False)
+        if self.HSIC_mode:
+            HSIC_ref_indices_true = self.sample_no_replace(fake_set,1,False)
+            HSIC_ref_indices_fake = self.sample_no_replace(fake_set,self.kappa,False)
         else:
-            i_s = np.random.randint(0,self.X.shape[0]-1-self.bs)
-            return self.X_ref[i_s:i_s+self.bs, :]
+            HSIC_ref_indices_true = None
+            HSIC_ref_indices_fake = None
+        return true_indices,fake_indices,HSIC_ref_indices_true,HSIC_ref_indices_fake
 
-    def __len__(self):
-        return self.X.shape[0]
-
-    def __getitem__(self, i):
-        return self.X[i,:],self.y[i]
+    def get_sample(self):
+        T,F,HSIC_T,HSIC_F = self.get_indices()
+        if self.HSIC_mode:
+            return self.X[T],self.Z[T],self.X[T.repeat(self.kappa)],self.Z[F],self.Z[HSIC_T],self.Z[HSIC_F]
+        else:
+            return self.X[T],self.Z[T],self.X[T.repeat(self.kappa)],self.Z[F],None,None
 
 class density_estimator():
     def __init__(self, x, z, est_params=None, reg_lambda=1e-3, cuda=False, device=0, type='linear'):
@@ -167,118 +209,82 @@ class density_estimator():
 
         elif type == 'classifier':
             dataset = self.create_classification_data()
-            self.model = MLP(d=dataset.X.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
+            self.model = MLP(d=dataset.X.shape[1]+dataset.Z.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
             self.w = self.train_classifier(dataset)
 
         elif type == 'HSIC_classifier':
             dataset = self.create_classification_data()
-            self.model = HSIC_MLP_classifier(x_data_params=self.est_params['x_params'],y_data_params=self.est_params['y_params'])
-            self.w = self.train_classifier_HSIC(dataset)
+            dataset.HSIC_mode = True
+            self.model = HSIC_MLP_classifier(x_data_params=self.est_params['x_params'],y_data_params=self.est_params['y_params']).to(self.x.device)
+            self.w = self.train_classifier(dataset)
 
     def retrain(self,x,z):
         self.x = x
         self.z = z
         if self.type == 'HSIC_classifier':
             dataset = self.create_classification_data()
-            self.w = self.train_classifier_HSIC(dataset)
+            self.w = self.train_classifier(dataset)
         elif self.type == 'classifier':
             dataset = self.create_classification_data()
             self.w = self.train_classifier(dataset)
 
-    def train_classifier_HSIC(self, dataset):
-        # dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
-        # loss_func = torch.nn.BCELoss()
-        opt = torch.optim.Adam(self.model.parameters(), lr=self.est_params['lr'])
-        if self.est_params['mixed']:
-            scaler = GradScaler()
-        auc = 0
-        j = 0
-        while auc < self.est_params['auc']:
-            X, y = dataset.fast_sample()
-            X_ref = dataset.get_hsic_ref_data()
-            opt.zero_grad()
-            if self.est_params['mixed']:
-                with autocast():
-                    pred = self.model(X[:,0],X[:,1],X_ref[:,0],X_ref[:,1])
-                    l = bce_pos_weight(pred.squeeze(),y.squeeze(),pos_weight=self.pos_weight)
-                scaler.scale(l).backward()
-                scaler.step(opt)
-                scaler.update()
-            else:
-                pred = self.model(X[:, 0], X[:, 1], X_ref[:, 0], X_ref[:, 1])
-                l = bce_pos_weight(pred.squeeze(), y.squeeze(), pos_weight=self.pos_weight)
-                l.backward()
-                opt.step()
+    def forward_pred(self,X,Z,):
+        if self.type == 'HSIC_classifier':
+            pred_T = self.model.forward_predict(X,Z)
+        elif self.type == 'classifier':
+            pred_T = self.model.forward_predict(X,Z)
+        return pred_T.squeeze()
 
-            if j % (self.est_params['max_its'] // 50) == 0:
-                with torch.no_grad():
-                    pred = self.model(dataset.X)
-                    auc = auc_check(pred.squeeze(), dataset.y.squeeze())
-                    print(f'auc epoch {j}: {auc}')
-            j += 1
-            if j > self.est_params['max_its']:
-                self.failed = True
-                print('failed')
-                break
-        with torch.no_grad():
-            p = self.model.get_w(dataset.X[:,0],dataset.X[:,1])
-        return p
+    def forward_func(self,X,Z,X_fake,Z_fake,Z_hsic_T,Z_hsic_F,loss_func):
+        if self.type == 'HSIC_classifier':
+            pred_T = self.model(X,Z,X,Z_hsic_T)
+            pred_F = self.model(X_fake,Z_fake,X_fake,Z_hsic_F)
+        elif self.type == 'classifier':
+            pred_T = self.model(X,Z)
+            pred_F = self.model(X_fake,Z_fake)
+        pred_F = pred_F.view(pred_T.shape[0],-1)
+        return loss_func(pred_T,pred_F)
 
     def train_classifier(self,dataset):
         # dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
-        loss_func = torch.nn.BCEWithLogitsLoss(self.pos_weight)
+        loss_func = NCE_objective
         opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
         if self.est_params['mixed']:
             scaler = GradScaler()
         auc=0
         j = 0
+        y_test = torch.cat([torch.ones(dataset.X.shape[0]),torch.zeros(dataset.X.shape[0])])
         while auc<self.est_params['auc']:
-            X,y = dataset.fast_sample()
+            X_true,Z_true,X_fake,Z_fake,Z_HSIC_T,Z_HSIC_F = dataset.get_sample()
             opt.zero_grad()
-
             if self.est_params['mixed']:
                 with autocast():
-                    pred = self.model(X)
-                    l = loss_func(pred.squeeze(),y.squeeze())
+                    l = self.forward_func(X_true,Z_true,X_fake,Z_fake,Z_HSIC_T,Z_HSIC_F,loss_func)
                 scaler.scale(l).backward()
                 scaler.step(opt)
                 scaler.update()
             else:
-                pred = self.model(X)
-                l = loss_func(pred.squeeze(),y.squeeze())
+                l = self.forward_func(X_true, Z_true, X_fake, Z_fake, Z_HSIC_T, Z_HSIC_F,loss_func)
                 l.backward()
                 opt.step()
 
-            if j%(self.est_params['max_its']//50)==0:
-                with torch.no_grad():
-                    pred = self.model(dataset.X)
-                    auc = auc_check(pred.squeeze(),dataset.y.squeeze())
-                    print(f'auc epoch {j}: {auc}')
+            # if j%(self.est_params['max_its']//50)==0:
+            with torch.no_grad():
+                idx = torch.randperm(dataset.X.shape[0])
+                pred_T = self.forward_pred(dataset.X,dataset.Z)
+                pred_F = self.forward_pred(dataset.X,dataset.Z[idx])
+                auc = auc_check(torch.cat([pred_T,pred_F]),y_test)
+                print(f'auc epoch {j}: {auc}')
             j+=1
             if j>self.est_params['max_its']:
                 self.failed = True
                 print('failed')
                 break
-        with torch.no_grad():
-            p = self.model(self.data_pos)
-        return (1-p)/(p*self.pos_weight)
 
     def create_classification_data(self):
         with torch.no_grad():
-            list_idx = torch.from_numpy(get_i_not_j_indices(self.n))  # Seems to be working alright!
-            perm = torch.randperm(self.est_params['negative_samples'])
-            torch_idx_x, torch_idx_z = list_idx[perm].unbind(dim=1)
-            data_neg = torch.cat([self.x[torch_idx_x], self.z[torch_idx_z]], dim=1)
-            perm_ref = torch.randperm(self.est_params['negative_samples']*10)
-            torch_idx_ref_x, torch_idx_ref_z = list_idx[perm_ref].unbind(dim=1)
-            reference_HSIC = torch.cat([self.x[torch_idx_ref_x], self.z[torch_idx_ref_z]], dim=1)
-            self.pos_weight = torch.tensor(data_neg.shape[0]/self.x.shape[0],device=self.x.device)
-            neg_samples = torch.zeros(data_neg.shape[0]).to(self.x.device)
-            pos_samples = torch.ones(self.x.shape[0]).to(self.x.device)
-            self.data_pos = torch.cat([self.x, self.z], dim=1)
-            X = torch.cat([self.data_pos,data_neg],dim=0)
-            y = torch.cat([pos_samples,neg_samples],dim=0)
-        return classification_dataset(X,y,bs=self.est_params['bs_ratio'],X_ref=reference_HSIC)
+            self.kappa = self.est_params['kappa']
+        return classification_dataset(self.x,self.z,bs=self.est_params['bs_ratio'],kappa=self.kappa)
 
     def kernel_mean_matching(self):
         with torch.no_grad():
