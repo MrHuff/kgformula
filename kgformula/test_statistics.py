@@ -11,7 +11,11 @@ import torch.nn as nn
 from torch.cuda.amp import GradScaler,autocast  
 
 def NCE_objective(true_preds,fake_preds):
-    _err = torch.log(1e-3+true_preds) + (1e-3+1-fake_preds).log().sum(dim=1)
+    _err = -torch.log(true_preds) - (1.-fake_preds).log().mean(dim=1)
+    return _err.mean()
+
+def NCE_objective_stable(true_preds,fake_preds):
+    _err = -(true_preds-torch.log(true_preds.exp()+1)-torch.log(fake_preds.exp()+1).mean(dim=1))
     return _err.mean()
 
 def auc_check(y_pred,Y):
@@ -66,7 +70,7 @@ class MLP_feature_map(torch.nn.Module):
             self.model.append(nn.Linear(f, f))
             self.model.append(nn.Tanh())
         self.model.append(nn.Linear(f, o))
-        self.model.append(nn.Tanh())
+        # self.model.append(nn.Tanh())
 
     def forward(self,x):
         for l in self.model:
@@ -89,10 +93,16 @@ class MLP(torch.nn.Module):
         x = torch.cat([X,Z],dim=1)
         for l in self.model:
             x = l(x)
-        return torch.sigmoid(x)
+        return x
 
     def forward_predict(self,X,Z):
         return self.forward(X,Z)
+
+    def get_w(self, x, y):
+        pred = torch.sigmoid(self.forward(x,y))
+        return (1-pred)/pred
+
+
 class HSIC_MLP_classifier(torch.nn.Module):
     def __init__(self,x_data_params,y_data_params):
         super(HSIC_MLP_classifier, self).__init__()
@@ -105,19 +115,34 @@ class HSIC_MLP_classifier(torch.nn.Module):
     def calculate_HSIC(self,x,y,x_ref,y_ref):
         xy = self.MLP_x_feature_map(x)*self.MLP_y_feature_map(y)
         xy_ref = self.MLP_x_feature_map(x_ref)*self.MLP_y_feature_map(y_ref)
-        return self.MSE_obj(xy,xy_ref)
+        v = self.MSE_obj(xy,xy_ref)
+        return v
 
     def forward(self,x,y,x_ref,y_ref):
-        return 1.-torch.exp(-self.calculate_HSIC(x,y,x_ref,y_ref))
+        return (1.-torch.exp(-self.calculate_HSIC(x,y,x_ref,y_ref)))*0.99
 
     def forward_predict(self,x,y):
         idx = torch.randperm(y.shape[0])
-        return 1.-torch.exp(-self.calculate_HSIC(x,y,x,y[idx]))
+        return (1.-torch.exp(-self.calculate_HSIC(x,y,x,y[idx])))*0.99
 
     def get_w(self,x,y):
         idx = torch.randperm(y.shape[0])
         return 1./(torch.exp(self.calculate_HSIC(x,y,x,y[idx]))-1)
 
+class HSIC_MLP_classifier_variant(HSIC_MLP_classifier):
+    def __init__(self,x_data_params,y_data_params):
+        super(HSIC_MLP_classifier_variant, self).__init__(x_data_params,y_data_params)
+
+    def forward(self, x, y, x_ref, y_ref):
+        return torch.log(self.calculate_HSIC(x,y,x_ref,y_ref))
+
+    def forward_predict(self, x, y):
+        idx = torch.randperm(y.shape[0])
+        return torch.log(self.calculate_HSIC(x, y, x, y[idx]))
+
+    def get_w(self, x, y):
+        idx = torch.randperm(y.shape[0])
+        return 1. /self.calculate_HSIC(x, y, x, y[idx])
 class logistic_regression(torch.nn.Module):
     def __init__(self,d):
         super(logistic_regression, self).__init__()
@@ -215,7 +240,7 @@ class density_estimator():
         elif type == 'HSIC_classifier':
             dataset = self.create_classification_data()
             dataset.HSIC_mode = True
-            self.model = HSIC_MLP_classifier(x_data_params=self.est_params['x_params'],y_data_params=self.est_params['y_params']).to(self.x.device)
+            self.model = HSIC_MLP_classifier_variant(x_data_params=self.est_params['x_params'],y_data_params=self.est_params['y_params']).to(self.x.device)
             self.w = self.train_classifier(dataset)
 
     def retrain(self,x,z):
@@ -247,14 +272,15 @@ class density_estimator():
 
     def train_classifier(self,dataset):
         # dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
-        loss_func = NCE_objective
+        loss_func = NCE_objective_stable
         opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
         if self.est_params['mixed']:
             scaler = GradScaler()
-        auc=0
-        j = 0
-        y_test = torch.cat([torch.ones(dataset.X.shape[0]),torch.zeros(dataset.X.shape[0])])
-        while auc<self.est_params['auc']:
+        # y_test = torch.cat([torch.ones(dataset.X.shape[0]),torch.zeros(dataset.X.shape[0])])
+        counter = 0
+        best = np.inf
+        idx = torch.randperm(dataset.X.shape[0])
+        for i in range(self.est_params['max_its']):
             X_true,Z_true,X_fake,Z_fake,Z_HSIC_T,Z_HSIC_F = dataset.get_sample()
             opt.zero_grad()
             if self.est_params['mixed']:
@@ -268,19 +294,31 @@ class density_estimator():
                 l.backward()
                 opt.step()
 
-            if j%(self.est_params['max_its']//50)==0:
+            if i%(self.est_params['max_its']//50)==0:
+                # print(l)
                 with torch.no_grad():
-                    idx = torch.randperm(dataset.X.shape[0])
                     pred_T = self.forward_pred(dataset.X,dataset.Z)
                     pred_F = self.forward_pred(dataset.X,dataset.Z[idx])
-                    auc = auc_check(torch.cat([pred_T,pred_F]),y_test)
-                    print(f'auc epoch {j}: {auc}')
-            j+=1
-            if j>self.est_params['max_its']:
-                self.failed = True
-                print('failed')
-                break
+                    pred_F = pred_F.view(pred_T.shape[0], -1)
+                    # auc = self.forward_func(dataset.X, dataset.Z, dataset.X, dataset.Z[idx], Z_HSIC_T, Z_HSIC_F, loss_func)
+                    # print(pred_T)
+                    # print(pred_F)
+                    # auc = auc_check(torch.cat([pred_T,pred_F]),y_test)
+                    auc = loss_func(pred_T,pred_F)
+                    print(f'logloss epoch {i}: {auc}')
+                    if auc.item()<best:
+                        best = auc.item()
+                        counter=0
+                    else:
+                        counter+=1
 
+                    # print(f'auc epoch {j}: {auc}')
+            if counter>self.est_params['kill_counter']:
+                print('stopped improving, stopping')
+                break
+        with torch.no_grad():
+            w = self.model.get_w(dataset.X,dataset.Z)
+        return w
     def create_classification_data(self):
         with torch.no_grad():
             self.kappa = self.est_params['kappa']

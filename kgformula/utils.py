@@ -11,7 +11,17 @@ from kgformula.fixed_do_samplers import simulate_xyz
 import os
 import numpy as np
 from matplotlib.colors import ListedColormap
-
+import matplotlib.tri as mtri
+def get_density_plot(d,X,Z):
+    w = d.return_weights()
+    X = X.cpu().flatten().numpy()
+    Z = Z.cpu().flatten().numpy()
+    w = w.cpu().flatten().numpy()
+    triang = mtri.Triangulation(X, Z)
+    plt.tricontourf(triang, w)
+    plt.colorbar()
+    plt.show()
+    plt.clf()
 def str2bool(v):
     if isinstance(v, bool):
        return v

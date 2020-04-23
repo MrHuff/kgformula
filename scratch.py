@@ -1,54 +1,52 @@
 from kgformula.test_statistics import weighted_stat,weighted_statistic_new, density_estimator,get_i_not_j_indices
-from kgformula.utils import simulation_object
+from kgformula.utils import simulation_object,get_density_plot
 import torch
 import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.tri as mtri
+
 import time
 import GPUtil
 import seaborn as sns; sns.set()
 
 if __name__ == '__main__':
 
-    estimator = 'HSIC_classifier'
+    estimator = 'classifier'
     lamb = 1e-2
     data_dir = 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000'
     i = 0
     device = GPUtil.getFirstAvailable(order='memory')[0]
-    X, Y, Z, w_true = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
-    # # X = X.cpu().flatten().numpy()
-    # # Z = Z.cpu().flatten().numpy()
-    # # w = w_true.cpu().flatten().numpy()
-    # # triang = mtri.Triangulation(X, Z)
-    # # plt.tricontourf(triang, w)
-    # # plt.colorbar()
-    # # plt.show()
-    # est_params = {'lr': 1e-4,'max_its':10000,'width':512,'layers':1,'auc':0.95,'mixed':False,'bs_ratio':.1,'kappa':1}
-    # s = time.time()
-    # d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb,device=device)
-    # w = d.return_weights()
+    # X, Y, Z, w_true = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
     # X = X.cpu().flatten().numpy()
     # Z = Z.cpu().flatten().numpy()
-    # w = w.cpu().flatten().numpy()
+    # w = w_true.cpu().flatten().numpy()
     # triang = mtri.Triangulation(X, Z)
     # plt.tricontourf(triang, w)
     # plt.colorbar()
     # plt.show()
+    X, Y, Z, w_true = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
+    est_params = {'lr': 1e-4,'max_its':5000,'width':64,'layers':2,'mixed':False,'bs_ratio':0.01,'kappa':10,'kill_counter':10}
+    d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb,device=device)
+    get_density_plot(d,X,Z)
+
+    # s = time.time()
 
     # e = time.time()
     # print('mixed: ',e-s)
-    est_params = {'lr': 1e-4,
-                  'max_its':10000,
-                  'auc':0.95,
-                  'mixed':False,
-                  'bs_ratio':0.1,
-                  'negative_samples':1000,
-                  'x_params':{'d': 1, 'f': 64, 'k': 2, 'o': 3},
-                  'y_params' :{'d': 1, 'f': 64, 'k': 2, 'o': 3},
-                  'kappa':10
-                  }
-    d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb,device=device)
+    # estimator = 'HSIC_classifier'
+    # est_params = {'lr': 1e-3,
+    #               'max_its':5000,
+    #               'kill_counter':10,
+    #               'mixed':False,
+    #               'bs_ratio':0.1,
+    #               'negative_samples':1000,
+    #               'x_params':{'d': 1, 'f': 32, 'k': 1, 'o': 3},
+    #               'y_params' :{'d': 1, 'f': 32, 'k': 1, 'o': 3},
+    #               'kappa':10,
+    #
+    #               }
+    # d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb,device=device)
+    # get_density_plot(d,X,Z)
     # e_2 = time.time()
 
     # args = {
