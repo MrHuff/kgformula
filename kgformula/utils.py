@@ -6,7 +6,7 @@ from scipy.stats import kstest
 import tqdm
 import pandas as pd
 import torch
-from kgformula.test_statistics import weighted_stat,weighted_statistic_new,wild_bootstrap_deviance, density_estimator
+from kgformula.test_statistics import weighted_statistic_new, density_estimator
 from kgformula.fixed_do_samplers import simulate_xyz
 import os
 import numpy as np
@@ -60,7 +60,6 @@ def job_parser():
     parser.add_argument('--estimator', type=str, nargs='?',default='kmm')
     parser.add_argument('--lamb', type=float, nargs='?', default=0.5, help='lamb')
     parser.add_argument('--runs', type=int, nargs='?', default=1, help='runs')
-    parser.add_argument('--test_stat', type=int, nargs='?', default=1, help='runs')
 
     return parser
 
@@ -113,7 +112,6 @@ class simulation_object():
         estimate = self.args['estimate']
         debug_plot = self.args['debug_plot']
         data_dir = self.args['data_dir']
-        test_stat = self.args['test_stat']
         seeds = self.args['seeds']
         bootstrap_runs  = self.args['bootstrap_runs']
         bins = 25
@@ -122,7 +120,7 @@ class simulation_object():
         lamb = self.args['lamb']
         runs = self.args['runs']
         ks_data = []
-        suffix = f'_test_stat={test_stat}_seeds={seeds}_estimate={estimate}_estimator={estimator}'
+        suffix = f'_seeds={seeds}_estimate={estimate}_estimator={estimator}'
         if estimator=='kmm':
             suffix = suffix + f'_{lamb}'
         elif estimator=='classifier':
@@ -134,25 +132,20 @@ class simulation_object():
             reference_metric_list = []
             for i in tqdm.trange(seeds):
                 if self.cuda:
-                    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
+                    X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
-                    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+                    X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
                 if debug_plot:
                     plt.scatter(Z.numpy(), X.numpy())
                     plt.show()
-                # Cheating case
                 if estimate:
-                    d = density_estimator(x=X, z=Z, cuda=self.cuda, est_params=est_params, type=estimator, reg_lambda=lamb,device=self.device)
+                    d = density_estimator(x=X, z=Z, cuda=self.cuda, est_params=est_params, type=estimator,device=self.device)
                     if d.failed:
                         continue
                     w = d.return_weights()
-
-                if test_stat == 3:
-                    c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
-                elif test_stat == 2:
-                    c = weighted_stat(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device, half_mode=False)
-                elif test_stat == 1:
-                    c = wild_bootstrap_deviance(X=X, Y=Y, Z=Z, cuda=self.cuda, device=self.device)
+                else:
+                    w = _w
+                c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
                 reference_metric = c.calculate_weighted_statistic()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):

@@ -8,7 +8,11 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from sklearn import metrics
 import torch.nn as nn
-from torch.cuda.amp import GradScaler,autocast  
+try:
+    from torch.cuda.amp import GradScaler,autocast
+except Exception as e:
+    print(e)
+    print('Install nightly pytorch for mixed precision')
 
 def NCE_objective(true_preds,fake_preds):
     _err = -torch.log(true_preds) - (1.-fake_preds).log().mean(dim=1)
@@ -201,27 +205,30 @@ class classification_dataset(Dataset):
             return self.X[T],self.Z[T],self.X[T.repeat(self.kappa)],self.Z[F],None,None
 
 class density_estimator():
-    def __init__(self, x, z, est_params=None, reg_lambda=1e-3, cuda=False, device=0, type='linear'):
+    def __init__(self, x, z, est_params=None, cuda=False, device=0, type='linear'):
         self.failed = False
         self.x = x
         self.z = z
         self.cuda = cuda
         self.n = self.x.shape[0]
         self.device = device
-        self.diag = reg_lambda*torch.eye(self.n)
         self.est_params = est_params
         self.type = type
-        if self.cuda:
-            self.diag = self.diag.cuda(self.device)
         self.kernel_base = gpytorch.kernels.Kernel()
 
         if type=='linear':
             self.alpha = est_params['alpha']
+            self.diag = est_params['reg_lambda']*torch.eye(self.n)
+            if self.cuda:
+                self.diag = self.diag.cuda(self.device)
             self.linear_x_of_z()
             self.get_w_kdre()
 
         elif type=='gp':
             self.alpha = est_params['alpha']
+            self.diag = est_params['reg_lambda']*torch.eye(self.n)
+            if self.cuda:
+                self.diag = self.diag.cuda(self.device)
             self.kernel_ls_init('kernel_tmp', self.z)
             self.gp_x_of_z()
             self.get_w_kdre()
@@ -230,6 +237,9 @@ class density_estimator():
             self.semi_cheat_x_of_z()
 
         elif type == 'kmm':
+            self.diag = est_params['reg_lambda']*torch.eye(self.n)
+            if self.cuda:
+                self.diag = self.diag.cuda(self.device)
             self.kernel_mean_matching()
 
         elif type == 'classifier':
@@ -332,8 +342,6 @@ class density_estimator():
             data = torch.cat([self.x,self.z],dim=1)
             self.kernel_ls_init('kernel_up', data)
             ls = self.get_median_ls_XY(data,data_extended)
-            # self.kernel_ls_init('kernel_down',data,data_extended,ls)
-            # y = self.kernel_down.sum(dim=1).unsqueeze(-1)/(self.n-1)
             y = self.kernel_ls_init_keops(ls=ls,data=data,data_2=data_extended)
             self.w,_ = torch.solve(y,(self.kernel_up+self.diag))
 
@@ -341,8 +349,9 @@ class density_estimator():
         self.kernel_ls_init('kernel_up', self.x)
         self.kernel_ls_init('kernel_down', self.x, self.down_estimator)
         with torch.no_grad():
+            self.kernel_down = self.kernel_down.evaluate()
             self.h_hat = self.kernel_up.mean(dim=1,keepdim=True)
-            self.H = self.alpha/self.n * torch.mm(self.kernel_up, self.kernel_up) + (1-self.alpha)/self.n * torch.mm(self.kernel_down, self.kernel_down) + self.diag
+            self.H = self.alpha/self.n * self.kernel_up@self.kernel_up + (1-self.alpha)/self.n * (self.kernel_down@self.kernel_down) + self.diag
             self.theta,_ = torch.solve(self.h_hat, self.H)
             self.w = self.kernel_up@self.theta
 
@@ -456,15 +465,6 @@ class weighted_stat(): #HAPPY MISTAKE?!?!??!?!?!?!?!?
             ret = torch.sqrt(torch.median(d[d > 0]))
             return ret
 
-    def permutation_calculate_weighted_statistic(self):
-        idx = torch.randperm(self.n)
-        with torch.no_grad():
-            return (self.center_X*self.center_Y[idx]).sum() #WHY WOULD THIS MATTER?!?!?!? [idx] placement is really weird
-
-    def calculate_weighted_statistic(self):
-        with torch.no_grad():
-            return (self.center_X*self.center_Y).sum()
-
 class weighted_statistic_new(weighted_stat):
     def __init__(self,X,Y,Z,w,do_null = True,reg_lambda=1e-3,cuda=False,device=0):
         super(weighted_statistic_new, self).__init__(X, Y, Z, w, do_null, reg_lambda, cuda, device)
@@ -514,104 +514,7 @@ class weighted_statistic_new(weighted_stat):
                     self.X_ker_n_1 @ self.Y_ker_n_1.t()) + self.term_5 * self.Y_ker_H_2 + self.term_6 + self.term_7
             return test_stat.sum()
 
-class wild_bootstrap_deviance():
-    def __init__(self,X,Y,Z,distribution='normal',do_null = True,reg_lambda=1e-3,cuda=False,device=0):
-        self.n = X.shape[0]
-        self.reg_lambda = reg_lambda
-        self.diag = self.reg_lambda * torch.eye(self.n)
-        self.H = torch.ones(*(self.n, self.n)) * (1 - 1 / self.n)
-        self.ones = torch.ones(*(self.n,1))
-        if cuda:
-            self.H = self.H.cuda(device)
-            self.diag = self.diag.cuda(device)
-            self.ones = self.ones.cuda(device)
-        else:
-            device = 'cpu'
-        self.X = X if not cuda else X.cuda(device)
-        self.Y = Y if not cuda else Y.cuda(device)
-        self.Z = Z if not cuda else Z.cuda(device)
-        self.device = device
-        self.cuda = cuda
-        self.do_null=do_null
-        self.kernel_base = gpytorch.kernels.Kernel()
-        for name,data in zip(['kernel_X','kernel_Y','kernel_Z'],[self.X,self.Y,self.Z]):
-            self.kernel_ls_init(name,data)
 
-        if distribution=='normal':
-            self.d = Normal(0,1)
-        elif distribution=='uniform':
-            self.d = Uniform(0,1)
-        elif distribution=='exp':
-            self.d = Exponential(1)
-        elif distribution=='ber':
-            self.d = Bernoulli(0.5)
-        self.calculate_base_components()
-
-    def sample_W(self):
-        w = self.d.sample((self.n,1))
-        W = w@w.t()
-        if self.cuda:
-            W = W.cuda(self.device)
-        return W
-
-    def kernel_ls_init(self,name,data):
-        ker = gpytorch.kernels.RBFKernel()
-        ls = self.get_median_ls(data)
-        ker._set_lengthscale(ls)
-        if self.cuda:
-            ker = ker.cuda(self.device)
-        setattr(self,name,ker(data).evaluate())
-
-    def get_median_ls(self,X):
-        with torch.no_grad():
-            d = self.kernel_base.covar_dist(x1=X,x2=X)
-            ret = torch.sqrt(torch.median(d[d > 0]))
-            return ret
-
-    def calculate_base_components(self):
-        with torch.no_grad():
-            Mav = self.kernel_Z@self.ones@self.ones.t()
-            W,_ = torch.solve(Mav,self.kernel_X*self.kernel_Z+self.diag)
-            self.C = self.cov(W)
-
-    def calculate_weighted_statistic(self):
-        return torch.sum(self.C*self.kernel_Y)
-
-    def permutation_calculate_weighted_statistic(self):
-        W = self.sample_W()
-        return torch.sum(W*self.C*self.kernel_Y)
-
-    def cov(self,m, rowvar=False):
-        '''Estimate a covariance matrix given data.
-
-        Covariance indicates the level to which two variables vary together.
-        If we examine N-dimensional samples, `X = [x_1, x_2, ... x_N]^T`,
-        then the covariance matrix element `C_{ij}` is the covariance of
-        `x_i` and `x_j`. The element `C_{ii}` is the variance of `x_i`.
-
-        Args:
-            m: A 1-D or 2-D array containing multiple variables and observations.
-                Each row of `m` represents a variable, and each column a single
-                observation of all those variables.
-            rowvar: If `rowvar` is True, then each row represents a
-                variable, with observations in the columns. Otherwise, the
-                relationship is transposed: each column represents a variable,
-                while the rows contain observations.
-
-        Returns:
-            The covariance matrix of the variables.
-        '''
-        if m.dim() > 2:
-            raise ValueError('m has more than 2 dimensions')
-        if m.dim() < 2:
-            m = m.view(1, -1)
-        if not rowvar and m.size(0) != 1:
-            m = m.t()
-        # m = m.type(torch.double)  # uncomment this line if desired
-        fact = 1.0 / (m.size(1) - 1)
-        m -= torch.mean(m, dim=1, keepdim=True)
-        mt = m.t()  # if complex: mt = m.t().conj()
-        return fact * m.matmul(mt).squeeze()
 
 
 

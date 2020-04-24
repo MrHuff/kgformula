@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # plt.colorbar()
     # plt.show()
     X, Y, Z, w_true = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
-    est_params = {'lr': 1e-4,'max_its':5000,'width':64,'layers':2,'mixed':False,'bs_ratio':0.01,'kappa':10,'kill_counter':10}
+    est_params = {'lr': 1e-3,'max_its':2000,'width':32,'layers':4,'mixed':False,'bs_ratio':0.01,'kappa':10,'kill_counter':5}
     d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator, reg_lambda=lamb,device=device)
     get_density_plot(d,X,Z)
 
