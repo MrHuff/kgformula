@@ -18,13 +18,19 @@ if __name__ == '__main__':
     X, Y, Z, w_true = torch.load(f'./{data_dir}/data_seed={i}.pt', map_location=f'cuda:{device}')
 
     estimator = 'classifier'
-    est_params = {'lr': 1e-3, 'max_its': 2000, 'width': 32, 'layers': 4, 'mixed': False, 'bs_ratio': 0.01, 'kappa': 10,
-                  'kill_counter': 5}
+    est_params = {'lr': 1e-3,
+                  'max_its': 2000,
+                  'width': 32,
+                  'layers': 4,
+                  'mixed': False,
+                  'bs_ratio': 0.05,
+                  'kappa': 10,
+                  'kill_counter': 10,
+                  'val_rate':0.01}
     w_classification = get_w_estimate_and_plot(X,Z,est_params,estimator,device)
     with torch.no_grad():
         l = mse_loss(w_true,w_classification)/w_true.var()
         print(1-l.item())
-
 
     estimator = 'semi'
     est_params = {}
@@ -34,25 +40,25 @@ if __name__ == '__main__':
         print(1-l.item())
 
     estimator = 'linear'
-    est_params = {'reg_lambda':1e-2,'alpha':0.5}
+    est_params = {'reg_lambda':1e-1,'alpha':0.5}
     w_linear = get_w_estimate_and_plot(X, Z, est_params, estimator, device)
     with torch.no_grad():
         l = mse_loss(w_true,w_linear)/w_true.var()
         print(1-l.item())
 
     estimator = 'gp'
-    est_params = {'reg_lambda':1e-2,'alpha':0.5}
+    est_params = {'reg_lambda':1e-1,'alpha':0.5}
     w_gp = get_w_estimate_and_plot(X, Z, est_params, estimator, device)
     with torch.no_grad():
         l = mse_loss(w_true,w_linear)/w_true.var()
         print(1-l.item())
 
-    estimator = 'kmm'
-    est_params = {'reg_lambda':1e-2}
-    w_kmm = get_w_estimate_and_plot(X, Z, est_params, estimator, device)
-    with torch.no_grad():
-        l = mse_loss(w_true,w_kmm)/w_true.var()
-        print(1-l.item())
+    # estimator = 'kmm'
+    # est_params = {'reg_lambda':1e-1}
+    # w_kmm = get_w_estimate_and_plot(X, Z, est_params, estimator, device)
+    # with torch.no_grad():
+    #     l = mse_loss(w_true,w_kmm)/w_true.var()
+    #     print(1-l.item())
 
 
 

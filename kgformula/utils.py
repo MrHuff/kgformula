@@ -1,7 +1,6 @@
 import argparse
 import GPUtil
 from matplotlib import pyplot as plt
-from mpl_toolkits import mplot3d
 from scipy.stats import kstest
 import tqdm
 import pandas as pd
@@ -12,6 +11,7 @@ import os
 import numpy as np
 from matplotlib.colors import ListedColormap
 import matplotlib.tri as mtri
+
 def get_density_plot(d,X,Z):
     w = d.return_weights()
     X = X.cpu().flatten().numpy()
@@ -22,6 +22,7 @@ def get_density_plot(d,X,Z):
     plt.colorbar()
     plt.show()
     plt.clf()
+
 def str2bool(v):
     if isinstance(v, bool):
        return v
@@ -44,8 +45,6 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds):
         for i in range(seeds):
             X, Y, Z, w = simulate_xyz(n=n, beta=beta, cor=cor, fam=1, oversamp=10,seed=i)
             torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
-
-
 
 def job_parser():
 
