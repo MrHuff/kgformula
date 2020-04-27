@@ -182,3 +182,6 @@ def simulate_xyz(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=
         print(f'Ok: {data.shape[0]}')
         data = data[0:n,:]
     return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2].unsqueeze(-1),w[0:n]
+
+def sample_naive_multivariate(n,d_X,d_Z,d_Y,beta_xz,beta_xy):
+    pass

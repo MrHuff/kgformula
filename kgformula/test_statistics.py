@@ -5,7 +5,6 @@ import numpy as np
 from pykeops.torch import LazyTensor,Genred
 import time
 from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
 from sklearn import metrics
 import torch.nn as nn
 try:
@@ -13,6 +12,60 @@ try:
 except Exception as e:
     print(e)
     print('Install nightly pytorch for mixed precision')
+
+class HSIC_independence_test():
+    def __init__(self,X,Y,n_samples):
+        self.X = X
+        self.Y = Y
+        self.n = self.X.shape[0]
+        self.H = torch.eye(self.n,device=self.X.device)-1./self.n * torch.ones(self.n,self.n,device=self.X.device)
+        self.kernel_base = gpytorch.kernels.Kernel()
+        self.kernel_ls_init('ker_X',self.X)
+        self.kernel_ls_init('ker_Y',self.Y)
+
+        with torch.no_grad():
+            self.ref_metric = self.calculate_HSIC(self.X,self.Y).item()
+            self.p_val = self.calc_permute(self.X,self.Y,n_samples=n_samples)
+
+    def get_median_ls(self,X):
+        with torch.no_grad():
+            if self.n>5000:
+                idx = torch.randperm(2500)
+                X = X[idx]
+            d = self.kernel_base.covar_dist(x1=X,x2=X)
+            ret = torch.sqrt(torch.median(d[d > 0]))
+            return ret
+
+    @staticmethod
+    def calculate_pval(bootstrapped_list, test_statistic):
+        pval = 1 - 1 / (bootstrapped_list.shape[0] + 1) * (1 + (bootstrapped_list <= test_statistic).sum())
+        return pval
+
+    def kernel_ls_init(self,name,data,ls=None):
+        ker = gpytorch.kernels.RBFKernel()
+        if ls is None:
+            ls = self.get_median_ls(data)
+        ker._set_lengthscale(ls)
+        ker = ker.cuda(data.device)
+        setattr(self,name,ker)
+
+    def calculate_HSIC(self,X,Y):
+        return torch.mean((self.ker_X(X).evaluate()@self.H)*(self.ker_Y(Y).evaluate()@self.H))
+
+    def calc_permute(self,X,Y,n_samples):
+        self.bootstrapped=[]
+        with torch.no_grad():
+            for i in range(n_samples):
+                idx = torch.randperm(self.X.shape[0])
+                Y_perm = Y[idx]
+                self.bootstrapped.append(self.calculate_HSIC(X,Y_perm).item())
+        self.bootstrapped = np.array(self.bootstrapped)
+        return self.calculate_pval(self.bootstrapped,self.ref_metric)
+
+def hsic_test(X,Y,n_sample = 250):
+    test = HSIC_independence_test(X,Y,n_sample)
+    return test.p_val
+
 class Log1PlusExp(torch.autograd.Function):
     """Implementation of x ↦ log(1 + exp(x))."""
     @staticmethod
@@ -35,12 +88,18 @@ def NCE_objective_stable(true_preds,fake_preds):
     _err = -(true_preds-log_1_plus_exp(true_preds)-log_1_plus_exp(fake_preds).mean(dim=1))
     return _err.mean()
 
+def accuracy_check(y_pred,Y):
+    with torch.no_grad():
+        y_pred = (y_pred.float() > 0.5).cpu().float().numpy()
+        return np.mean(Y.cpu().numpy()==y_pred)
+
 def auc_check(y_pred,Y):
     with torch.no_grad():
         y_pred = (y_pred.float() > 0.5).cpu().float().numpy()
         fpr, tpr, thresholds = metrics.roc_curve(Y.cpu().numpy(), y_pred, pos_label=1)
         auc =  metrics.auc(fpr, tpr)
         return auc
+
 
 class keops_RBFkernel(torch.nn.Module):
     def __init__(self,ls,x,y=None,device_id=0):
@@ -99,12 +158,11 @@ class MLP(torch.nn.Module):
         super(MLP, self).__init__()
         self.model = nn.ModuleList()
         self.model.append(nn.Linear(d, f))
-        self.model.append(nn.Tanh())
+        self.model.append(nn.Sigmoid())
         for i in range(k):
             self.model.append(nn.Linear(f, f))
-            self.model.append(nn.Tanh())
+            self.model.append(nn.Sigmoid())
         self.model.append(nn.Linear(f, o))
-        self.model.append(nn.Tanh())
 
     def forward(self,X,Z):
         x = torch.cat([X,Z],dim=1)
@@ -116,8 +174,7 @@ class MLP(torch.nn.Module):
         return self.forward(X,Z)
 
     def get_w(self, x, y):
-        pred = torch.sigmoid(self.forward(x,y))
-        return (1-pred)/pred
+        return torch.exp(-self.forward(x,y))
 
 class logistic_regression(torch.nn.Module):
     def __init__(self,d):
@@ -130,9 +187,7 @@ class logistic_regression(torch.nn.Module):
     def forward_predict(self,X,Z):
         return self.forward(X,Z)
     def get_w(self, x, y):
-        pred = torch.sigmoid(self.forward(x,y))
-        return (1-pred)/pred
-
+        return torch.exp(-self.forward(x,y))
 class classification_dataset(Dataset):
     def __init__(self,X,Z,bs=1.0,kappa=1,val_rate = 0.01):
         super(classification_dataset, self).__init__()
@@ -263,8 +318,12 @@ class density_estimator():
             scaler = GradScaler()
         counter = 0
         best = np.inf
+        i = 0
+        criteria = 0
         idx = torch.randperm(dataset.X_val.shape[0])
-        for i in range(self.est_params['max_its']):
+        y_true_val = torch.tensor([1]*dataset.X_val.shape[0]+[0]*dataset.X_val.shape[0])
+        # for i in range(self.est_params['max_its']):
+        while criteria<=self.est_params['criteria_limit']:
             X_true,Z_true,X_fake,Z_fake= dataset.get_sample()
             opt.zero_grad()
             if self.est_params['mixed']:
@@ -281,20 +340,33 @@ class density_estimator():
                 # print(l)
                 with torch.no_grad():
                     dataset.val_mode()
-                    pred_T = self.forward_pred(dataset.X,dataset.Z)
-                    pred_F = self.forward_pred(dataset.X,dataset.Z[idx])
-                    pred_F = pred_F.view(pred_T.shape[0], -1)
+                    w = self.model.get_w(self.x, self.z).cpu().squeeze().numpy()
+                    # pred_T = self.forward_pred(dataset.X,dataset.Z)
+                    # pred_F = self.forward_pred(dataset.X,dataset.Z[idx])
+                    # pred_F = pred_F.view(pred_T.shape[0], -1)
+                    # logloss = loss_func(pred_T,pred_F)
+                    # res = torch.cat([torch.sigmoid(pred_T.squeeze()),torch.sigmoid(pred_F.squeeze())])
+                    # auc = accuracy_check(res,y_true_val)
+                    idx_HSIC = np.random.choice(np.arange(self.x.shape[0]),self.x.shape[0],p=w/w.sum())
+                    p_val = hsic_test(self.x[idx_HSIC],self.z[idx_HSIC],self.est_params['n_sample'])
+                    criteria = p_val
+                    print(f'HSIC_pval epoch {i}: {p_val}')
+                    # print(f'logloss epoch {i}: {logloss}')
+                    # print(f'auc epoch {i}: {auc}')
+                    # if logloss.item()<best:
+                    #     best = logloss.item()
+                    #     counter=0
+                    # else:
+                    #     counter+=1
+
                     dataset.train_mode()
-                    logloss = loss_func(pred_T,pred_F)
-                    print(f'logloss epoch {i}: {logloss}')
-                    if logloss.item()<best:
-                        best = logloss.item()
-                        counter=0
-                    else:
-                        counter+=1
-            if counter>self.est_params['kill_counter']:
-                print('stopped improving, stopping')
+            if i > self.est_params['max_its']:
+                print('failed')
                 break
+            i+=1
+            # if counter>self.est_params['kill_counter']:
+            #     print('stopped improving, stopping')
+            #     break
         with torch.no_grad():
             w = self.model.get_w(self.x,self.z)
         return w
