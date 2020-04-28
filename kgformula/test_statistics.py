@@ -18,6 +18,11 @@ class HSIC_independence_test():
         self.X = X
         self.Y = Y
         self.n = self.X.shape[0]
+        if self.n>5000:
+            idx = torch.randperm(2500)
+            self.X = self.X[idx,:]
+            self.Y = self.Y[idx,:]
+            self.n = 2500
         self.H = torch.eye(self.n,device=self.X.device)-1./self.n * torch.ones(self.n,self.n,device=self.X.device)
         self.kernel_base = gpytorch.kernels.Kernel()
         self.kernel_ls_init('ker_X',self.X)
@@ -31,7 +36,7 @@ class HSIC_independence_test():
         with torch.no_grad():
             if self.n>5000:
                 idx = torch.randperm(2500)
-                X = X[idx]
+                X = X[idx,:]
             d = self.kernel_base.covar_dist(x1=X,x2=X)
             ret = torch.sqrt(torch.median(d[d > 0]))
             return ret
@@ -240,7 +245,7 @@ class classification_dataset(Dataset):
 
     def get_sample(self):
         T,F = self.get_indices()
-        return self.X[T],self.Z[T],self.X[T.repeat(self.kappa)],self.Z[F]
+        return self.X[T,:],self.Z[T,:],self.X[T.repeat(self.kappa),:],self.Z[F,:]
 
 class density_estimator():
     def __init__(self, x, z, est_params=None, cuda=False, device=0, type='linear'):
@@ -348,7 +353,7 @@ class density_estimator():
                     # res = torch.cat([torch.sigmoid(pred_T.squeeze()),torch.sigmoid(pred_F.squeeze())])
                     # auc = accuracy_check(res,y_true_val)
                     idx_HSIC = np.random.choice(np.arange(self.x.shape[0]),self.x.shape[0],p=w/w.sum())
-                    p_val = hsic_test(self.x[idx_HSIC],self.z[idx_HSIC],self.est_params['n_sample'])
+                    p_val = hsic_test(self.x[idx_HSIC,:],self.z[idx_HSIC,:],self.est_params['n_sample'])
                     criteria = p_val
                     print(f'HSIC_pval epoch {i}: {p_val}')
                     print(f'logloss epoch {i}: {logloss}')
@@ -462,14 +467,12 @@ class weighted_stat(): #HAPPY MISTAKE?!?!??!?!?!?!?!?
             self.device = device
             self.cuda = cuda
             self.n = X.shape[0]
-            self.H = torch.ones(*(self.n, 1)) * (1 - 1 / self.n)
             self.H_2 = torch.eye(self.n)-2*torch.ones(*(self.n, self.n))/self.n
             self.H_4 = torch.eye(self.n)-4*torch.ones(*(self.n, self.n))/self.n
             self.one_n_1 = torch.ones(*(self.n,1))
             self.ones= torch.ones(*(self.n,self.n))
             self.half_mode = half_mode
             if cuda:
-                self.H = self.H.cuda(device)
                 self.H_2 = self.H_2.cuda(device)
                 self.H_4 = self.H_4.cuda(device)
                 self.ones = self.ones.cuda(device)
@@ -481,7 +484,7 @@ class weighted_stat(): #HAPPY MISTAKE?!?!??!?!?!?!?!?
             self.Z = Z
             self.w = w.unsqueeze(-1)
             self.W = self.w@self.w.t()
-            self.W = self.W/self.n
+            self.W = self.W/self.n**2
             self.do_null=do_null
             self.kernel_base = gpytorch.kernels.Kernel()
             self.reg_lambda = reg_lambda
@@ -493,8 +496,6 @@ class weighted_stat(): #HAPPY MISTAKE?!?!??!?!?!?!?!?
                 self.W = self.W.half()
             self.X_ker = self.kernel_X
             self.Y_ker = self.kernel_Y
-            self.center_X = (self.X_ker@self.H)*self.w
-            self.center_Y = self.kernel_Y@self.H
 
     def kernel_ls_init(self,name,data):
         setattr(self, f'ker_obj_{name}', gpytorch.kernels.RBFKernel().cuda(self.device) if self.cuda else gpytorch.kernels.RBFKernel())
@@ -518,21 +519,17 @@ class weighted_statistic_new(weighted_stat):
             self.sum_mean_X = self.X_ker.mean()
             self.X_ker_H_4 = self.X_ker@self.H_4
             self.X_ker_H_2= self.X_ker@self.H_2
-            self.X_ker_n_1 = self.X_ker@self.one_n_1
-            self.X_ker_n_1 = self.X_ker_n_1/self.n
-            self.X_ker_ones =self.X_ker@self.ones
-            self.X_ker_ones =self.X_ker_ones/self.n
+            self.X_ker_n_1 = self.X_ker@self.one_n_1/self.n
+            self.X_ker_ones =self.X_ker@self.ones/self.n
 
             self.sum_mean_Y = self.Y_ker.mean()
             self.Y_ker_H_4 = self.Y_ker@self.H_4
             self.Y_ker_H_2= self.Y_ker@self.H_2
-            self.Y_ker_n_1 = self.Y_ker@self.one_n_1
-            self.Y_ker_ones =self.Y_ker@self.ones
-            self.Y_ker_n_1 = self.Y_ker_n_1/self.n
-            self.Y_ker_ones =self.Y_ker_ones/self.n
+            self.Y_ker_n_1 = self.Y_ker@self.one_n_1/self.n
+            self.Y_ker_ones =self.Y_ker@self.ones/self.n
 
             self.term_1 = 0.5*self.W*self.X_ker_H_4
-            self.term_2 = 0.5*self.W*self.X
+            self.term_2 = 0.5*self.W*self.X_ker
             self.term_3 = 2*self.W*self.X_ker_ones
             self.term_4 = 2*self.W
             self.term_5 = self.W*self.sum_mean_X
@@ -546,10 +543,8 @@ class weighted_statistic_new(weighted_stat):
             Y_ker = self.ker_obj_Y(y).evaluate()
             Y_ker_H_4 = Y_ker @ self.H_4
             Y_ker_H_2 = Y_ker @ self.H_2
-            Y_ker_n_1 = Y_ker @ self.one_n_1
-            Y_ker_n_1 = Y_ker_n_1/self.n
-            Y_ker_ones = Y_ker @ self.ones
-            Y_ker_ones = Y_ker_ones/self.n
+            Y_ker_n_1 = Y_ker @ self.one_n_1/self.n
+            Y_ker_ones = Y_ker @ self.ones/self.n
             test_stat = self.term_1 * Y_ker + self.term_2 * Y_ker_H_4 + self.term_3 * Y_ker_ones + self.term_4 * (
                         self.X_ker_n_1 @ Y_ker_n_1.t()) + self.term_5 * Y_ker_H_2 + self.term_6 + self.term_7
             return test_stat.sum()

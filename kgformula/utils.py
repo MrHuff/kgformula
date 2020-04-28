@@ -120,11 +120,15 @@ class simulation_object():
         ks_data = []
         suffix = f'_seeds={seeds}_estimate={estimate}_estimator={estimator}'
         if estimator=='kmm':
-            lamb = est_params['lamb']
-            suffix = suffix + f'_{lamb}'
+            lamb = est_params['reg_lambda']
+            suffix = suffix + f'lambda={lamb}'
         elif estimator=='classifier':
             for key,val in est_params.items():
                 suffix = suffix + f'_{key}={val}'
+        else:
+            lamb = est_params['reg_lambda']
+            alpha = est_params['alpha']
+            suffix = suffix + f'lambda={lamb}_alpha={alpha}'
 
         for j in range(runs):
             p_value_list = []

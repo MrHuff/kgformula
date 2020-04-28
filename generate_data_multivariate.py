@@ -3,12 +3,12 @@ import torch
 import os
 if __name__ == '__main__':
     n = 1000
-    seeds = 1000
+    seeds = 100
     save_path = ''
     d_X = 3
     d_Y = 2
     d_Z = 5
-    beta_xz = 0.5
+    beta_xz = 0.25
     for beta_xy in [0,0.5]:
         data_dir = f'beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_beta_XZ={beta_xz}'
         if not os.path.exists(f'./{data_dir}/'):
