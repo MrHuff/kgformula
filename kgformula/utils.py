@@ -116,11 +116,11 @@ class simulation_object():
         bins = 25
         est_params = self.args['est_params']
         estimator = self.args['estimator']
-        lamb = self.args['lamb']
         runs = self.args['runs']
         ks_data = []
         suffix = f'_seeds={seeds}_estimate={estimate}_estimator={estimator}'
         if estimator=='kmm':
+            lamb = est_params['lamb']
             suffix = suffix + f'_{lamb}'
         elif estimator=='classifier':
             for key,val in est_params.items():

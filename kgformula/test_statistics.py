@@ -316,12 +316,12 @@ class density_estimator():
         opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
         if self.est_params['mixed']:
             scaler = GradScaler()
-        counter = 0
-        best = np.inf
+        # counter = 0
+        # best = np.inf
         i = 0
         criteria = 0
         idx = torch.randperm(dataset.X_val.shape[0])
-        y_true_val = torch.tensor([1]*dataset.X_val.shape[0]+[0]*dataset.X_val.shape[0])
+        # y_true_val = torch.tensor([1]*dataset.X_val.shape[0]+[0]*dataset.X_val.shape[0])
         # for i in range(self.est_params['max_its']):
         while criteria<=self.est_params['criteria_limit']:
             X_true,Z_true,X_fake,Z_fake= dataset.get_sample()
@@ -336,22 +336,22 @@ class density_estimator():
                 l = self.forward_func(X_true, Z_true, X_fake, Z_fake,loss_func)
                 l.backward()
                 opt.step()
-            if i%(self.est_params['max_its']//50)==0:
+            if i%(self.est_params['max_its']//25)==0:
                 # print(l)
                 with torch.no_grad():
                     dataset.val_mode()
                     w = self.model.get_w(self.x, self.z).cpu().squeeze().numpy()
-                    # pred_T = self.forward_pred(dataset.X,dataset.Z)
-                    # pred_F = self.forward_pred(dataset.X,dataset.Z[idx])
-                    # pred_F = pred_F.view(pred_T.shape[0], -1)
-                    # logloss = loss_func(pred_T,pred_F)
+                    pred_T = self.forward_pred(dataset.X,dataset.Z)
+                    pred_F = self.forward_pred(dataset.X,dataset.Z[idx])
+                    pred_F = pred_F.view(pred_T.shape[0], -1)
+                    logloss = loss_func(pred_T,pred_F)
                     # res = torch.cat([torch.sigmoid(pred_T.squeeze()),torch.sigmoid(pred_F.squeeze())])
                     # auc = accuracy_check(res,y_true_val)
                     idx_HSIC = np.random.choice(np.arange(self.x.shape[0]),self.x.shape[0],p=w/w.sum())
                     p_val = hsic_test(self.x[idx_HSIC],self.z[idx_HSIC],self.est_params['n_sample'])
                     criteria = p_val
                     print(f'HSIC_pval epoch {i}: {p_val}')
-                    # print(f'logloss epoch {i}: {logloss}')
+                    print(f'logloss epoch {i}: {logloss}')
                     # print(f'auc epoch {i}: {auc}')
                     # if logloss.item()<best:
                     #     best = logloss.item()

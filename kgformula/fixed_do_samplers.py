@@ -183,8 +183,10 @@ def simulate_xyz(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=
         data = data[0:n,:]
     return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2].unsqueeze(-1),w[0:n]
 
-def sample_naive_multivariate(n,d_X,d_Z,d_Y,beta_xz,beta_xy):
+def sample_naive_multivariate(n,d_X,d_Z,d_Y,beta_xz,beta_xy,seed):
+    torch.manual_seed(seed)
     Z = torch.randn(n,d_Z)
-    X = beta_xz*Z[:,:d_X]+(1-beta_xz)*torch.randn(n,d_X)
-    Y = beta_xy*X[:,:d_Y]**3+0.1*torch.randn(n,d_Y)+beta_xy/3*Z**3
-    return X,Y,Z
+    X = beta_xz*Z[:,0:d_X]+(1-beta_xz)*torch.randn(n,d_X)
+    Y = beta_xy*X[:,0:d_Y]**3+0.1*torch.randn(n,d_Y)+beta_xy/3*Z[:,0:d_Y]**3
+    w = torch.ones(n,1)
+    return X,Y,Z,w
