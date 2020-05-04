@@ -37,9 +37,13 @@ def sim_X(n,dist,theta):
         raise Exception("X distribution must be normal (1), beta (4) or gamma (3)")
     return {'data':d.sample((n,1)),'density':d.log_prob}
 
-
-def rnormCopula(n=100,mean = torch.zeros(*(2,1)),cov=torch.eye(2)):
-    return torch.f
+def rnormCopula(N,cov):
+    p = Normal(0,1)
+    m = cov.shape[0]
+    mean = torch.zeros(*(N,m))
+    L = torch.cholesky(cov)
+    samples = mean + torch.randn(*(N, m)) @ L
+    return p.cdf(samples)
 
 def rnormCopula2(n=100,mean = torch.zeros(*(2,1)),cov=torch.eye(2),df=1):
     if cov.shape == torch.Size([2,2]):
@@ -180,7 +184,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     dat = dat[keep_index,:]
     return dat,inv_wts[keep_index]
 
-def simulate_xyz(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fam_z=1,oversamp = 10, seed=1):
+def simulate_xyz_univariate(n, beta, cor, phi=1, theta=1, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1):
     data,w = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp, seed)
     if data.shape[0]<n:
         print(f'Undersampled: {data.shape[0]}')
@@ -199,8 +203,8 @@ def sample_naive_multivariate(n,d_X,d_Z,d_Y,beta_xz,beta_xy,seed):
     w = torch.ones(n,1)
     return X,Y,Z,w
 
-def sim_multivariate_UV(dat,fam,par,par2,d_z):
-    if not fam in [1,2,3,4,5,6,11]:
+def sim_multivariate_UV(dat,fam,par,d_z):
+    if not fam in [1,3,4,5,6]:
         raise Exception("family not supported")
 
     N = dat.shape[0]
@@ -219,11 +223,9 @@ def sim_multivariate_UV(dat,fam,par,par2,d_z):
         cors = 0
     if fam in [1]:
         sigma = torch.eye(d_z)
-        sigma[torch.triu(torch.ones_like(sigma))==1] = pars
-        sigma[torch.tril(torch.ones_like(sigma))==1] = pars
-
-    elif fam in [2]:
-
+        sigma[torch.triu(torch.ones_like(sigma),diagonal=1)==1] = pars[0,:]
+        sigma[torch.tril(torch.ones_like(sigma),diagonal=-1)==1] = pars[0,:]
+        tmp = rnormCopula(N,sigma)
     elif fam in [3,4,5,6]:
         if fam==3:
             copula = ArchimedeanCopula(dim=d_z,family='clayton')
@@ -248,13 +250,78 @@ def sim_multivariate_UV(dat,fam,par,par2,d_z):
     dat = torch.cat([dat,tmp],dim=1)
     return dat
 
-def sim_multivariate_XYZ(oversamp,d_Z,n,xy,xz,yz):
-    ref_dim = nCr(d_Z,2)
+def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,fam_x=1,phi=1):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if oversamp < 1:
+        warnings.warn("Oversampling rate must be at least 1... changing")
+        oversamp = 1
+
+    ref_dim = nCr(d_Z+1,2)
     if type(yz) is not list:  # cor controls x xz relation!
         cor = torch.tensor([yz, 0]).unsqueeze(-1)
     else:
         cor = torch.tensor(yz).unsqueeze(-1)
     cor = torch.cat([cor for i in range(ref_dim)],dim=1)
+    N = round(oversamp*n)
+    tmp = sim_X(N,1,1)
+    dat = tmp['data']
+    qden = tmp['density']
+    dat = sim_multivariate_UV(dat,1,cor,d_Z+1)
+    a = beta_xy[0]
+    b = beta_xy[1]  # Controls X y dependence
+    p = Normal(loc=a+b*dat[:,0],scale=1)
+    dat[:,1] = p.icdf(dat[:,1])
+
+    if fam_z == 1:
+        q = Normal(loc=0, scale=1)
+        dat[:, 2:] = q.icdf(dat[:, 2:])
+    elif fam_z == 2:
+        dat[:, 2:] = torch.from_numpy(t.ppf(dat[:, 2:].numpy(), df=par2))
+    elif fam_z == 3:
+        q = Exponential(rate=1)
+        dat[:, 2:] = q.icdf(dat[:, 2:])
+    else:
+        raise Exception("fam_z must be 1, 2 or 3")
+    X = torch.cat([torch.ones_like(dat[:, 2].unsqueeze(-1)), dat[:, 2:]],dim=1) @ torch.tensor(beta_xz) #XZ dependence
+    if fam_x == 4:
+        mu = expit(X)
+        d = Beta(concentration1=phi*mu,concentration0=phi*(1-mu))
+        _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
+        wts = _prob.exp()
+    elif fam_x==1:
+        mu = X
+        d = Normal(loc = mu,scale = phi**0.5)
+        _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
+        wts = _prob.exp()
+    elif fam_x==3: #Change
+        mu = torch.exp(X)
+        d = Gamma(rate=1/(mu*phi),concentration=1/phi)
+        _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
+        wts = _prob.exp()
+    else:
+        raise Exception("fam_x must be 1, 3 or 4")
+
+    inv_wts = 1. / wts
+    wts = wts / wts.max()
+    keep_index = torch.rand_like(wts) < wts
+    dat = dat[keep_index, :]
+    return dat, inv_wts[keep_index]
+
+def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed):
+    """
+    beta_xz has dim (d_Z+1) list
+    beta_xy has dim 2 list
+    """
+    data, w = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=1)
+    while data.shape[0]<n:
+        print(f'Undersampled: {data.shape[0]}')
+        oversamp = n/data.shape[0]*1.5
+        data_new, w_new = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=1)
+        data = torch.cat([data,data_new],dim=0)
+        w = torch.cat([w,w_new],dim=0)
+    print('Success')
+    return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2:],w[0:n]
 
 
 

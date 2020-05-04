@@ -6,7 +6,7 @@ import tqdm
 import pandas as pd
 import torch
 from kgformula.test_statistics import weighted_statistic_new, density_estimator
-from kgformula.fixed_do_samplers import simulate_xyz
+from kgformula.fixed_do_samplers import simulate_xyz_univariate
 import os
 import numpy as np
 from matplotlib.colors import ListedColormap
@@ -43,7 +43,7 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds):
     if not os.path.exists(f'./{data_dir}/'):
         os.mkdir(f'./{data_dir}/')
         for i in range(seeds):
-            X, Y, Z, w = simulate_xyz(n=n, beta=beta, cor=cor, fam=1, oversamp=10,seed=i)
+            X, Y, Z, w = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i)
             torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
 
 def job_parser():

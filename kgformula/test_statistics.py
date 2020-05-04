@@ -316,19 +316,14 @@ class density_estimator():
         return loss_func(pred_T,pred_F)
 
     def train_classifier(self,dataset):
-        # dataloader = DataLoader(dataset,batch_size=self.est_params['batch_size'],shuffle=True)
         loss_func = NCE_objective_stable
         opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
         if self.est_params['mixed']:
             scaler = GradScaler()
-        # counter = 0
-        # best = np.inf
-        i = 0
-        criteria = 0
+        counter = 0
+        best = np.inf
         idx = torch.randperm(dataset.X_val.shape[0])
-        # y_true_val = torch.tensor([1]*dataset.X_val.shape[0]+[0]*dataset.X_val.shape[0])
-        # for i in range(self.est_params['max_its']):
-        while criteria<=self.est_params['criteria_limit']:
+        for i in range(self.est_params['max_its']):
             X_true,Z_true,X_fake,Z_fake= dataset.get_sample()
             opt.zero_grad()
             if self.est_params['mixed']:
@@ -341,40 +336,33 @@ class density_estimator():
                 l = self.forward_func(X_true, Z_true, X_fake, Z_fake,loss_func)
                 l.backward()
                 opt.step()
+
             if i%(self.est_params['max_its']//25)==0:
                 # print(l)
                 with torch.no_grad():
                     dataset.val_mode()
-                    w = self.model.get_w(self.x, self.z).cpu().squeeze().numpy()
                     pred_T = self.forward_pred(dataset.X,dataset.Z)
                     pred_F = self.forward_pred(dataset.X,dataset.Z[idx])
                     pred_F = pred_F.view(pred_T.shape[0], -1)
                     logloss = loss_func(pred_T,pred_F)
-                    # res = torch.cat([torch.sigmoid(pred_T.squeeze()),torch.sigmoid(pred_F.squeeze())])
-                    # auc = accuracy_check(res,y_true_val)
-                    idx_HSIC = np.random.choice(np.arange(self.x.shape[0]),self.x.shape[0],p=w/w.sum())
-                    p_val = hsic_test(self.x[idx_HSIC,:],self.z[idx_HSIC,:],self.est_params['n_sample'])
-                    criteria = p_val
-                    print(f'HSIC_pval epoch {i}: {p_val}')
                     print(f'logloss epoch {i}: {logloss}')
-                    # print(f'auc epoch {i}: {auc}')
-                    # if logloss.item()<best:
-                    #     best = logloss.item()
-                    #     counter=0
-                    # else:
-                    #     counter+=1
-
+                    if logloss.item()<best:
+                        best = logloss.item()
+                        counter=0
+                    else:
+                        counter+=1
                     dataset.train_mode()
-            if i > self.est_params['max_its']:
-                print('failed')
-                self.failed=True
+            if counter>self.est_params['kill_counter']:
+                print('stopped improving, stopping')
                 break
-            i+=1
-            # if counter>self.est_params['kill_counter']:
-            #     print('stopped improving, stopping')
-            #     break
         with torch.no_grad():
             w = self.model.get_w(self.x,self.z)
+            _w = w.cpu().squeeze().numpy()
+            idx_HSIC = np.random.choice(np.arange(self.x.shape[0]),self.x.shape[0],p=_w/_w.sum())
+            p_val = hsic_test(self.x[idx_HSIC,:],self.z[idx_HSIC,:],self.est_params['n_sample'])
+            print(f'HSIC_pval : {p_val}')
+            if p_val<self.est_params['criteria_limit']:
+                self.failed=True
         return w
 
     def create_classification_data(self):

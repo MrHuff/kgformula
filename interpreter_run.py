@@ -4,22 +4,25 @@ if __name__ == '__main__':
     h_1_str = 'ground_truth=H_1_y_a=0.0_y_b=0.5_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000'
     h_0_str_mult = 'beta_xy=0_d_X=3_d_Y=2_d_Z=5_n=1000_beta_XZ=0.25'
     h_1_str_mult = 'beta_xy=0.5_d_X=3_d_Y=2_d_Z=5_n=1000_beta_XZ=0.25'
+    h_0_str_mult_2 = 'beta_xy=[0, 0.0]_d_Z=5_n=1000_yz=0.5_beta_XZ=[0.5, 0.5, 0.5, 0.5, 0.5, 0.5]'
+    h_1_str_mult_2 = 'beta_xy=[0, 0.5]_d_Z=5_n=1000_yz=0.5_beta_XZ=[0.5, 0.5, 0.5, 0.5, 0.5, 0.5]'
     args={
-        'data_dir': h_1_str,
+        'data_dir': h_0_str_mult_2,
         'estimate':True,
         'debug_plot':False,
-        'seeds':1000,
+        'seeds':100,
         'bootstrap_runs':250,
         'est_params' : {'lr': 1e-3,
-                  'max_its': 2500,
+                  'max_its': 5000,
                   'width': 32,
                   'layers': 4,
                   'mixed': False,
-                  'bs_ratio': 0.01,
+                  'bs_ratio': 1e-3,
                   'kappa': 10,
                   'val_rate':0.1,
                   'n_sample':250,
                   'criteria_limit':0.25,
+                  'kill_counter': 10,
                         'reg_lambda':1e-2,
                         'alpha':0.5},
 
