@@ -5,7 +5,11 @@ from pycopula.simulation import simulate
 from scipy.stats import t,gamma
 import numpy as np
 import warnings
+import math
 
+def nCr(n,r):
+    f = math.factorial
+    return f(n) // f(r) // f(n-r)
 def get_sigma(N,cors):
     if cors.min()==cors.max():
         Sigma = torch.ones(*(2, 2))
@@ -32,6 +36,10 @@ def sim_X(n,dist,theta):
     else:
         raise Exception("X distribution must be normal (1), beta (4) or gamma (3)")
     return {'data':d.sample((n,1)),'density':d.log_prob}
+
+
+def rnormCopula(n=100,mean = torch.zeros(*(2,1)),cov=torch.eye(2)):
+    return torch.f
 
 def rnormCopula2(n=100,mean = torch.zeros(*(2,1)),cov=torch.eye(2),df=1):
     if cov.shape == torch.Size([2,2]):
@@ -109,7 +117,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
         warnings.warn("Oversampling rate must be at least 1... changing")
         oversamp=1
 
-    if type(cor) is not list:
+    if type(cor) is not list: #cor controls x xz relation!
         cor = torch.tensor([cor,0]).unsqueeze(-1)
     else:
         cor = torch.tensor(cor).unsqueeze(-1)
@@ -120,10 +128,10 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     qden = tmp['density']
   ## add in extra columns for Y and Zs
   ## get Copula value
-    dat = sim_UV(dat, fam, cor, par2)
+    dat = sim_UV(dat, fam, cor, par2) #ZY depedence
     a = beta['y'][0]
-    b = beta['y'][1]
-    if fam_y==1:
+    b = beta['y'][1] #Controls X y dependence
+    if fam_y==1: #Do XY depdendence
         p = Normal(loc=a+b*dat[:,0],scale=1)
         dat[:,1] = p.icdf(dat[:,1])
     elif fam_y==2:
@@ -143,7 +151,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
         dat[:,2] = q.icdf(dat[:,2])
     else:
         raise Exception("fam_z must be 1, 2 or 3")
-    X = torch.stack([torch.ones_like(dat[:, 2]), dat[:, 2]],dim=1) @ torch.tensor(beta['z'])
+    X = torch.stack([torch.ones_like(dat[:, 2]), dat[:, 2]],dim=1) @ torch.tensor(beta['z']) #XZ dependence
     if len(fam_x) == 1:
         fam_x = [fam_x[0],fam_x[0]]
     if fam_x[1] == 4:
@@ -190,3 +198,64 @@ def sample_naive_multivariate(n,d_X,d_Z,d_Y,beta_xz,beta_xy,seed):
     Y = beta_xy*X[:,0:d_Y]**3+0.1*torch.randn(n,d_Y)+beta_xy/3*Z[:,0:d_Y]**3
     w = torch.ones(n,1)
     return X,Y,Z,w
+
+def sim_multivariate_UV(dat,fam,par,par2,d_z):
+    if not fam in [1,2,3,4,5,6,11]:
+        raise Exception("family not supported")
+
+    N = dat.shape[0]
+    pars = torch.cat([torch.ones_like(dat),dat],dim=1)@par #Don't understand this part.  I think this is a Nx1 matrix?
+    pars = pars.squeeze()
+
+    if fam in [1,2]:
+        cors = 2*expit(pars)-1
+    elif fam in [3]:
+        cors = torch.exp(pars)-1
+    elif fam in [4,6]:
+        cors = torch.exp(pars)+1
+    elif fam in [5]:
+        cors = pars
+    else:
+        cors = 0
+    if fam in [1]:
+        sigma = torch.eye(d_z)
+        sigma[torch.triu(torch.ones_like(sigma))==1] = pars
+        sigma[torch.tril(torch.ones_like(sigma))==1] = pars
+
+    elif fam in [2]:
+
+    elif fam in [3,4,5,6]:
+        if fam==3:
+            copula = ArchimedeanCopula(dim=d_z,family='clayton')
+        elif fam==4:
+            copula = ArchimedeanCopula(dim=d_z,family='gumbel')
+        elif fam==5:
+            copula = ArchimedeanCopula(dim=d_z,family='frank')
+        elif fam==6:
+            copula = ArchimedeanCopula(dim=d_z,family='joe')
+        else:
+            raise Exception('Invalid cupola specified')
+        if cors.shape[0]==N:
+            samples = []
+            for i in range(N):
+                copula.set_parameter(theta=cors[i])
+                s = simulate(copula,1)
+                samples.append(s)
+            tmp = torch.tensor(samples).float()
+        else:
+            copula.set_parameter(theta=cors)
+            tmp = torch.from_numpy(simulate(copula,N)).float()
+    dat = torch.cat([dat,tmp],dim=1)
+    return dat
+
+def sim_multivariate_XYZ(oversamp,d_Z,n,xy,xz,yz):
+    ref_dim = nCr(d_Z,2)
+    if type(yz) is not list:  # cor controls x xz relation!
+        cor = torch.tensor([yz, 0]).unsqueeze(-1)
+    else:
+        cor = torch.tensor(yz).unsqueeze(-1)
+    cor = torch.cat([cor for i in range(ref_dim)],dim=1)
+
+
+
+

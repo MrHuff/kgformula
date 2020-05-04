@@ -367,6 +367,7 @@ class density_estimator():
                     dataset.train_mode()
             if i > self.est_params['max_its']:
                 print('failed')
+                self.failed=True
                 break
             i+=1
             # if counter>self.est_params['kill_counter']:

@@ -5,13 +5,13 @@ if __name__ == '__main__':
     h_0_str_mult = 'beta_xy=0_d_X=3_d_Y=2_d_Z=5_n=1000_beta_XZ=0.25'
     h_1_str_mult = 'beta_xy=0.5_d_X=3_d_Y=2_d_Z=5_n=1000_beta_XZ=0.25'
     args={
-        'data_dir': h_0_str,
+        'data_dir': h_1_str,
         'estimate':True,
         'debug_plot':False,
-        'seeds':100,
+        'seeds':1000,
         'bootstrap_runs':250,
-        'est_params' : {'lr': 1e-2,
-                  'max_its': 5000,
+        'est_params' : {'lr': 1e-3,
+                  'max_its': 2500,
                   'width': 32,
                   'layers': 4,
                   'mixed': False,
@@ -20,12 +20,13 @@ if __name__ == '__main__':
                   'val_rate':0.1,
                   'n_sample':250,
                   'criteria_limit':0.25,
-                        'reg_lambda':1e-4,
+                        'reg_lambda':1e-2,
                         'alpha':0.5},
 
-        'estimator':'kmm',
+        'estimator':'classifier',
         'runs':1,
         'cuda':True,
     }
     j = simulation_object(args)
     j.run()
+    #Figure out what the hell is going on?! why would it work with "X"?!
