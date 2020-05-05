@@ -12,6 +12,15 @@ import numpy as np
 from matplotlib.colors import ListedColormap
 import matplotlib.tri as mtri
 
+def load_csv(path, d_Z,device):
+    ls_Z = [f'z{i}' for i in range(1,d_Z+1)]
+    dat = pd.read_csv(path) #Seems like I've screwed up!
+    X = torch.from_numpy(dat['x'].values).float().unsqueeze(-1).cuda(device)
+    Y = torch.from_numpy(dat['y'].values).float().unsqueeze(-1).cuda(device)
+    Z = torch.from_numpy(dat[ls_Z].values).float().cuda(device)
+    w = torch.from_numpy(dat['w'].values).float().cuda(device)
+    return X,Y,Z,1/w
+
 def get_density_plot(d,X,Z):
     w = d.return_weights()
     X = X.cpu().flatten().numpy()
@@ -108,6 +117,8 @@ class simulation_object():
             self.device = 'cpu'
 
     def run(self):
+        debug_generative_process = self.args['debug_generative_process']
+        d_Z = self.args['debug_d_Z']
         estimate = self.args['estimate']
         debug_plot = self.args['debug_plot']
         data_dir = self.args['data_dir']
@@ -134,10 +145,14 @@ class simulation_object():
             p_value_list = []
             reference_metric_list = []
             for i in tqdm.trange(seeds):
-                if self.cuda:
-                    X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
+                if debug_generative_process:
+                    path = f'./{data_dir}/multivariate_test_ref_seed={i}.csv'
+                    X, Y, Z, _w= load_csv(path,d_Z,self.device)
                 else:
-                    X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+                    if self.cuda:
+                        X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
+                    else:
+                        X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
                 if debug_plot:
                     plt.scatter(Z.numpy(), X.numpy())
                     plt.show()

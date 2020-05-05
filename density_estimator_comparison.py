@@ -6,7 +6,8 @@ import GPUtil
 
 def get_w_estimate_and_plot(X,Z,est_params,estimator,device):
     d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator,  device=device)
-    get_density_plot(d, X, Z)
+    if X.shape[1]==1 and Z.shape[1]==2:
+        get_density_plot(d, X, Z)
     return d.return_weights()
 
 if __name__ == '__main__':

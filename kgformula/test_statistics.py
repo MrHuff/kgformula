@@ -361,8 +361,8 @@ class density_estimator():
             idx_HSIC = np.random.choice(np.arange(self.x.shape[0]),self.x.shape[0],p=_w/_w.sum())
             p_val = hsic_test(self.x[idx_HSIC,:],self.z[idx_HSIC,:],self.est_params['n_sample'])
             print(f'HSIC_pval : {p_val}')
-            if p_val<self.est_params['criteria_limit']:
-                self.failed=True
+            # if p_val<self.est_params['criteria_limit']:
+            #     self.failed=True
         return w
 
     def create_classification_data(self):

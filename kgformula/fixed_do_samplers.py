@@ -38,12 +38,16 @@ def sim_X(n,dist,theta):
     return {'data':d.sample((n,1)),'density':d.log_prob}
 
 def rnormCopula(N,cov):
-    p = Normal(0,1)
-    m = cov.shape[0]
-    mean = torch.zeros(*(N,m))
-    L = torch.cholesky(cov)
-    samples = mean + torch.randn(*(N, m)) @ L
-    return p.cdf(samples)
+
+    if cov.dim()==3:
+        pass
+    else:
+        p = Normal(0,1)
+        m = cov.shape[0]
+        mean = torch.zeros(*(m,N))
+        L = torch.cholesky(cov)
+        samples = mean +  L@torch.randn_like(mean)
+    return p.cdf(samples).t()
 
 def rnormCopula2(n=100,mean = torch.zeros(*(2,1)),cov=torch.eye(2),df=1):
     if cov.shape == torch.Size([2,2]):
@@ -178,8 +182,8 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
   ## reject samples based on value of X|Z
     if torch.isnan(wts).all():
         raise Exception("Problem with weights")
-    inv_wts=1/wts
     wts = wts/wts.max()
+    inv_wts=1/wts
     keep_index = torch.rand_like(wts)<wts
     dat = dat[keep_index,:]
     return dat,inv_wts[keep_index]
@@ -222,10 +226,15 @@ def sim_multivariate_UV(dat,fam,par,d_z):
     else:
         cors = 0
     if fam in [1]:
-        sigma = torch.eye(d_z)
-        sigma[torch.triu(torch.ones_like(sigma),diagonal=1)==1] = pars[0,:]
-        sigma[torch.tril(torch.ones_like(sigma),diagonal=-1)==1] = pars[0,:]
-        tmp = rnormCopula(N,sigma)
+        if all(pars[0,:]==pars[-1,:]):
+            sigma = torch.eye(d_z)
+            sigma[torch.triu(torch.ones_like(sigma),diagonal=1)==1] = pars[0,:]
+            sigma[torch.tril(torch.ones_like(sigma),diagonal=-1)==1] = pars[0,:]
+            tmp = rnormCopula(N,sigma)
+        else:
+            sigma = torch.eye(d_z).unsqueeze(-1).repeat(1,1,pars.shape[0])
+            tmp = rnormCopula(N,sigma)
+
     elif fam in [3,4,5,6]:
         if fam==3:
             copula = ArchimedeanCopula(dim=d_z,family='clayton')
@@ -250,7 +259,7 @@ def sim_multivariate_UV(dat,fam,par,d_z):
     dat = torch.cat([dat,tmp],dim=1)
     return dat
 
-def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,fam_x=1,phi=1):
+def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,fam_x=1,phi=1,theta=1):
     torch.manual_seed(seed)
     np.random.seed(seed)
     if oversamp < 1:
@@ -264,12 +273,14 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
         cor = torch.tensor(yz).unsqueeze(-1)
     cor = torch.cat([cor for i in range(ref_dim)],dim=1)
     N = round(oversamp*n)
-    tmp = sim_X(N,1,1)
+    tmp = sim_X(N,1,theta)
     dat = tmp['data']
     qden = tmp['density']
     dat = sim_multivariate_UV(dat,1,cor,d_Z+1)
     a = beta_xy[0]
     b = beta_xy[1]  # Controls X y dependence
+
+    #Make Y normal!
     p = Normal(loc=a+b*dat[:,0],scale=1)
     dat[:,1] = p.icdf(dat[:,1])
 
@@ -302,8 +313,8 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     else:
         raise Exception("fam_x must be 1, 3 or 4")
 
-    inv_wts = 1. / wts
     wts = wts / wts.max()
+    inv_wts = 1. / wts
     keep_index = torch.rand_like(wts) < wts
     dat = dat[keep_index, :]
     return dat, inv_wts[keep_index]
@@ -313,14 +324,15 @@ def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed):
     beta_xz has dim (d_Z+1) list
     beta_xy has dim 2 list
     """
-    data, w = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=1)
+    data, w = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=2,theta=2)
     while data.shape[0]<n:
         print(f'Undersampled: {data.shape[0]}')
-        oversamp = n/data.shape[0]*1.5
-        data_new, w_new = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=1)
+        oversamp = (n/(data.shape[0]+1))*1.5
+        data_new, w_new = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=2,theta=2)
         data = torch.cat([data,data_new],dim=0)
         w = torch.cat([w,w_new],dim=0)
-    print('Success')
+    print(f'Ok: {data.shape[0]}')
+    data = data[0:n, :]
     return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2:],w[0:n]
 
 

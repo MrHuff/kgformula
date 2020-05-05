@@ -5,8 +5,8 @@ if __name__ == '__main__':
     n = 1000
     seeds = 100
     save_path = ''
-    d_Z = 5
-    beta_xz = [0.5]*(d_Z+1)
+    d_Z = 3
+    beta_xz = [0.0]+[0.25]*(d_Z) #SIMULATION IS INCORRECT DEBUG TIME
     yz = 0.5
     for beta_xy in [[0,0.0],[0,0.5]]:
         data_dir = f'beta_xy={beta_xy}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={beta_xz}'
