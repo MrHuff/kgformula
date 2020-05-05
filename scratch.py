@@ -10,7 +10,9 @@ if __name__ == '__main__':
     estimator = 'classifier'
     device = GPUtil.getFirstAvailable(order='memory')[0]
     i = 0
-    data_dir = 'beta_xy=[0, 0.0]_d_Z=5_n=1000_yz=0.5_beta_XZ=[0.25, 0.25, 0.25, 0.25, 0.25, 0.25]'
+    h_0_str_mult_2 = 'beta_xy=[0, 0.0]_d_X=1_d_Y=1_d_Z=3_n=1000_yz=0.5_beta_XZ=[0.0, 0.25, 0.25, 0.25]'
+
+    data_dir = h_0_str_mult_2
     X, Y, Z, w_true = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
         # 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000'
 
@@ -21,12 +23,12 @@ if __name__ == '__main__':
     print(indep.p_val)
     est_params = {'lr': 1e-3,
                   'max_its': 5000,
-                  'width': 32,
-                  'layers': 3,
+                  'width': 64,
+                  'layers': 4,
                   'mixed': False,
                   'bs_ratio': 0.01,
                   'kappa': 10,
-                  'val_rate':0.1,
+                  'val_rate':1e-2,
                   'n_sample':1000,
                   'criteria_limit':0.25,
                   'kill_counter':10}
