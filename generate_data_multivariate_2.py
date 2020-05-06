@@ -16,7 +16,7 @@ if __name__ == '__main__':
         if not os.path.exists(f'./{data_dir}/'):
             os.mkdir(f'./{data_dir}/')
         for i in range(seeds):
-            X,Y,Z,w = simulate_xyz_multivariate(n,oversamp=50,d_Z=d_Z,beta_xz=beta_xz,beta_xy=beta_xy,seed = i,yz=yz,d_X=d_X,d_Y=d_Y)
+            X,Y,Z,w = simulate_xyz_multivariate(n,oversamp=50,d_Z=d_Z,beta_xz=beta_xz,beta_xy=beta_xy,seed = i,yz=yz,d_X=d_X,d_Y=d_Y,phi=2**d_X,theta=2**d_X)
             torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
 
 
