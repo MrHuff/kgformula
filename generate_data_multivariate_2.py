@@ -3,7 +3,7 @@ import torch
 import os
 if __name__ == '__main__':
     n = 1000
-    seeds = 100
+    seeds = 1000
     save_path = ''
     d_Z = 3
     yz = 0.5

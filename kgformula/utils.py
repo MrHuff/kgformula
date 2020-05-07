@@ -134,6 +134,7 @@ class simulation_object():
             lamb = est_params['reg_lambda']
             suffix = suffix + f'lambda={lamb}'
         elif estimator=='classifier':
+            hsic_pval_list = []
             for key,val in est_params.items():
                 suffix = suffix + f'_{key}={val}'
         else:
@@ -158,9 +159,9 @@ class simulation_object():
                     plt.show()
                 if estimate:
                     d = density_estimator(x=X, z=Z, cuda=self.cuda, est_params=est_params, type=estimator,device=self.device)
-                    if d.failed:
-                        continue
                     w = d.return_weights()
+                    if estimator=='classifier':
+                        hsic_pval_list.append(d.hsic_pval)
                 else:
                     w = _w
                 c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
@@ -191,7 +192,10 @@ class simulation_object():
             ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
             print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
             ks_data.append([ks_stat, p_val_ks_test])
-
+            if estimator == 'classifier':
+                hsic_pval_list = torch.Tensor(hsic_pval_list)
+                torch.save(hsic_pval_list,
+                           f'./{data_dir}/hsic_pval_array{suffix}.pt')
         df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
         df.to_csv(f'./{data_dir}/df{suffix}.csv')
         s = df.describe()

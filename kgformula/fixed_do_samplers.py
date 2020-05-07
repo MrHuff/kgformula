@@ -324,12 +324,13 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
             raise Exception("fam_x must be 1, 3 or 4")
     wts = wts / wts.max()
     inv_wts = 1. / wts
-    keep_index = torch.tensor([True]*X.shape[0]).squeeze()
-    for i in range(d_X):
-    # keep_index = (torch.rand_like(wts) < wts).squeeze()
-        keep_index = keep_index*(torch.rand_like(wts) < wts).squeeze()
-    X,Y,Z = X[keep_index,:],Y[keep_index,:],Z[keep_index,:]
-    return X,Y,Z, inv_wts[keep_index]
+    keep_index = (torch.rand_like(wts) < wts).squeeze()
+
+    # keep_index = torch.tensor([True]*X.shape[0]).squeeze()
+    # for i in range(d_X):
+    #     keep_index = keep_index*(torch.rand_like(wts) < wts).squeeze()
+    X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
+    return X,Y,Z,inv_wts
 
 def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=1,phi=2,theta=2):
     """

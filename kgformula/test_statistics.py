@@ -258,7 +258,6 @@ class density_estimator():
         self.est_params = est_params
         self.type = type
         self.kernel_base = gpytorch.kernels.Kernel()
-
         if type=='linear':
             self.alpha = est_params['alpha']
             self.diag = est_params['reg_lambda']*torch.eye(self.n)
@@ -361,8 +360,11 @@ class density_estimator():
             idx_HSIC = np.random.choice(np.arange(self.x.shape[0]),self.x.shape[0],p=_w/_w.sum())
             p_val = hsic_test(self.x[idx_HSIC,:],self.z[idx_HSIC,:],self.est_params['n_sample'])
             print(f'HSIC_pval : {p_val}')
-            # if p_val<self.est_params['criteria_limit']:
-            #     self.failed=True
+            self.hsic_pval = p_val
+            if p_val<self.est_params['criteria_limit']:
+                self.failed=True
+                print('failed')
+
         return w
 
     def create_classification_data(self):

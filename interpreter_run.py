@@ -9,9 +9,9 @@ if __name__ == '__main__':
 
     args={
         'data_dir': h_1_str_mult_2,
-        'estimate':False,
+        'estimate':True,
         'debug_plot':False,
-        'seeds':100,
+        'seeds':1000,
         'bootstrap_runs':250,
         'debug_generative_process':False,
         'debug_d_Z':3,
@@ -24,7 +24,7 @@ if __name__ == '__main__':
                   'kappa': 10,
                   'val_rate':0.01,
                   'n_sample':250,
-                  'criteria_limit':0.1,
+                  'criteria_limit':0.10,
                   'kill_counter': 10,
                         'reg_lambda':1e-2,
                         'alpha':0.5},
