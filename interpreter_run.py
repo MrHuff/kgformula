@@ -8,7 +8,7 @@ if __name__ == '__main__':
     h_1_str_mult_2 = 'beta_xy=[0, 0.5]_d_X=3_d_Y=3_d_Z=3_n=1000_yz=0.5_beta_XZ=[0.0, 0.25, 0.25, 0.25]'
 
     args={
-        'data_dir': h_1_str_mult_2,
+        'data_dir': h_0_str_mult_2,
         'estimate':True,
         'debug_plot':False,
         'seeds':1000,
@@ -17,7 +17,7 @@ if __name__ == '__main__':
         'debug_d_Z':3,
         'est_params' : {'lr': 1e-3,
                   'max_its': 5000,
-                  'width': 64,
+                  'width': 32,
                   'layers': 4,
                   'mixed': False,
                   'bs_ratio': 1e-2,
