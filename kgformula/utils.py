@@ -124,7 +124,6 @@ class simulation_object():
         data_dir = self.args['data_dir']
         seeds = self.args['seeds']
         bootstrap_runs  = self.args['bootstrap_runs']
-        bins = 25
         est_params = self.args['est_params']
         estimator = self.args['estimator']
         runs = self.args['runs']
@@ -174,21 +173,13 @@ class simulation_object():
                 p_value_list.append(p.item())
                 reference_metric_list.append(reference_metric.item())
 
-            plt.hist(p_value_list, bins=bins)
-            plt.savefig(
-                f'./{data_dir}/p_value_plot{suffix}.png')
-            plt.close()
+
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
                        f'./{data_dir}/p_val_array{suffix}.pt')
-            plt.hist((p_value_array + 1e-3).log().numpy(), bins=bins)
-            plt.savefig(
-                f'./{data_dir}/logp_value_plot{suffix}.png')
-            plt.close()
-            reference_metric_list = reject_outliers(reference_metric_list)
-            plt.hist(reference_metric_list, bins=100)
-            plt.savefig(f'./{data_dir}/ref_metric_plot{suffix}.png')
-            plt.close()
+            ref_metric_array = torch.tensor(reference_metric_list)
+            torch.save(ref_metric_array,
+                       f'./{data_dir}/ref_val_array{suffix}.pt')
             ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
             print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
             ks_data.append([ks_stat, p_val_ks_test])
