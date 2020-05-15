@@ -7,21 +7,25 @@ from density_estimator_comparison import get_w_estimate_and_plot
 import pandas as pd
 import gpytorch
 if __name__ == '__main__':
-
+    torch.manual_seed(1)
     x = torch.randn(*(10,1))
-    idx = torch.randperm(10)
-    ones = torch.ones(*(10,1))
-    kernel = gpytorch.kernels.RBFKernel()
-    k_1 = kernel(x).evaluate()
-    print(k_1)
-    k_2 = kernel(x[idx]).evaluate()
-    print(k_2)
-    k_2_sum = k_2@ones
-    print(k_2_sum)
-    print(k_2_sum.repeat(1,10))
-    k_3 = k_1[idx,:]
-    k_3 = k_3[:,idx]
-    print(k_3==k_2)
+    # torch.manual_seed(1)
+    y = torch.randn(*(10,1))
+    print(x)
+    print(y)
+    # idx = torch.randperm(10)
+    # ones = torch.ones(*(10,1))
+    # kernel = gpytorch.kernels.RBFKernel()
+    # k_1 = kernel(x).evaluate()
+    # print(k_1)
+    # k_2 = kernel(x[idx]).evaluate()
+    # print(k_2)
+    # k_2_sum = k_2@ones
+    # print(k_2_sum)
+    # print(k_2_sum.repeat(1,10))
+    # k_3 = k_1[idx,:]
+    # k_3 = k_3[:,idx]
+    # print(k_3==k_2)
 
 
 

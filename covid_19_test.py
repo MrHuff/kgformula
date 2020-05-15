@@ -1,33 +1,8 @@
 import pandas as pd
+from sklearn.preprocessing import StandardScaler,MinMaxScaler,RobustScaler
 pd.options.display.max_rows = 10000
 pd.options.display.max_columns = 1000
-
-def cat_fix(df):
-    pass
-
-def normalize():
-
-    pass
-
-if __name__ == '__main__':
-    df = pd.read_csv("combined_dataset_latest.csv")
-    df = df.drop(columns=['StringencyIndex',
-                          'ISO',
-                          'Retail and Recreation',
-                          'Grocery and Pharmacy',
-                          'Parks',
-                          'Transit Stations',
-                          'Workplaces',
-                          'Residential'])
-    print(df['CountryName'].unique())
-    print(df.shape)
-    cols_1 = df.columns.tolist()
-    df = df.dropna(axis='columns')
-    print(df.shape)
-    cols_2 = df.columns.tolist()
-    set_minus = set(cols_1)-set(cols_2) #Are these covariates important?!
-    print(set_minus)
-    categorical = [
+categorical = [
         'School closing',
         'Workplace closing',
        'Cancel public events',
@@ -39,13 +14,12 @@ if __name__ == '__main__':
        'Income support',
         'Debt/contract relief',
         'Testing policy',
-        'Contact tracing'
+        'Contact tracing',
         'Masks',
         'Public information campaigns',
         'ISO'
     ]
-    y = []
-    float = ['Emergency investment in healthcare',
+float = ['Emergency investment in healthcare',
              'new_cases',
              'Population Density',
              'Population',
@@ -63,7 +37,6 @@ if __name__ == '__main__':
              'population_density',
              'Population Female',
              'new_deaths_per_million',
-             'Masks',
              'total_cases_per_million',
              'nurses (per 1000)',
              'new_tests',
@@ -82,7 +55,6 @@ if __name__ == '__main__':
              'cvd_death_rate',
              'Investment in vaccines',
              'new_cases_per_million',
-             'Contact tracing',
              'Fiscal measures',
              'Population of Compulsory School Age',
              'physicians (per 1000)',
@@ -90,12 +62,98 @@ if __name__ == '__main__':
              'new_tests_per_thousand',
              'Mortality rate, adult, male (per 1,000 male adults)',
              'handwashing_facilities',
-             'gdp_per_capita']
-    y_cat = []
-    x = []
-    x_cat = []
-    z = []
-    z_cat = []
+             'gdp_per_capita'
+         ]
+
+def cat_fix(df):
+    df = df.astype("category")
+    return pd.get_dummies(df)
+
+def normalize(df):
+    col_names = df.columns
+    x = df.values
+    s = StandardScaler()
+    x = s.fit_transform(x)
+    return pd.DataFrame(x,columns=col_names.tolist())
+
+def filter_nan_countries(df):
+    list = df['CountryName'].unique().tolist()
+    ret_list = []
+    for el in list:
+        subset = df[df['CountryName']==el]
+        if not subset.isnull().values.any():
+            ret_list.append(el)
+    return ret_list
+
+def transform(df):
+    col_names = df.columns.tolist()
+    _cat = []
+    for el in col_names:
+        if el in categorical:
+            _cat.append(el)
+    if _cat:
+        cat_data = cat_fix(df[_cat])
+        df = df.drop(columns=_cat)
+        df = pd.concat([df,cat_data],axis=1)
+    return normalize(df)
+
+
+if __name__ == '__main__':
+    df = pd.read_csv("combined_dataset_latest.csv")
+    df = df.drop(columns=['StringencyIndex',
+                          'ISO',
+                          'Retail and Recreation',
+                          'Grocery and Pharmacy',
+                          'Parks',
+                          'Transit Stations',
+                          'Workplaces',
+                          'Residential'])
+    cols_1 = df.columns.tolist()
+    country_list = filter_nan_countries(df)
+    cl_2 = df['CountryName'].unique().tolist()
+    print(set(cl_2)-set(country_list))
+    df = df[df['CountryName'].isin(country_list)]
+    print(df.shape)
+
+    y = ['new_cases_per_million'] #Need to consider repeating case...
+    x = ['School closing',
+        'Workplace closing',
+       'Cancel public events',
+        'Restrictions on gatherings',
+       'Close public transport',
+        'Stay at home requirements',
+       'Restrictions on internal movement',
+         'International travel controls']
+    z = [
+        'Population of Compulsory School Age',
+         'Testing policy',
+         'Contact tracing',
+         'Masks',
+        'extreme_poverty',
+        'physicians (per 1000)',
+        'Mortality rate, adult, female (per 1,000 female adults)',
+        'Mortality rate, adult, male (per 1,000 male adults)',
+        'hospital_beds (per 1000)',
+        'nurses (per 1000)',
+        'median_age_y',
+        'Population Density',
+        'aged_65_older',
+        'International support',
+        'gdp_per_capita',
+        'Fiscal measures'
+         ]
+
+    X_pd = df[x]
+    Y_pd = df[y]
+    Z_pd = df[z]
+    X_pd = transform(X_pd)
+    Y_pd = transform(Y_pd)
+    Z_pd = transform(Z_pd)
+
+    # print(X_pd)
+    # print(Y_pd)
+    # print(Z_pd)
+
     # subset = df[df['ISO']=='USA']
     # print(subset)
     # print(subset[float])

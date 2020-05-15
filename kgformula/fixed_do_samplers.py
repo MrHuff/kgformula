@@ -260,8 +260,8 @@ def sim_multivariate_UV(dat,fam,par,d_z):
     return dat
 
 def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,fam_x=1,phi=1,theta=1,d_Y=1,d_X=1):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    # torch.manual_seed(seed)
+    # np.random.seed(seed)
     if oversamp < 1:
         warnings.warn("Oversampling rate must be at least 1... changing")
         oversamp = 1
@@ -285,7 +285,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     Z = dat[:,(d_X+d_Y):(d_X+d_Y+d_Z)]
 
     #Make Y normal!
-    p = Normal(loc=a+b*X,scale=1)
+    p = Normal(loc=a+X@b,scale=1) #Consider square matrix valued b.
     Y = p.icdf(Y)
 
     if fam_z == 1:
@@ -334,10 +334,12 @@ def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=
     beta_xz has dim (d_Z+1) list
     beta_xy has dim 2 list
     """
+    torch.manual_seed(seed)
+    np.random.seed(seed)
     X,Y,Z, w = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=phi,theta=theta,d_X=d_X,d_Y=d_Y)
     while X.shape[0]<n:
         print(f'Undersampled: {X.shape[0]}')
-        oversamp = oversamp*1.1
+        oversamp = oversamp*1.01
         X_new,Y_new,Z_new, w_new = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=phi,theta=theta,d_X=d_X,d_Y=d_Y)
         X = torch.cat([X,X_new],dim=0)
         Y = torch.cat([Y,Y_new],dim=0)
