@@ -164,14 +164,16 @@ class simulation_object():
                 else:
                     w = _w
                 c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
+
                 reference_metric = c.calculate_weighted_statistic()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):
-                    list_of_metrics.append(c.permutation_calculate_weighted_statistic())
+                    list_of_metrics.append(c.permutation_calculate_weighted_statistic().cpu())
                 array = torch.tensor(list_of_metrics).float()
                 p = calculate_pval(array, reference_metric)
                 p_value_list.append(p.item())
                 reference_metric_list.append(reference_metric.item())
+                del c
 
 
             p_value_array = torch.tensor(p_value_list)

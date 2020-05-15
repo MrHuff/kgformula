@@ -302,26 +302,27 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     if beta_xz.dim()<2:
         beta_xz = beta_xz.unsqueeze(-1)
     _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence
-    wts = torch.ones(*(X.shape[0],1))
+    wts = torch.zeros(*(X.shape[0],1))
     for i in range(d_X):
         _x = X[:,i].unsqueeze(-1)
         if fam_x == 4:
             mu = expit(_x_mu)
             d = Beta(concentration1=phi*mu,concentration0=phi*(1-mu))
             _prob = d.log_prob(_x)-qden(_x)
-            wts = wts*_prob.exp()
+            wts = wts+_prob
         elif fam_x==1:
             mu = _x_mu
             d = Normal(loc = mu,scale = phi**0.5)
             _prob = d.log_prob(_x)-qden(_x)
-            wts = wts*_prob.exp()
+            wts = wts+_prob
         elif fam_x==3: #Change
             mu = torch.exp(_x_mu)
             d = Gamma(rate=1/(mu*phi),concentration=1/phi)
             _prob = d.log_prob(_x)-qden(_x)
-            wts = wts*_prob.exp()
+            wts = wts+_prob
         else:
             raise Exception("fam_x must be 1, 3 or 4")
+    wts = wts.exp()
     wts = wts / wts.max()
     inv_wts = 1. / wts
     keep_index = (torch.rand_like(wts) < wts).squeeze()
@@ -336,7 +337,7 @@ def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=
     X,Y,Z, w = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=phi,theta=theta,d_X=d_X,d_Y=d_Y)
     while X.shape[0]<n:
         print(f'Undersampled: {X.shape[0]}')
-        oversamp = (n/(X.shape[0]+1))*1.5
+        oversamp = oversamp*1.1
         X_new,Y_new,Z_new, w_new = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=phi,theta=theta,d_X=d_X,d_Y=d_Y)
         X = torch.cat([X,X_new],dim=0)
         Y = torch.cat([Y,Y_new],dim=0)

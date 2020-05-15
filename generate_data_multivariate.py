@@ -5,7 +5,7 @@ if __name__ == '__main__':
     n = 10000
     seeds = 100
     save_path = ''
-    d_Z = 3
+    d_Z = 50
     yz = 0.5
     d_X = 3
     d_Y = 3
@@ -16,7 +16,7 @@ if __name__ == '__main__':
         if not os.path.exists(f'./{data_dir}/'):
             os.mkdir(f'./{data_dir}/')
         for i in range(seeds):
-            X,Y,Z,w = simulate_xyz_multivariate(n,oversamp=25,d_Z=d_Z,beta_xz=beta_xz,beta_xy=beta_xy,seed = i,yz=yz,d_X=d_X,d_Y=d_Y,phi=2**d_X,theta=2**d_X)
+            X,Y,Z,w = simulate_xyz_multivariate(n,oversamp=5,d_Z=d_Z,beta_xz=beta_xz,beta_xy=beta_xy,seed = i,yz=yz,d_X=d_X,d_Y=d_Y,phi=2**d_X,theta=2**d_X)
             torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
 
 

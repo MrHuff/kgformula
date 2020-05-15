@@ -458,15 +458,9 @@ class weighted_stat(): #HAPPY MISTAKE?!?!??!?!?!?!?!?
             self.device = device
             self.cuda = cuda
             self.n = X.shape[0]
-            self.H_2 = torch.eye(self.n)-2*torch.ones(*(self.n, self.n))/self.n
-            self.H_4 = torch.eye(self.n)-4*torch.ones(*(self.n, self.n))/self.n
             self.one_n_1 = torch.ones(*(self.n,1))
-            self.ones= torch.ones(*(self.n,self.n))
             self.half_mode = half_mode
             if cuda:
-                self.H_2 = self.H_2.cuda(device)
-                self.H_4 = self.H_4.cuda(device)
-                self.ones = self.ones.cuda(device)
                 self.one_n_1 = self.one_n_1.cuda(device)
             else:
                 self.device = 'cpu'
@@ -477,7 +471,7 @@ class weighted_stat(): #HAPPY MISTAKE?!?!??!?!?!?!?!?
             self.W = self.w@self.w.t()
             self.W = self.W/self.n**2
             self.do_null=do_null
-            self.kernel_base = gpytorch.kernels.Kernel()
+            self.kernel_base = gpytorch.kernels.Kernel().cuda(self.device)
             self.reg_lambda = reg_lambda
             for name,data in zip(['X','Y'],[self.X,self.Y]):
                 self.kernel_ls_init(name,data)
@@ -508,43 +502,40 @@ class weighted_statistic_new(weighted_stat):
         super(weighted_statistic_new, self).__init__(X, Y, Z, w, do_null, reg_lambda, cuda, device)
         with torch.no_grad():
             self.sum_mean_X = self.X_ker.mean()
-            self.X_ker_H_4 = self.X_ker@self.H_4
-            self.X_ker_H_2= self.X_ker@self.H_2
             self.X_ker_n_1 = self.X_ker@self.one_n_1/self.n
-            self.X_ker_ones =self.X_ker@self.ones/self.n
+            self.X_ker_ones = self.X_ker_n_1.repeat(1,self.n)
+            self.X_ker_H_2= self.X_ker - self.X_ker_ones*2
 
             self.sum_mean_Y = self.Y_ker.mean()
-            self.Y_ker_H_4 = self.Y_ker@self.H_4
-            self.Y_ker_H_2= self.Y_ker@self.H_2
             self.Y_ker_n_1 = self.Y_ker@self.one_n_1/self.n
-            self.Y_ker_ones =self.Y_ker@self.ones/self.n
+            self.Y_ker_ones =self.Y_ker_n_1.repeat(1,self.n)
+            self.Y_ker_H_2= self.Y_ker - 2*self.Y_ker_ones
 
-            self.term_1 = 0.5*self.W*self.X_ker_H_4
-            self.term_2 = 0.5*self.W*self.X_ker
+            self.term_1 = self.W*self.X_ker_H_2
+            self.term_2 = 2*self.W*self.X_ker
             self.term_3 = 2*self.W*self.X_ker_ones
             self.term_4 = 2*self.W
             self.term_5 = self.W*self.sum_mean_X
-            self.term_6 = self.W*self.sum_mean_Y*self.X_ker_H_2
-            self.term_7 = self.W*self.sum_mean_Y*self.sum_mean_X
+            self.term_6 = (self.W*self.sum_mean_Y*self.X_ker_H_2).sum()
+            self.term_7 = (self.W*self.sum_mean_Y*self.sum_mean_X).sum()
 
     def permutation_calculate_weighted_statistic(self):
         with torch.no_grad():
             idx = torch.randperm(self.n)
-            y = self.Y[idx]
-            Y_ker = self.ker_obj_Y(y).evaluate()
-            Y_ker_H_4 = Y_ker @ self.H_4
-            Y_ker_H_2 = Y_ker @ self.H_2
-            Y_ker_n_1 = Y_ker @ self.one_n_1/self.n
-            Y_ker_ones = Y_ker @ self.ones/self.n
-            test_stat = self.term_1 * Y_ker + self.term_2 * Y_ker_H_4 + self.term_3 * Y_ker_ones + self.term_4 * (
-                        self.X_ker_n_1 @ Y_ker_n_1.t()) + self.term_5 * Y_ker_H_2 + self.term_6 + self.term_7
-            return test_stat.sum()
+            Y_ker = self.Y_ker[idx,:]
+            Y_ker = Y_ker[:,idx]
+            Y_ker_n_1 = self.Y_ker_n_1[idx,:]
+            Y_ker_ones =Y_ker_n_1.repeat(1,self.n)
+            Y_ker_H_2 = Y_ker - 2*Y_ker_ones
+            test_stat = self.term_1 * Y_ker - self.term_2 * Y_ker_ones + self.term_3 * Y_ker_ones + self.term_4 * (
+                        self.X_ker_n_1 @ Y_ker_n_1.t()) + self.term_5 * Y_ker_H_2
+            return test_stat.sum() + self.term_6 + self.term_7
 
     def calculate_weighted_statistic(self):
         with torch.no_grad():
-            test_stat = self.term_1 * self.Y_ker + self.term_2 * self.Y_ker_H_4 + self.term_3 * self.Y_ker_ones + self.term_4 * (
-                    self.X_ker_n_1 @ self.Y_ker_n_1.t()) + self.term_5 * self.Y_ker_H_2 + self.term_6 + self.term_7
-            return test_stat.sum()
+            test_stat = self.term_1 * self.Y_ker - self.term_2 * self.Y_ker_ones + self.term_3 * self.Y_ker_ones + self.term_4 * (
+                    self.X_ker_n_1 @ self.Y_ker_n_1.t()) + self.term_5 * self.Y_ker_H_2
+            return test_stat.sum() + self.term_6 + self.term_7
 
 
 
