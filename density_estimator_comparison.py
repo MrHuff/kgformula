@@ -3,10 +3,20 @@ from kgformula.utils import simulation_object,get_density_plot
 import torch
 import numpy as np
 import GPUtil
+from matplotlib import pyplot as plt
+
+def debug_W(w,str):
+    plt.hist(w.flatten().cpu().numpy(), 100)
+    plt.show()
+    plt.clf()
+    print(f'{str} max_val: ',w.max())
+    print(f'{str} min_val: ',w.min())
+    print(f'{str} var: ',w.var())
+    print(f'{str} median:  ',w.median())
 
 def get_w_estimate_and_plot(X,Z,est_params,estimator,device):
     d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator,  device=device)
-    if X.shape[1]==1 and Z.shape[1]==2:
+    if X.shape[1]==1 and Z.shape[1]==1:
         get_density_plot(d, X, Z)
     return d.return_weights()
 

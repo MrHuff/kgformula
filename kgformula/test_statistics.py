@@ -85,8 +85,8 @@ class Log1PlusExp(torch.autograd.Function):
 
 log_1_plus_exp = Log1PlusExp.apply
 
-def NCE_objective(true_preds,fake_preds):
-    _err = -torch.log(true_preds) - (1.-fake_preds).log().mean(dim=1)
+def NCE_objective(true_preds,fake_preds,kappa):
+    _err = -torch.log(nu_sigmoid(true_preds,kappa)) - (1.-nu_sigmoid(fake_preds,kappa)).log().sum(dim=1)
     return _err.mean()
 
 def NCE_objective_stable(true_preds,fake_preds):
@@ -105,6 +105,8 @@ def auc_check(y_pred,Y):
         auc =  metrics.auc(fpr, tpr)
         return auc
 
+def nu_sigmoid(x,kappa):
+    return 1./(1+kappa*torch.exp(-x))
 
 class keops_RBFkernel(torch.nn.Module):
     def __init__(self,ls,x,y=None,device_id=0):
@@ -140,23 +142,6 @@ def get_i_not_j_indices(n):
     list_np = np.array(np.meshgrid(vec, vec)).T.reshape(-1, 2)
     list_np = np.delete(list_np, vec_2, axis=0)
     return list_np
-
-class MLP_feature_map(torch.nn.Module):
-    def __init__(self,d,f=12,k=2,o=1):
-        super(MLP_feature_map, self).__init__()
-        self.model = nn.ModuleList()
-        self.model.append(nn.Linear(d, f))
-        self.model.append(nn.Tanh())
-        for i in range(k):
-            self.model.append(nn.Linear(f, f))
-            self.model.append(nn.Tanh())
-        self.model.append(nn.Linear(f, o))
-        self.model.append(nn.Tanh())
-
-    def forward(self,x):
-        for l in self.model:
-            x = l(x)
-        return x
 
 class MLP(torch.nn.Module):
     def __init__(self,d,f=12,k=2,o=1):
@@ -308,31 +293,32 @@ class density_estimator():
         pred_T = self.model.forward_predict(X,Z)
         return pred_T.squeeze()
 
-    def forward_func(self,X,Z,X_fake,Z_fake,loss_func):
+    def forward_func(self,X,Z,X_fake,Z_fake,loss_func,kappa):
         pred_T = self.model(X,Z)
         pred_F = self.model(X_fake,Z_fake)
         pred_F = pred_F.view(pred_T.shape[0],-1)
-        return loss_func(pred_T,pred_F)
+        return loss_func(pred_T,pred_F,kappa)
 
     def train_classifier(self,dataset):
-        loss_func = NCE_objective_stable
+        loss_func = NCE_objective
         opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
         if self.est_params['mixed']:
             scaler = GradScaler()
         counter = 0
         best = np.inf
         idx = torch.randperm(dataset.X_val.shape[0])
+        kappa = self.est_params['kappa']
         for i in range(self.est_params['max_its']):
             X_true,Z_true,X_fake,Z_fake= dataset.get_sample()
             opt.zero_grad()
             if self.est_params['mixed']:
                 with autocast():
-                    l = self.forward_func(X_true,Z_true,X_fake,Z_fake,loss_func)
+                    l = self.forward_func(X_true,Z_true,X_fake,Z_fake,loss_func,kappa)
                 scaler.scale(l).backward()
                 scaler.step(opt)
                 scaler.update()
             else:
-                l = self.forward_func(X_true, Z_true, X_fake, Z_fake,loss_func)
+                l = self.forward_func(X_true, Z_true, X_fake, Z_fake,loss_func,kappa)
                 l.backward()
                 opt.step()
 
@@ -343,7 +329,7 @@ class density_estimator():
                     pred_T = self.forward_pred(dataset.X,dataset.Z)
                     pred_F = self.forward_pred(dataset.X,dataset.Z[idx])
                     pred_F = pred_F.view(pred_T.shape[0], -1)
-                    logloss = loss_func(pred_T,pred_F)
+                    logloss = loss_func(pred_T,pred_F,kappa)
                     print(f'logloss epoch {i}: {logloss}')
                     if logloss.item()<best:
                         best = logloss.item()

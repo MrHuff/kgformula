@@ -1,5 +1,7 @@
 import pandas as pd
+import torch
 from sklearn.preprocessing import StandardScaler,MinMaxScaler,RobustScaler
+import os
 pd.options.display.max_rows = 10000
 pd.options.display.max_columns = 1000
 categorical = [
@@ -97,6 +99,15 @@ def transform(df):
         df = pd.concat([df,cat_data],axis=1)
     return normalize(df)
 
+def save_torch(X_pd,Y_pd,Z_pd,dir,filename):
+    X = torch.from_numpy(X_pd.values).float()
+    Y = torch.from_numpy(Y_pd.values).repeat(1, X.shape[1]).float()
+    Z = torch.from_numpy(Z_pd.values).float()
+    w = torch.zeros(1).float()
+
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    torch.save((X,Y,Z,w),dir+filename)
 
 if __name__ == '__main__':
     df = pd.read_csv("combined_dataset_latest.csv")
@@ -149,11 +160,4 @@ if __name__ == '__main__':
     X_pd = transform(X_pd)
     Y_pd = transform(Y_pd)
     Z_pd = transform(Z_pd)
-
-    # print(X_pd)
-    # print(Y_pd)
-    # print(Z_pd)
-
-    # subset = df[df['ISO']=='USA']
-    # print(subset)
-    # print(subset[float])
+    save_torch(X_pd,Y_pd,Z_pd,'./covid_19_1/','data.pt')

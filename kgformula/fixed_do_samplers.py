@@ -182,9 +182,9 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
   ## reject samples based on value of X|Z
     if torch.isnan(wts).all():
         raise Exception("Problem with weights")
-    wts = wts/wts.max()
+    wts_tmp = wts/wts.max()
     inv_wts=1/wts
-    keep_index = torch.rand_like(wts)<wts
+    keep_index = torch.rand_like(wts)<wts_tmp
     dat = dat[keep_index,:]
     return dat,inv_wts[keep_index]
 
@@ -285,7 +285,10 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     Z = dat[:,(d_X+d_Y):(d_X+d_Y+d_Z)]
 
     #Make Y normal!
-    p = Normal(loc=a+X@b,scale=1) #Consider square matrix valued b.
+    if torch.is_tensor(b):
+        p = Normal(loc=a+X@b,scale=1) #Consider square matrix valued b.
+    else:
+        p = Normal(loc=a+X*b,scale=1) #Consider square matrix valued b.
     Y = p.icdf(Y)
 
     if fam_z == 1:
@@ -323,9 +326,9 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
         else:
             raise Exception("fam_x must be 1, 3 or 4")
     wts = wts.exp()
-    wts = wts / wts.max()
-    inv_wts = 1. / wts
-    keep_index = (torch.rand_like(wts) < wts).squeeze()
+    wts_tmp = wts / wts.max()
+    inv_wts = 1. / wts #Weights are completely fucked
+    keep_index = (torch.rand_like(wts) < wts_tmp).squeeze()
     X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
     return X,Y,Z,inv_wts
 
