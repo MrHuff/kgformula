@@ -23,13 +23,16 @@ class HSIC_independence_test():
             self.X = self.X[idx,:]
             self.Y = self.Y[idx,:]
             self.n = 2500
-        self.H = torch.eye(self.n,device=self.X.device)-1./self.n * torch.ones(self.n,self.n,device=self.X.device)
         self.kernel_base = gpytorch.kernels.Kernel()
         self.kernel_ls_init('ker_X',self.X)
         self.kernel_ls_init('ker_Y',self.Y)
-
+        self.ker_X_eval = self.ker_X(self.X).evaluate()
+        self.ker_Y_eval = self.ker_Y(self.Y).evaluate()
+        self.ker_X_eval_ones = (self.ker_X_eval@torch.ones(*(self.n,1),device=self.X.device)).repeat(1,self.n)
+        self.ker_Y_eval_ones = (self.ker_Y_eval@torch.ones(*(self.n,1),device=self.X.device)).repeat(1,self.n)
+        self.X_cache = self.ker_X_eval-self.ker_X_eval_ones
         with torch.no_grad():
-            self.ref_metric = self.calculate_HSIC(self.X,self.Y).item()
+            self.ref_metric = torch.mean(self.X_cache*(self.ker_Y_eval-self.ker_Y_eval_ones)).item()
             self.p_val = self.calc_permute(self.X,self.Y,n_samples=n_samples)
 
     def get_median_ls(self,X):
@@ -51,19 +54,20 @@ class HSIC_independence_test():
         if ls is None:
             ls = self.get_median_ls(data)
         ker._set_lengthscale(ls)
-        ker = ker.cuda(data.device)
+        ker = ker.to(data.device)
         setattr(self,name,ker)
 
-    def calculate_HSIC(self,X,Y):
-        return torch.mean((self.ker_X(X).evaluate()@self.H)*(self.ker_Y(Y).evaluate()@self.H))
+    def calculate_HSIC(self,idx):
+        Y_ker = self.ker_Y_eval[idx,:]
+        Y_ker = Y_ker[:,idx]
+        return torch.mean(self.X_cache*(Y_ker-self.ker_Y_eval_ones[idx,:]))
 
     def calc_permute(self,X,Y,n_samples):
         self.bootstrapped=[]
         with torch.no_grad():
             for i in range(n_samples):
                 idx = torch.randperm(self.X.shape[0])
-                Y_perm = Y[idx]
-                self.bootstrapped.append(self.calculate_HSIC(X,Y_perm).item())
+                self.bootstrapped.append(self.calculate_HSIC(idx).item())
         self.bootstrapped = np.array(self.bootstrapped)
         return self.calculate_pval(self.bootstrapped,self.ref_metric)
 
@@ -107,6 +111,12 @@ def auc_check(y_pred,Y):
 
 def nu_sigmoid(x,kappa):
     return 1./(1+kappa*torch.exp(-x))
+
+def hsic_sanity_check_w(w,x,z,n_perms=250):
+    _w = w.cpu().squeeze().numpy()
+    idx_HSIC = np.random.choice(np.arange(x.shape[0]), x.shape[0], p=_w / _w.sum())
+    p_val = hsic_test(x[idx_HSIC, :], z[idx_HSIC, :], n_perms)
+    return p_val
 
 class keops_RBFkernel(torch.nn.Module):
     def __init__(self,ls,x,y=None,device_id=0):

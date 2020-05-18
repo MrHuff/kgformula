@@ -305,6 +305,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     if beta_xz.dim()<2:
         beta_xz = beta_xz.unsqueeze(-1)
     _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence
+    print(_x_mu.median())
     wts = torch.zeros(*(X.shape[0],1))
     for i in range(d_X):
         _x = X[:,i].unsqueeze(-1)
@@ -315,7 +316,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
             wts = wts+_prob
         elif fam_x==1:
             mu = _x_mu
-            d = Normal(loc = mu,scale = phi**0.5)
+            d = Normal(loc = mu,scale = phi)
             _prob = d.log_prob(_x)-qden(_x)
             wts = wts+_prob
         elif fam_x==3: #Change

@@ -1,4 +1,4 @@
-from kgformula.test_statistics import  density_estimator,HSIC_independence_test
+from kgformula.test_statistics import  density_estimator,HSIC_independence_test,hsic_sanity_check_w
 from kgformula.utils import simulation_object,get_density_plot
 import torch
 import GPUtil
@@ -11,10 +11,10 @@ if __name__ == '__main__':
     estimator = 'classifier'
     device = GPUtil.getFirstAvailable(order='memory')[0]
     i = 1
-    h_0_str_mult_2 = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=1000_yz=0.5_beta_XZ=0.333'
-    # h_0_str_mult_2 = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=1000_yz=0.5_beta_XZ=0.3_ref'
-    # h_0_str_mult_2_big = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=1000_yz=0.5_beta_XZ=0.02'
-
+    # h_0_str_mult_2 = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=1000_yz=0.5_beta_XZ=0.11111'
+    h_0_str_mult_2 = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=1000_yz=0.5_beta_XZ=0.3_ref'
+    # h_0_str_mult_2_big = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=1000_yz=0.5_beta_XZ=0.04'
+    #
     # h_0_str_mult_2 = 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000'
     data_dir = h_0_str_mult_2
     X, Y, Z, w_true = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
@@ -25,7 +25,10 @@ if __name__ == '__main__':
     debug_W(W_true,'W_true')
 
     indep = HSIC_independence_test(X,Z,1000)
+    sanity_pval= hsic_sanity_check_w(w_true,X,Z,1000)
     print(indep.p_val)
+    print(sanity_pval)
+
     est_params = {'lr': 1e-3,
                   'max_its': 5000,
                   'width': 32,
