@@ -12,11 +12,11 @@ if __name__ == '__main__':
     device = GPUtil.getFirstAvailable(order='memory')[0]
     i = 1
     # h_0_str_mult_2 = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=1000_yz=0.5_beta_XZ=0.11111'
-    h_0_str_mult_2 = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=1000_yz=0.5_beta_XZ=0.3_ref'
-    # h_0_str_mult_2_big = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=1000_yz=0.5_beta_XZ=0.04'
+    # h_0_str_mult_2 = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=1000_yz=0.5_beta_XZ=0.3_ref'
+    h_0_str_mult_2_big = 'beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=1000_yz=0.5_beta_XZ=0.0004'
     #
     # h_0_str_mult_2 = 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000'
-    data_dir = h_0_str_mult_2
+    data_dir = h_0_str_mult_2_big
     X, Y, Z, w_true = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{device}')
         # 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000'
     W_true = w_true.unsqueeze(-1)@w_true.unsqueeze(-1).t()
@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     est_params = {'lr': 1e-3,
                   'max_its': 5000,
-                  'width': 32,
+                  'width': 128,
                   'layers': 4,
                   'mixed': False,
                   'bs_ratio': 1e-2,

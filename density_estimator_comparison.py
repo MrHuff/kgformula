@@ -1,4 +1,4 @@
-from kgformula.test_statistics import weighted_stat,weighted_statistic_new, density_estimator,get_i_not_j_indices
+from kgformula.test_statistics import density_estimator,get_i_not_j_indices
 from kgformula.utils import simulation_object,get_density_plot
 import torch
 import numpy as np

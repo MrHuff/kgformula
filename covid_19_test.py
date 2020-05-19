@@ -126,7 +126,8 @@ if __name__ == '__main__':
     df = df[df['CountryName'].isin(country_list)]
     print(df.shape)
 
-    y = ['new_cases_per_million'] #Need to consider repeating case...
+    y = ['new_cases_per_million'] #Need to consider repeating case... Confounder against testing policy. new_deaths_per_million
+
     x = ['School closing',
         'Workplace closing',
        'Cancel public events',

@@ -5,7 +5,7 @@ from scipy.stats import kstest
 import tqdm
 import pandas as pd
 import torch
-from kgformula.test_statistics import weighted_statistic_new, density_estimator
+from kgformula.test_statistics import weighted_statistic_new, density_estimator,consistent_weighted_HSIC
 from kgformula.fixed_do_samplers import simulate_xyz_univariate
 import os
 import numpy as np
@@ -164,7 +164,6 @@ class simulation_object():
                 else:
                     w = _w
                 c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
-
                 reference_metric = c.calculate_weighted_statistic()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):
@@ -174,7 +173,6 @@ class simulation_object():
                 p_value_list.append(p.item())
                 reference_metric_list.append(reference_metric.item())
                 del c
-
 
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
