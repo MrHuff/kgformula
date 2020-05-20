@@ -69,7 +69,7 @@ float = ['Emergency investment in healthcare',
 
 def cat_fix(df):
     df = df.astype("category")
-    return pd.get_dummies(df)
+    return pd.get_dummies(df,drop_first=True)
 
 def normalize(df):
     col_names = df.columns

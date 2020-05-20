@@ -292,6 +292,9 @@ class density_estimator():
             self.model = logistic_regression(d=dataset.X.shape[1]+dataset.Z.shape[1]).to(self.x.device)
             self.w = self.train_classifier(dataset)
 
+        elif type == 'random_uniform':
+            self.w = torch.rand(*(self.x.shape[0],1),device=self.device)*2
+
     def retrain(self,x,z):
         self.x = x
         self.z = z
@@ -315,6 +318,7 @@ class density_estimator():
     def train_classifier(self,dataset):
         loss_func = NCE_objective
         opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt,factor=0.5, patience=1)
         if self.est_params['mixed']:
             scaler = GradScaler()
         counter = 0
@@ -344,6 +348,7 @@ class density_estimator():
                     pred_F = pred_F.view(pred_T.shape[0], -1)
                     logloss = loss_func(pred_T,pred_F,kappa)
                     print(f'logloss epoch {i}: {logloss}')
+                    scheduler.step(logloss)
                     if logloss.item()<best:
                         best = logloss.item()
                         counter=0

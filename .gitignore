@@ -14,5 +14,5 @@ g_env/*
 *idea*
 *.pt
 *.csv
-interpreter_run.py
 *.zip
+*.txt
