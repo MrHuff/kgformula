@@ -119,8 +119,7 @@ def sim_UV(dat,fam,par,par2):
     return dat
 
 def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fam_z=1,oversamp = 10, seed=1):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+
     if oversamp<1:
         warnings.warn("Oversampling rate must be at least 1... changing")
         oversamp=1
@@ -189,11 +188,15 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     return dat,inv_wts[keep_index]
 
 def simulate_xyz_univariate(n, beta, cor, phi=1, theta=1, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
     data,w = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp, seed)
-    if data.shape[0]<n:
+    while data.shape[0]<n:
         print(f'Undersampled: {data.shape[0]}')
         oversamp = n/data.shape[0]*1.5
-        data,w = sim_XYZ(n, beta, cor, phi, theta, par2, fam, fam_x, fam_y, fam_z, oversamp, seed)
+        data_new,w_new = sim_XYZ(n, beta, cor, phi, theta, par2, fam, fam_x, fam_y, fam_z, oversamp, seed)
+        data = torch.cat([data,data_new])
+        w = torch.cat([w,w_new])
     else:
         print(f'Ok: {data.shape[0]}')
         data = data[0:n,:]

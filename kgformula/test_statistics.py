@@ -93,7 +93,7 @@ def NCE_objective(true_preds,fake_preds,kappa):
     _err = -torch.log(nu_sigmoid(true_preds,kappa)) - (1.-nu_sigmoid(fake_preds,kappa)).log().sum(dim=1)
     return _err.mean()
 
-def NCE_objective_stable(true_preds,fake_preds):
+def NCE_objective_stable(true_preds,fake_preds,kappa=1):
     _err = -(true_preds-log_1_plus_exp(true_preds)-log_1_plus_exp(fake_preds).mean(dim=1))
     return _err.mean()
 
@@ -316,7 +316,7 @@ class density_estimator():
         return loss_func(pred_T,pred_F,kappa)
 
     def train_classifier(self,dataset):
-        loss_func = NCE_objective
+        loss_func = NCE_objective_stable
         opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt,factor=0.5, patience=1)
         if self.est_params['mixed']:

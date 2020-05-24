@@ -1,10 +1,11 @@
 import pandas as pd
 import torch
 import os
-from covid_19_test import save_torch,cat_fix
+from covid_19_test import save_torch,cat_fix,normalize
 pd.options.display.max_rows = 10000
 pd.options.display.max_columns = 1000
-binary = ['rf_pdiab',
+binary = [
+            'rf_pdiab',
           'rf_gdiab',
           'rf_phype',
           'rf_ghype',
@@ -52,7 +53,8 @@ binary = ['rf_pdiab',
           'ca_disor',
           'ca_hypo',
             'itran',
-            'bfed'
+            'bfed',
+            'dmar',
           ]
 categorical = ['dob_mm',
                'dob_wk',
@@ -88,6 +90,20 @@ continuous = ['priorlive',
 'cig_0', 'cig_1', 'cig_2', 'cig_3',
 'bmi','pwgt_r','dbwt','wtgain','rf_cesarn','apgar5','combgest'
               ]
+
+bin_cat = binary + categorical
+
+def transform(df):
+    col_names = df.columns.tolist()
+    _cat = []
+    for el in col_names:
+        if el in bin_cat:
+            _cat.append(el)
+    if _cat:
+        cat_data = cat_fix(df[_cat])
+        df = df.drop(columns=_cat)
+        df = pd.concat([df,cat_data],axis=1)
+    return normalize(df)
 if __name__ == '__main__':
 
     if not os.path.exists('filtered_infant_data.csv'):
@@ -230,3 +246,20 @@ if __name__ == '__main__':
         else:
             df = pd.read_csv('filtered_infant_data_stratified_subsampled.csv',index_col=0)
             df['infant_died_at_birth'] = df['ilive'].apply(lambda x: 1 if x=='N' else 0)
+
+            x = ['meduc']
+            y = ['infant_died_at_birth']
+            z = [
+                'mager9',
+                'mrace6',
+                'mbstate_rec',
+                'restatus',
+                ]
+            X_pd = df[x]
+            Y_pd = df[y]
+            Z_pd = df[z]
+            X_pd = transform(X_pd)
+            Y_pd = transform(Y_pd)
+            Z_pd = transform(Z_pd)
+            save_torch(X_pd, Y_pd, Z_pd, './infant_mortality_1/', 'data.pt')
+

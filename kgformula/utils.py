@@ -1,5 +1,4 @@
 import argparse
-import GPUtil
 from matplotlib import pyplot as plt
 from scipy.stats import kstest
 import tqdm
@@ -111,10 +110,8 @@ class simulation_object():
     def __init__(self,args):
         self.args=args
         self.cuda = self.args['cuda']
-        if self.cuda:
-            self.device = GPUtil.getFirstAvailable(order='memory')[0]
-        else:
-            self.device = 'cpu'
+        self.device = self.args['device']
+
 
     def run(self):
         debug_generative_process = self.args['debug_generative_process']
@@ -172,11 +169,15 @@ class simulation_object():
                 p = calculate_pval(array, reference_metric)
                 p_value_list.append(p.item())
                 reference_metric_list.append(reference_metric.item())
-                del c
+                if estimate:
+                    del c,d,X,Y,Z,_w,w
+                else:
+                    del c,X,Y,Z,_w,w
 
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
                        f'./{data_dir}/p_val_array{suffix}.pt')
+            print(p_value_array)
             ref_metric_array = torch.tensor(reference_metric_list)
             torch.save(ref_metric_array,
                        f'./{data_dir}/ref_val_array{suffix}.pt')
@@ -191,6 +192,7 @@ class simulation_object():
         df.to_csv(f'./{data_dir}/df{suffix}.csv')
         s = df.describe()
         s.to_csv(f'./{data_dir}/summary{suffix}.csv')
+        return
 
     def plot_and_save(self,x, mean, std, median, name='xyz'):
         reg = self.args['lamb']
@@ -270,72 +272,72 @@ class simulation_object():
         self.surface_plot(big_X,big_Z,error_plot,f'surface_plot_{estimator}')
         self.estimator_error_plot(org,est,f'{estimator}')
 
-    def debug_w(self,lambdas,expected_shape,estimator='truth'):
-        data_dir = self.args['data_dir']
-        seeds = self.args['seeds']
-
-        for lamb in lambdas:
-            self.args['lamb'] = lamb
-            dmw_true = []
-            dmw_estimator = []
-            big_X = []
-            big_Z = []
-            og_stat_list = []
-            est_stat_list = []
-            for i in tqdm.trange(seeds):
-                if self.cuda:
-                    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
-                else:
-                    X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt')
-
-                if X.shape[0] != expected_shape:
-                    print(X.shape[0])
-                    continue
-                else:
-                    big_X.append(X)
-                    big_Z.append(Z)
-                    # Cheating case
-                    dmw_true.append(w)
-                    if estimator=='kmm':
-                        d = density_estimator(x=X, z=Z, cuda=True, est_params=None, type='kmm', reg_lambda=lamb,device=self.device)
-                        w_estimator = d.return_weights()
-                        dmw_estimator.append(w_estimator)
-                    elif estimator=='semi':
-                        d = density_estimator(x=X, z=Z, cuda=True, est_params=None, type='semi', reg_lambda=lamb,device=self.device)
-                        w_estimator = d.return_weights()
-                        dmw_estimator.append(w_estimator)
-                    elif estimator=='classifier':
-                        d = density_estimator(x=X, z=Z, cuda=True, est_params=self.args['est_params'], type='classifier', reg_lambda=lamb,
-                                              device=self.device)
-                        w_estimator = d.return_weights()
-                        dmw_estimator.append(w_estimator)
-
-                    c_0 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
-                    orginal = c_0.calculate_weighted_statistic()
-                    og_stat_list.append(orginal.item())
-
-                    if estimator is not 'truth':
-                        c_1 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w_estimator, cuda=self.cuda, device=self.device)
-                        est = c_1.calculate_weighted_statistic()
-                        est_stat_list.append(est.item())
-
-            big_X  = torch.cat(big_X,dim=0)
-            big_Z  = torch.cat(big_Z,dim=0)
-            plot_true = torch.stack(dmw_true, dim=0)
-            print(f'shape of plot_true = {plot_true.shape}')
-            print(f'shape of big_X = {big_X.shape}')
-            print(f'shape of big_Z = {big_Z.shape}')
-
-            if estimator=='truth':
-                self.do_error_plot(plot_true, 'w_true')
-                self.big_histogram(plot_true,'w_true')
-            else:
-                self.diagnose_technique(dmw=dmw_estimator,
-                                        plot_true=plot_true,
-                                        big_X=big_X,
-                                        big_Z=big_Z,
-                                        lamb=lamb,
-                                        estimator=estimator,
-                                        org=og_stat_list,
-                                        est=est_stat_list)
-
+    # def debug_w(self,lambdas,expected_shape,estimator='truth'):
+    #     data_dir = self.args['data_dir']
+    #     seeds = self.args['seeds']
+    #
+    #     for lamb in lambdas:
+    #         self.args['lamb'] = lamb
+    #         dmw_true = []
+    #         dmw_estimator = []
+    #         big_X = []
+    #         big_Z = []
+    #         og_stat_list = []
+    #         est_stat_list = []
+    #         for i in tqdm.trange(seeds):
+    #             if self.cuda:
+    #                 X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
+    #             else:
+    #                 X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+    #
+    #             if X.shape[0] != expected_shape:
+    #                 print(X.shape[0])
+    #                 continue
+    #             else:
+    #                 big_X.append(X)
+    #                 big_Z.append(Z)
+    #                 # Cheating case
+    #                 dmw_true.append(w)
+    #                 if estimator=='kmm':
+    #                     d = density_estimator(x=X, z=Z, cuda=True, est_params=None, type='kmm', reg_lambda=lamb,device=self.device)
+    #                     w_estimator = d.return_weights()
+    #                     dmw_estimator.append(w_estimator)
+    #                 elif estimator=='semi':
+    #                     d = density_estimator(x=X, z=Z, cuda=True, est_params=None, type='semi', reg_lambda=lamb,device=self.device)
+    #                     w_estimator = d.return_weights()
+    #                     dmw_estimator.append(w_estimator)
+    #                 elif estimator=='classifier':
+    #                     d = density_estimator(x=X, z=Z, cuda=True, est_params=self.args['est_params'], type='classifier', reg_lambda=lamb,
+    #                                           device=self.device)
+    #                     w_estimator = d.return_weights()
+    #                     dmw_estimator.append(w_estimator)
+    #
+    #                 c_0 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
+    #                 orginal = c_0.calculate_weighted_statistic()
+    #                 og_stat_list.append(orginal.item())
+    #
+    #                 if estimator is not 'truth':
+    #                     c_1 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w_estimator, cuda=self.cuda, device=self.device)
+    #                     est = c_1.calculate_weighted_statistic()
+    #                     est_stat_list.append(est.item())
+    #
+    #         big_X  = torch.cat(big_X,dim=0)
+    #         big_Z  = torch.cat(big_Z,dim=0)
+    #         plot_true = torch.stack(dmw_true, dim=0)
+    #         print(f'shape of plot_true = {plot_true.shape}')
+    #         print(f'shape of big_X = {big_X.shape}')
+    #         print(f'shape of big_Z = {big_Z.shape}')
+    #
+    #         if estimator=='truth':
+    #             self.do_error_plot(plot_true, 'w_true')
+    #             self.big_histogram(plot_true,'w_true')
+    #         else:
+    #             self.diagnose_technique(dmw=dmw_estimator,
+    #                                     plot_true=plot_true,
+    #                                     big_X=big_X,
+    #                                     big_Z=big_Z,
+    #                                     lamb=lamb,
+    #                                     estimator=estimator,
+    #                                     org=og_stat_list,
+    #                                     est=est_stat_list)
+    #

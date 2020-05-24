@@ -104,6 +104,9 @@ def save_torch(X_pd,Y_pd,Z_pd,dir,filename):
     Y = torch.from_numpy(Y_pd.values).repeat(1, X.shape[1]).float()
     Z = torch.from_numpy(Z_pd.values).float()
     w = torch.zeros(1).float()
+    print(X.shape)
+    print(Y.shape)
+    print(Z.shape)
 
     if not os.path.exists(dir):
         os.makedirs(dir)
@@ -152,7 +155,8 @@ if __name__ == '__main__':
         'aged_65_older',
         'International support',
         'gdp_per_capita',
-        'Fiscal measures'
+        'Fiscal measures',
+        'new_tests_per_thousand'
          ]
 
     X_pd = df[x]
@@ -161,4 +165,4 @@ if __name__ == '__main__':
     X_pd = transform(X_pd)
     Y_pd = transform(Y_pd)
     Z_pd = transform(Z_pd)
-    save_torch(X_pd,Y_pd,Z_pd,'./covid_19_1/','data.pt')
+    save_torch(X_pd,Y_pd,Z_pd,'./covid_19_1/','data_seed=0.pt')
