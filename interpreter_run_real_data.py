@@ -10,8 +10,8 @@ if __name__ == '__main__':
     n = 10000
     val_rate = max(1e-2, 10. / n)
     print(val_rate)
-
-    for h in ['covid_19_1']:#zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+    width = [32,128]
+    for i,h in enumerate(['infant_mortality_1','covid_19_1']):#zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
         args={
             'device':device,
             'data_dir': h,
@@ -23,7 +23,7 @@ if __name__ == '__main__':
             'debug_d_Z':3,
             'est_params' : {'lr': 1e-3,
                             'max_its': 10000,
-                            'width': 128,
+                            'width': width[i],
                             'layers': 4,
                             'mixed': False,
                             'bs_ratio': 10./n,

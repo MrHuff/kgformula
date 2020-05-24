@@ -253,7 +253,8 @@ if __name__ == '__main__':
                 'mager9',
                 'mrace6',
                 'mbstate_rec',
-                'restatus',
+                'restatus','cig_0', 'cig_1', 'cig_2', 'cig_3',
+'bmi','pwgt_r','dbwt','wtgain','rf_cesarn','apgar5','combgest'
                 ]
             X_pd = df[x]
             Y_pd = df[y]
@@ -261,5 +262,5 @@ if __name__ == '__main__':
             X_pd = transform(X_pd)
             Y_pd = transform(Y_pd)
             Z_pd = transform(Z_pd)
-            save_torch(X_pd, Y_pd, Z_pd, './infant_mortality_1/', 'data.pt')
+            save_torch(X_pd, Y_pd, Z_pd, './infant_mortality_1/', 'data_seed=0.pt')
 
