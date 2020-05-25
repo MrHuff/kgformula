@@ -11,7 +11,7 @@ if __name__ == '__main__':
         device = GPUtil.getFirstAvailable(order='memory')[0]
     else:
         device = 'cpu'
-    beta_XZ = 0.03333 #beta_XZ = 0.5, 0.11111, 0.0004
+    beta_XZ = 0.5 #beta_XZ = 0.5, 0.11111, 0.0004
     theta = 8
     phi = 2.83
     for n in [10000]:
@@ -24,7 +24,7 @@ if __name__ == '__main__':
         seed_max = 100
         val_rate = max(1e-2, 10. / n)
         print(val_rate)
-        for h in [h_0_str_mult_2,h_1_str_mult_2]:#zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+        for h in [h_1_str]:#zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
             args={
                 'device':device,
                 'data_dir': h,
@@ -36,7 +36,7 @@ if __name__ == '__main__':
                 'debug_d_Z':3,
                 'est_params' : {'lr': 1e-3,
                                 'max_its': 5000,
-                                'width': 32,
+                                'width': 512,
                                 'layers': int(math.log10(n)),
                                 'mixed': False,
                                 'bs_ratio': 10./n,

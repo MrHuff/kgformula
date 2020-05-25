@@ -47,9 +47,9 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds):
         ground_truth = 'H_0'
     else:
         ground_truth = 'H_1'
-    data_dir = f'ground_truth={ground_truth}_y_a={y_a}_y_b={y_b}_z_a={z_a}_z_b={z_b}_cor={cor}_n={n}_seeds={seeds}'
+    data_dir = f'univariate_1k_seeds/ground_truth={ground_truth}_y_a={y_a}_y_b={y_b}_z_a={z_a}_z_b={z_b}_cor={cor}_n={n}_seeds={seeds}'
     if not os.path.exists(f'./{data_dir}/'):
-        os.mkdir(f'./{data_dir}/')
+        os.makedirs(f'./{data_dir}/')
     for i in range(seeds):
         X, Y, Z, w = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i)
         torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
