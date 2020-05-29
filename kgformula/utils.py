@@ -117,15 +117,18 @@ class simulation_object():
         debug_generative_process = self.args['debug_generative_process']
         d_Z = self.args['debug_d_Z']
         estimate = self.args['estimate']
+        job_dir = self.args['job_dir']
         debug_plot = self.args['debug_plot']
         data_dir = self.args['data_dir']
-        seeds = self.args['seeds']
+        seeds_a = self.args['seeds_a']
+        seeds_b = self.args['seeds_b']
+
         bootstrap_runs  = self.args['bootstrap_runs']
         est_params = self.args['est_params']
         estimator = self.args['estimator']
         runs = self.args['runs']
         ks_data = []
-        suffix = f'_seeds={seeds}_estimate={estimate}_estimator={estimator}'
+        suffix = f'_seeds={seeds_a}_{seeds_b}_estimate={estimate}_estimator={estimator}'
         if estimator=='kmm':
             lamb = est_params['reg_lambda']
             suffix = suffix + f'lambda={lamb}'
@@ -138,10 +141,13 @@ class simulation_object():
             alpha = est_params['alpha']
             suffix = suffix + f'lambda={lamb}_alpha={alpha}'
 
+        if not os.path.exists(f'./{data_dir}/{job_dir}'):
+            os.makedirs(f'./{data_dir}/{job_dir}')
+
         for j in range(runs):
             p_value_list = []
             reference_metric_list = []
-            for i in tqdm.trange(seeds):
+            for i in tqdm.trange(seeds_a,seeds_b):
                 if debug_generative_process:
                     path = f'./{data_dir}/multivariate_test_ref_seed={i}.csv'
                     X, Y, Z, _w= load_csv(path,d_Z,self.device)
@@ -176,22 +182,22 @@ class simulation_object():
 
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
-                       f'./{data_dir}/p_val_array{suffix}.pt')
+                       f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt')
             print(p_value_array)
             ref_metric_array = torch.tensor(reference_metric_list)
             torch.save(ref_metric_array,
-                       f'./{data_dir}/ref_val_array{suffix}.pt')
+                       f'./{data_dir}/{job_dir}/ref_val_array{suffix}.pt')
             ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
             print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
             ks_data.append([ks_stat, p_val_ks_test])
             if estimator == 'classifier':
                 hsic_pval_list = torch.Tensor(hsic_pval_list)
                 torch.save(hsic_pval_list,
-                           f'./{data_dir}/hsic_pval_array{suffix}.pt')
+                           f'./{data_dir}/{job_dir}/hsic_pval_array{suffix}.pt')
         df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
-        df.to_csv(f'./{data_dir}/df{suffix}.csv')
+        df.to_csv(f'./{data_dir}/{job_dir}/df{suffix}.csv')
         s = df.describe()
-        s.to_csv(f'./{data_dir}/summary{suffix}.csv')
+        s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
         return
 
     def plot_and_save(self,x, mean, std, median, name='xyz'):
