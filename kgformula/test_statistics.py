@@ -293,7 +293,10 @@ class density_estimator():
             self.w = self.train_classifier(dataset)
 
         elif type == 'random_uniform':
-            self.w = torch.rand(*(self.x.shape[0],1),device=self.device)*2
+            self.w = torch.rand(*(self.x.shape[0],1)).cuda(self.device)
+
+        elif type == 'ones':
+            self.w = torch.ones(*(self.x.shape[0],1)).cuda(self.device)
 
     def retrain(self,x,z):
         self.x = x
@@ -480,14 +483,25 @@ class consistent_weighted_HSIC():
             # self.middle_term  = self.cache_W_L.sum() * self.cache_sum_K
             # self.Y_center_1 =self.cache_W_K - (self.cache_W_L@torch.ones_like(self.w)/self.n).repeat(1,self.n)
             # self.Y_center_2 = self.Y_center_1 - (self.Y_center_1@torch.ones_like(self.w)/self.n).repeat(1,self.n)
+            self.H = torch.eye(self.n)-torch.ones(self.n,1).repeat(1,self.n)/self.n
+            if self.cuda:
+                self.H = self.H.cuda(self.device)
+            self.M = self.W*self.kernel_Y
+            self.HMH = self.H@self.M@self.H
 
-            self.H_w = torch.diag(self.w)/self.n-self.w.repeat(1,self.n)/self.n**2
-            self.H_wXH_w = self.H_w@(self.kernel_X@self.H_w.t())
-            self.H_wYH_w = self.H_w@(self.kernel_Y@self.H_w.t())
+            # self.H_w = torch.diag(self.w)/self.n-self.w.repeat(1,self.n)/self.n**2
+            # self.H_wXH_w = self.H_w@(self.kernel_X@self.H_w.t())
+            # self.H_wYH_w = self.H_w@(self.kernel_Y@self.H_w.t())
             #
             # self.H_w1 = torch.diag(self.w)/self.n-torch.ones(*(self.n,self.n),device=self.device)/self.n**2
             # self.H_w1XH_w1 = self.H_w1@(self.kernel_X@self.H_w1.t())
             # self.H_w1YH_w1 = self.H_w1@(self.kernel_Y@self.H_w1.t())
+
+    def get_permuted_HMH_kernel(self):
+        idx = torch.randperm(self.n)
+        kernel_Y = self.HMH[:,idx]
+        kernel_Y = kernel_Y[idx,:]
+        return kernel_Y,idx
 
     def get_permuted_Y_kernel(self):
         idx = torch.randperm(self.n)
@@ -505,22 +519,26 @@ class consistent_weighted_HSIC():
         with torch.no_grad():
             # return self.n * torch.sum(self.kernel_Y*self.H_w1XH_w1)
             #
-            return self.n * torch.sum(self.kernel_Y*self.H_wXH_w)
+            return self.n * torch.mean(self.kernel_X*self.HMH)
             # return (torch.sum(self.cache_W_K*self.kernel_Y)+self.middle_term-2*(self.w*self.cache_K_1 * self.cache_L_w).sum()/self.n**3)*self.n
 
-    def permute_Y_sanity(self):
-        kernel_Y,_ = self.get_permuted_Y_kernel()
-        return self.n*torch.sum(kernel_Y*self.H_wXH_w)
+
+    # def permute_Y_sanity(self):
+    #     kernel_Y,_ = self.get_permuted_Y_kernel()
+    #     return self.n*torch.sum(kernel_Y*self.H_wXH_w)
     #
     # def permute_Y_sanity_2(self):
     #     kernel_Y,_ = self.get_permuted_Y_kernel()
     #     return self.n*torch.sum(kernel_Y*self.H_w1XH_w1)
 
 
-    # def permute_X_sanity(self):
-    #     kernel_X,idx = self.get_permuted_X_kernel()
-    #     return self.n*torch.sum(self.H_wYH_w*kernel_X)
+    def permute_X_sanity(self):
+        # kernel_X,idx = self.get_permuted_X_kernel()
+        HMH,_ = self.get_permuted_HMH_kernel()
+        return self.n*torch.mean(HMH*self.kernel_X)
+        # return self.n*torch.mean(self.HMH*kernel_X)
 
+    #
     # def permute_Y(self):
     #     kernel_Y,_ = self.get_permuted_Y_kernel()
     #     return (torch.sum(self.cache_W_K*kernel_Y)+self.cache_sum_K*(self.W*kernel_Y).sum()/self.n**2-2*(self.w*self.cache_K_1 * (kernel_Y@self.w)).sum()/self.n**3)*self.n
@@ -536,7 +554,7 @@ class consistent_weighted_HSIC():
 
     def permutation_calculate_weighted_statistic(self):
         with torch.no_grad():
-            return self.permute_Y_sanity()
+            return self.permute_X_sanity()
 
     def kernel_ls_init(self, name, data):
         setattr(self, f'ker_obj_{name}',

@@ -6,6 +6,6 @@ if __name__ == '__main__':
         for y_a in [0.0]:
             for y_b in [0.0,0.5]:
                 for z_a in [0.0]:
-                    for z_b in [0,0.5]:
+                    for z_b in [0.5,0]:
                         for cor in [0.5]:
-                            generate_data(y_a=y_a,y_b=y_b,z_a=z_a,z_b=z_b,cor=cor,n=n,seeds=seeds)
+                            generate_data(y_a=y_a,y_b=y_b,z_a=z_a,z_b=z_b,cor=cor,n=n,seeds=seeds,theta=4)

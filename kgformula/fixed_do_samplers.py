@@ -164,30 +164,33 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     if fam_x[1] == 4:
         mu = expit(X)
         d = Beta(concentration1=phi*mu,concentration0=phi*(1-mu))
-        _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
-        wts = _prob.exp()
     elif fam_x[1]==1:
         mu = X
-        d = Normal(loc = mu,scale = phi**0.5)
-        _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
-        wts = _prob.exp()
+        d = Normal(loc = mu,scale = phi)
     elif fam_x[1]==3: #Change
         mu = torch.exp(X)
         d = Gamma(rate=1/(mu*phi),concentration=1/phi)
-        _prob = d.log_prob(dat[:,0])-qden(dat[:,0])
-        wts = _prob.exp()
     else:
         raise Exception("fam_x must be 1, 3 or 4")
-  ## reject samples based on value of X|Z
+    ## reject samples based on value of X|Z
+    _prob = d.log_prob(dat[:, 0]) - qden(dat[:, 0])
+    wts = _prob.exp()
+    if fam_x[0]==1 and fam_x[1]==1:
+        max_ratio_points = mu*theta/(theta-phi)
+        normalization = (d.log_prob(max_ratio_points)-qden(max_ratio_points)).exp()
+    else:
+        print("Warning: No analytical solution exist for maximum density ratio using defautl sample max")
+        normalization = wts.max()
     if torch.isnan(wts).all():
         raise Exception("Problem with weights")
-    wts_tmp = wts/wts.max()
+    wts_tmp = wts/normalization
     inv_wts=1/wts
     keep_index = torch.rand_like(wts)<wts_tmp
     dat = dat[keep_index,:]
+
     return dat,inv_wts[keep_index]
 
-def simulate_xyz_univariate(n, beta, cor, phi=1, theta=1, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1):
+def simulate_xyz_univariate(n, beta, cor, phi=2, theta=4, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1):
     torch.manual_seed(seed)
     np.random.seed(seed)
     data,w = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp, seed)
@@ -262,7 +265,7 @@ def sim_multivariate_UV(dat,fam,par,d_z):
     dat = torch.cat([dat,tmp],dim=1)
     return dat
 
-def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,fam_x=1,phi=1,theta=1,d_Y=1,d_X=1):
+def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,fam_x=[1,1],phi=1,theta=1,d_Y=1,d_X=1):
     # torch.manual_seed(seed)
     # np.random.seed(seed)
     if oversamp < 1:
@@ -276,7 +279,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
         cor = torch.tensor(yz).unsqueeze(-1)
     cor = torch.cat([cor for i in range(ref_dim)],dim=1)
     N = round(oversamp*n)
-    tmp = sim_X(N,1,theta,d_X=d_X)
+    tmp = sim_X(N,fam_x[0],theta,d_X=d_X) #nxd_X
     dat = tmp['data']
     qden = tmp['density']
     dat = sim_multivariate_UV(dat,1,cor,d_Z+d_Y)
@@ -304,34 +307,48 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
         Z = q.icdf(Z)
     else:
         raise Exception("fam_z must be 1, 2 or 3")
+
     beta_xz = torch.tensor(beta_xz)
     if beta_xz.dim()<2:
         beta_xz = beta_xz.unsqueeze(-1)
     _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence
-    print(_x_mu.median())
+    # Look at X[:,0] - _x_mu[:,0]. Run KS test on that quantity for distribution with correct variance.
+    # repeat for each "column". i.e. X[:,i] - _x_mu[:,i].
+    # Think each of X and something to regress on Z. Think of the target distribtion. on what you expect post rejection sampling.
+
+    if fam_x[1] == 4:
+        mu = expit(_x_mu)
+        d = Beta(concentration1=phi * mu, concentration0=phi * (1 - mu))
+    elif fam_x[1] == 1:
+        mu = _x_mu
+        d = Normal(loc=mu, scale=phi) #ks -test uses this target distribution. KS-test on  0 centered d with scale phi...
+
+    elif fam_x[1] == 3:  # Change
+        mu = torch.exp(_x_mu)
+        d = Gamma(rate=1 / (mu * phi), concentration=1 / phi)
+    else:
+        raise Exception("fam_x must be 1, 3 or 4")
     wts = torch.zeros(*(X.shape[0],1))
+    #To make Rejectoin sampling work, principal eigenvalue of target distribution i.e. d. Should be less than theta.
+
     for i in range(d_X):
         _x = X[:,i].unsqueeze(-1)
-        if fam_x == 4:
-            mu = expit(_x_mu)
-            d = Beta(concentration1=phi*mu,concentration0=phi*(1-mu))
-            _prob = d.log_prob(_x)-qden(_x)
-            wts = wts+_prob
-        elif fam_x==1:
-            mu = _x_mu
-            d = Normal(loc = mu,scale = phi)
-            _prob = d.log_prob(_x)-qden(_x)
-            wts = wts+_prob
-        elif fam_x==3: #Change
-            mu = torch.exp(_x_mu)
-            d = Gamma(rate=1/(mu*phi),concentration=1/phi)
-            _prob = d.log_prob(_x)-qden(_x)
-            wts = wts+_prob
-        else:
-            raise Exception("fam_x must be 1, 3 or 4")
+        _prob = d.log_prob(_x) - qden(_x)
+        wts = wts + _prob
     wts = wts.exp()
-    wts_tmp = wts / wts.max()
-    inv_wts = 1. / wts #Weights are completely fucked
+    if fam_x[0] == 1 and fam_x[1] == 1:
+        max_ratio_points = mu * theta / (theta - phi)
+        normalization = (d_X*d.log_prob(max_ratio_points) - d_X*qden(max_ratio_points)).exp()
+    else:
+        print("Warning: No analytical solution exist for maximum density ratio using defautl sample max")
+        normalization = wts.max()
+    if torch.isnan(wts).all():
+        raise Exception("Problem with weights")
+    wts_tmp = wts / normalization
+
+    if wts_tmp.max().item()>1:
+        print('Warning max weight: ',wts_tmp.max())
+    inv_wts = 1. / wts #Weights are completely
     keep_index = (torch.rand_like(wts) < wts_tmp).squeeze()
     X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
     return X,Y,Z,inv_wts
@@ -343,11 +360,11 @@ def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=
     """
     torch.manual_seed(seed)
     np.random.seed(seed)
-    X,Y,Z, w = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=phi,theta=theta,d_X=d_X,d_Y=d_Y)
+    X,Y,Z, w = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=[1,1], phi=phi,theta=theta,d_X=d_X,d_Y=d_Y)
     while X.shape[0]<n:
         print(f'Undersampled: {X.shape[0]}')
         oversamp = oversamp*1.01
-        X_new,Y_new,Z_new, w_new = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=1, phi=phi,theta=theta,d_X=d_X,d_Y=d_Y)
+        X_new,Y_new,Z_new, w_new = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=[1,1], phi=phi,theta=theta,d_X=d_X,d_Y=d_Y)
         X = torch.cat([X,X_new],dim=0)
         Y = torch.cat([Y,Y_new],dim=0)
         Z = torch.cat([Z,Z_new],dim=0)

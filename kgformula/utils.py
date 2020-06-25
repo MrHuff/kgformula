@@ -10,6 +10,8 @@ import os
 import numpy as np
 from matplotlib.colors import ListedColormap
 import matplotlib.tri as mtri
+import time
+from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
 
 def load_csv(path, d_Z,device):
     ls_Z = [f'z{i}' for i in range(1,d_Z+1)]
@@ -40,18 +42,46 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
+def ecdf(data):
+    """ Compute ECDF """
+    x = np.sort(data)
+    n = x.size
+    y = np.arange(1, n+1) / n
+    return(x,y)
 
-def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds):
+def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4):
+    phi = theta/2.
     beta = {'y':[y_a,y_b],'z':[z_a,z_b]}
     if y_b == 0:
         ground_truth = 'H_0'
     else:
         ground_truth = 'H_1'
-    data_dir = f'univariate_1k_seeds/ground_truth={ground_truth}_y_a={y_a}_y_b={y_b}_z_a={z_a}_z_b={z_b}_cor={cor}_n={n}_seeds={seeds}'
+    data_dir = f'univariate_{seeds}_seeds/ground_truth={ground_truth}_y_a={y_a}_y_b={y_b}_z_a={z_a}_z_b={z_b}_cor={cor}_n={n}_seeds={seeds}_{theta}_{round(phi,2)}'
     if not os.path.exists(f'./{data_dir}/'):
         os.makedirs(f'./{data_dir}/')
     for i in range(seeds):
-        X, Y, Z, w = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i)
+        X, Y, Z, w = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi)
+        with torch.no_grad():
+            if i==0:
+                sig_xxz = phi
+                e_xz = torch.cat([torch.ones_like(Z), Z],dim=1) @ torch.tensor(beta['z']) #XZ dependence
+                sample_X = (X-e_xz.unsqueeze(-1)).squeeze().numpy()#*sig_xxz
+                # ref = np.random.randn(n)*sig_xxz
+                # x_ref,y_ref = ecdf(ref)
+                # x,y = ecdf(sample_X)
+                # plt.scatter(x=x, y=y)
+                # plt.scatter(x=x_ref, y=y_ref)
+                # plt.show()
+                # plt.clf()
+                stat,pval=kstest(sample_X,'norm',(0,sig_xxz))
+                print(sig_xxz)
+                print(f'KS-stat: {stat}, pval: {pval}')
+                print(w)
+                p_val = hsic_test(X, Z, 1000)
+                sanity_pval = hsic_sanity_check_w(w, X, Z, 1000)
+                print(f'HSIC X Z: {p_val}')
+                print(f'sanity_check_w : {sanity_pval}')
+                time.sleep(4)
         torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
 
 def job_parser():
@@ -127,19 +157,18 @@ class simulation_object():
         est_params = self.args['est_params']
         estimator = self.args['estimator']
         runs = self.args['runs']
+        new = self.args['new_consistent']
         ks_data = []
-        suffix = f'_seeds={seeds_a}_{seeds_b}_estimate={estimate}_estimator={estimator}'
-        if estimator=='kmm':
-            lamb = est_params['reg_lambda']
-            suffix = suffix + f'lambda={lamb}'
-        elif estimator=='classifier':
-            hsic_pval_list = []
-            for key,val in est_params.items():
-                suffix = suffix + f'_{key}={val}'
-        else:
-            lamb = est_params['reg_lambda']
-            alpha = est_params['alpha']
-            suffix = suffix + f'lambda={lamb}_alpha={alpha}'
+
+        suffix = f'_new={new}_seeds={seeds_a}_{seeds_b}_estimate={estimate}_estimator={estimator}'
+        if estimate:
+            if estimator=='kmm':
+                lamb = est_params['reg_lambda']
+                suffix = suffix + f'lambda={lamb}'
+            elif estimator=='classifier':
+                hsic_pval_list = []
+                for key,val in est_params.items():
+                    suffix = suffix + f'_{key}={val}'
 
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
@@ -166,8 +195,11 @@ class simulation_object():
                         hsic_pval_list.append(d.hsic_pval)
                 else:
                     w = _w
-                c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
-                reference_metric = c.calculate_weighted_statistic()
+                if new:
+                    c = consistent_weighted_HSIC(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
+                else:
+                    c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
+                reference_metric = c.calculate_weighted_statistic().cpu()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):
                     list_of_metrics.append(c.permutation_calculate_weighted_statistic().cpu())
@@ -183,7 +215,6 @@ class simulation_object():
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
                        f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt')
-            print(p_value_array)
             ref_metric_array = torch.tensor(reference_metric_list)
             torch.save(ref_metric_array,
                        f'./{data_dir}/{job_dir}/ref_val_array{suffix}.pt')
