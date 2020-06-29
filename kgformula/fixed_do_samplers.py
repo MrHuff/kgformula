@@ -184,7 +184,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     if torch.isnan(wts).all():
         raise Exception("Problem with weights")
     wts_tmp = wts/normalization
-    inv_wts=1/wts
+    inv_wts=1/wts_tmp
     keep_index = torch.rand_like(wts)<wts_tmp
     dat = dat[keep_index,:]
 

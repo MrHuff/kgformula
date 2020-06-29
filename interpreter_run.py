@@ -19,7 +19,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                     # layers=int(math.log10(n)-1)
                     # width = 32*2**i
                     job_dir = f'layers={layers}_width={width}'
-                    for h in [h_0_str,h_1_str]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+                    for h in [h_0_str_mult_2]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                         args = {
                             'new_consistent':False,
                             'device': device,
@@ -42,9 +42,10 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                                            'val_rate': val_rate,
                                            'n_sample': 250,
                                            'criteria_limit': 0.05,
-                                           'kill_counter': 10,
+                                           'kill_counter': 5,
                                            'reg_lambda': 1e-2,
-                                           'alpha': 0.5},
+                                           'alpha': 0.5,
+                                           },
                             'estimator': 'classifier', #ones, classifier
                             'runs': runs,
                             'cuda': True,
@@ -59,14 +60,14 @@ if __name__ == '__main__':
     #beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=100_yz=0.5_beta_XZ=0.03333_theta=8_phi=2.83
 
     beta_XZ_list = [0.5]#0.5,0.01
-    n_list = [100,1000,10000]
-    theta = 4
-    phi = round(theta/2,2)
+    n_list = [10000]
+    theta = 12
+    phi = round(theta/1.75,2)
     seed_max = 1000
     cuda = True
     nr_of_gpus = 5
     net_layers = [2]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
-    net_width = [2048]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
+    net_width = [128]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     if cuda:
         if nr_of_gpus>1:
             devices = GPUtil.getAvailable(order='memory',limit=nr_of_gpus)

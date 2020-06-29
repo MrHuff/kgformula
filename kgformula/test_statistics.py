@@ -4,9 +4,7 @@ from torch.distributions import Normal,StudentT,Bernoulli,Beta,Uniform,Exponenti
 import numpy as np
 from pykeops.torch import LazyTensor,Genred
 import time
-from torch.utils.data import Dataset
-from sklearn import metrics
-import torch.nn as nn
+from kgformula.networks import *
 try:
     from torch.cuda.amp import GradScaler,autocast
 except Exception as e:
@@ -75,42 +73,7 @@ def hsic_test(X,Y,n_sample = 250):
     test = HSIC_independence_test(X,Y,n_sample)
     return test.p_val
 
-class Log1PlusExp(torch.autograd.Function):
-    """Implementation of x ↦ log(1 + exp(x))."""
-    @staticmethod
-    def forward(ctx, x):
-        exp = x.exp()
-        ctx.save_for_backward(x)
-        return x.where(torch.isinf(exp), exp.log1p())
-    @staticmethod
-    def backward(ctx, grad_output):
-        x, = ctx.saved_tensors
-        return grad_output / (1 + (-x).exp())
 
-log_1_plus_exp = Log1PlusExp.apply
-
-def NCE_objective(true_preds,fake_preds,kappa):
-    _err = -torch.log(nu_sigmoid(true_preds,kappa)) - (1.-nu_sigmoid(fake_preds,kappa)).log().sum(dim=1)
-    return _err.mean()
-
-def NCE_objective_stable(true_preds,fake_preds,kappa=1):
-    _err = -(true_preds-log_1_plus_exp(true_preds)-log_1_plus_exp(fake_preds).mean(dim=1))
-    return _err.mean()
-
-def accuracy_check(y_pred,Y):
-    with torch.no_grad():
-        y_pred = (y_pred.float() > 0.5).cpu().float().numpy()
-        return np.mean(Y.cpu().numpy()==y_pred)
-
-def auc_check(y_pred,Y):
-    with torch.no_grad():
-        y_pred = (y_pred.float() > 0.5).cpu().float().numpy()
-        fpr, tpr, thresholds = metrics.roc_curve(Y.cpu().numpy(), y_pred, pos_label=1)
-        auc =  metrics.auc(fpr, tpr)
-        return auc
-
-def nu_sigmoid(x,kappa):
-    return 1./(1+kappa*torch.exp(-x))
 
 def hsic_sanity_check_w(w,x,z,n_perms=250):
     _w = w.cpu().squeeze().numpy()
@@ -153,97 +116,7 @@ def get_i_not_j_indices(n):
     list_np = np.delete(list_np, vec_2, axis=0)
     return list_np
 
-class MLP(torch.nn.Module):
-    def __init__(self,d,f=12,k=2,o=1):
-        super(MLP, self).__init__()
-        self.model = nn.ModuleList()
-        self.model.append(nn.Linear(d, f))
-        self.model.append(nn.Sigmoid())
-        for i in range(k):
-            self.model.append(nn.Linear(f, f))
-            self.model.append(nn.Sigmoid())
-        self.model.append(nn.Linear(f, o))
 
-    def forward(self,X,Z):
-        x = torch.cat([X,Z],dim=1)
-        for l in self.model:
-            x = l(x)
-        return x
-
-    def forward_predict(self,X,Z):
-        return self.forward(X,Z)
-
-    def get_w(self, x, y):
-        return torch.exp(-self.forward(x,y))
-
-class logistic_regression(torch.nn.Module):
-    def __init__(self,d):
-        super(logistic_regression, self).__init__()
-        self.W = torch.nn.Linear(in_features=d,  out_features=1,bias=True)
-
-    def forward(self,x,z):
-        X = torch.cat([x,z],dim=1)
-        return self.W(X)
-
-    def forward_predict(self,X,Z):
-        return self.forward(X,Z)
-
-    def get_w(self, x, y):
-        return torch.exp(-self.forward(x,y))
-
-class classification_dataset(Dataset):
-    def __init__(self,X,Z,bs=1.0,kappa=1,val_rate = 0.01):
-        super(classification_dataset, self).__init__()
-        self.n=X.shape[0]
-        mask = np.array([False] * self.n)
-        mask[0:round(val_rate*self.n)] = True
-        np.random.shuffle(mask)
-        self.X_train = X[~mask,:]
-        self.Z_train = Z[~mask,:]
-        self.X_val = X[mask]
-        self.Z_val = Z[mask]
-        self.bs_perc = bs
-        self.device = X.device
-        self.kappa = kappa
-        self.train_mode()
-
-    def train_mode(self):
-        self.X = self.X_train
-        self.Z = self.Z_train
-        self.sample_indices_base = np.arange(self.X.shape[0])
-        self.bs = int(round(self.bs_perc*self.X.shape[0]))
-
-    def val_mode(self):
-        self.X = self.X_val
-        self.Z = self.Z_val
-        self.sample_indices_base = np.arange(self.X.shape[0])
-        self.bs = self.X.shape[0]
-
-    def build_sampling_set(self,true_indices):
-        np_cat = []
-        for x in np.nditer(true_indices):
-            np_cat.append(np.delete(self.sample_indices_base,x)[None,:])
-        return np.concatenate(np_cat,axis=0)
-
-    def sample_no_replace(self,fake_set,kappa,replace=False):
-        np_cat = []
-        for row in fake_set:
-            np_cat.append(np.random.choice(row,kappa,replace))
-        return np.concatenate(np_cat)
-
-    def get_indices(self):
-        if self.bs ==self.X.shape[0]:
-            true_indices = self.sample_indices_base
-        else:
-            i_s = np.random.randint(0, self.X.shape[0] - 1 - self.bs)
-            true_indices = np.arange(i_s,i_s+self.bs)
-        fake_set = self.build_sampling_set(true_indices)
-        fake_indices = self.sample_no_replace(fake_set,self.kappa,False)
-        return true_indices,fake_indices#,HSIC_ref_indices_true,HSIC_ref_indices_fake
-
-    def get_sample(self):
-        T,F = self.get_indices()
-        return self.X[T,:],self.Z[T,:],self.X[T.repeat(self.kappa),:],self.Z[F,:]
 
 class density_estimator():
     def __init__(self, x, z, est_params=None, cuda=False, device=0, type='linear'):
@@ -291,6 +164,9 @@ class density_estimator():
             dataset = self.create_classification_data()
             self.model = logistic_regression(d=dataset.X.shape[1]+dataset.Z.shape[1]).to(self.x.device)
             self.w = self.train_classifier(dataset)
+
+        elif type=='TRE':
+            pass
 
         elif type == 'random_uniform':
             self.w = torch.rand(*(self.x.shape[0],1)).cuda(self.device)
@@ -572,7 +448,7 @@ class consistent_weighted_HSIC():
             ret = torch.sqrt(torch.median(d[d > 0]))
             return ret
 
-class weighted_stat(): #HAPPY MISTAKE?!?!??!?!?!?!?!?
+class weighted_stat():
     def __init__(self,X,Y,Z,w,do_null = True,cuda=False,device=0,half_mode=False):
         with torch.no_grad():
             self.device = device

@@ -22,8 +22,7 @@ def load_csv(path, d_Z,device):
     w = torch.from_numpy(dat['w'].values).float().cuda(device)
     return X,Y,Z,1/w
 
-def get_density_plot(d,X,Z):
-    w = d.return_weights()
+def get_density_plot(w,X,Z):
     X = X.cpu().flatten().numpy()
     Z = Z.cpu().flatten().numpy()
     w = w.cpu().flatten().numpy()
@@ -159,7 +158,6 @@ class simulation_object():
         runs = self.args['runs']
         new = self.args['new_consistent']
         ks_data = []
-
         suffix = f'_new={new}_seeds={seeds_a}_{seeds_b}_estimate={estimate}_estimator={estimator}'
         if estimate:
             if estimator=='kmm':
