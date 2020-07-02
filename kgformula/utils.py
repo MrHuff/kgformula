@@ -163,7 +163,7 @@ class simulation_object():
             if estimator=='kmm':
                 lamb = est_params['reg_lambda']
                 suffix = suffix + f'lambda={lamb}'
-            elif estimator=='classifier':
+            elif estimator=='classifier' or estimator=='TRE':
                 hsic_pval_list = []
                 for key,val in est_params.items():
                     suffix = suffix + f'_{key}={val}'

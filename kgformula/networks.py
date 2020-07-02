@@ -11,62 +11,70 @@ class _res_block(torch.nn.Module):
 
         self.f = nn.Sequential(nn.Linear(input,output),
                                nn.BatchNorm1d(output),
-                               nn.Tanh(),
+                               nn.Sigmoid(),
                                )
     def forward(self,x):
         return self.f(x)+x
 
-class TDR(torch.nn.Module):
+class TRE(torch.nn.Module):
     def __init__(self,input_dim,latent_size,depth_main,outputs,depth_task):
-        super(TDR, self).__init__()
+        super(TRE, self).__init__()
         self.main = MLP(input_dim,latent_size,depth_main,latent_size)
         self.tasks = nn.ModuleList()
         for d in outputs:
             self.tasks.append(MLP(latent_size,latent_size,depth_task,d))
 
-    def forward(self,X,Z):
-        x = torch.cat([X,Z],dim=1)
+    def forward(self,x,bridge_indicator):
         l =self.main(x)
         output = []
-        for m in self.tasks:
-            output.append(m(l))
+        for i,m in enumerate(self.tasks):
+            s = l[(bridge_indicator==i) | (bridge_indicator==i+1) ,:]
+            output.append(m(s))
         return output
+
+    def get_w(self,x):
+        l =self.main(x)
+        output = 1.
+        for i,m in enumerate(self.tasks):
+            output= output* torch.exp(-(m(l)))
+        return output
+
+
 
 class MLP(torch.nn.Module):
     def __init__(self,d,f=12,k=2,o=1):
         super(MLP, self).__init__()
         self.model = nn.ModuleList()
         self.model.append(nn.Linear(d,f))
+        self.model.append(nn.Sigmoid())
         for i in range(k):
             self.model.append(_res_block(f, f))
         self.model.append(nn.Linear(f, o))
 
-    def forward(self,X,Z):
-        x = torch.cat([X,Z],dim=1)
+    def forward(self,x):
         for l in self.model:
             x = l(x)
         return x
 
-    def forward_predict(self,X,Z):
-        return self.forward(X,Z)
+    def forward_predict(self,x):
+        return self.forward(x)
 
-    def get_w(self, x, y):
-        return torch.exp(-self.forward(x,y))
+    def get_w(self, x):
+        return torch.exp(-self.forward(x))
 
 class logistic_regression(torch.nn.Module):
     def __init__(self,d):
         super(logistic_regression, self).__init__()
         self.W = torch.nn.Linear(in_features=d,  out_features=1,bias=True)
 
-    def forward(self,x,z):
-        X = torch.cat([x,z],dim=1)
+    def forward(self,X):
         return self.W(X)
 
-    def forward_predict(self,X,Z):
-        return self.forward(X,Z)
+    def forward_predict(self,X):
+        return self.forward(X)
 
-    def get_w(self, x, y):
-        return torch.exp(-self.forward(x,y))
+    def get_w(self, x):
+        return torch.exp(-self.forward(x))
 
 class classification_dataset(Dataset):
     def __init__(self,X,Z,bs=1.0,kappa=1,val_rate = 0.01):
@@ -120,7 +128,51 @@ class classification_dataset(Dataset):
 
     def get_sample(self):
         T,F = self.get_indices()
-        return self.X[T,:],self.Z[T,:],self.X[T.repeat(self.kappa),:],self.Z[F,:]
+        return torch.cat([self.X[T,:],self.Z[T,:]],dim=1),torch.cat([self.X[T.repeat(self.kappa),:],self.Z[F,:]],dim=1)
+
+class classification_dataset_TRD(classification_dataset):
+    def __init__(self,X,Z,m,p=1,bs=1.0,val_rate = 0.01):
+        self.m = m
+        self.a_m = [(k/m)**p for k in range(1,m)]
+        self.a_0 = [(1-el**2)**0.5 for el in self.a_m]
+        self.n=X.shape[0]
+        mask = np.array([False] * self.n)
+        mask[0:round(val_rate*self.n)] = True
+        np.random.shuffle(mask)
+        self.X_train = X[~mask,:]
+        self.Z_train = Z[~mask,:]
+        self.X_val = X[mask]
+        self.Z_val = Z[mask]
+        self.bs_perc = bs
+        self.device = X.device
+        self.kappa = 1
+        self.train_mode()
+    def get_permute(self):
+        T,F = self.get_indices()
+        return self.X[T,:],self.Z[T,:],self.Z[F,:]
+
+    def train_mode(self):
+        self.X = self.X_train
+        self.Z = self.Z_train
+        self.sample_indices_base = np.arange(self.X.shape[0])
+        self.bs = int(round(self.bs_perc*self.X.shape[0]))
+        self.indicator = torch.tensor([self.bs*[k] for k in range(0,self.m+1)]).flatten()
+        self.y = torch.tensor([True]*self.bs+[False]*self.bs)
+    def val_mode(self):
+        self.X = self.X_val
+        self.Z = self.Z_val
+        self.sample_indices_base = np.arange(self.X.shape[0])
+        self.bs = self.X.shape[0]
+        self.indicator = torch.tensor([self.bs*[k] for k in range(0,self.m+1)]).flatten()
+        self.y = torch.tensor([True]*self.bs+[False]*self.bs)
+
+    def get_sample(self):
+        x,z_0,z_m = self.get_permute()
+        data = [torch.cat([x,z_0],dim=1)]
+        for k in range(0,self.m-1):
+            data.append(torch.cat([x,self.a_0[k]*z_0+self.a_m[0]*z_m],dim=1))
+        data.append(torch.cat([x,z_m],dim=1))
+        return torch.cat(data,dim=0),self.indicator,self.y
 
 def nu_sigmoid(x,kappa):
     return 1./(1+kappa*torch.exp(-x))
@@ -140,7 +192,7 @@ class Log1PlusExp(torch.autograd.Function):
 log_1_plus_exp = Log1PlusExp.apply
 
 def NCE_objective(true_preds,fake_preds,kappa):
-    _err = -torch.log(nu_sigmoid(true_preds,kappa)) - (1.-nu_sigmoid(fake_preds,kappa)).log().sum(dim=1)
+    _err = -nu_sigmoid(true_preds,kappa).log() -(1.-nu_sigmoid(fake_preds,kappa)).log().sum(dim=1)
     return _err.mean()
 
 def NCE_objective_stable(true_preds,fake_preds,kappa=1):

@@ -16,10 +16,10 @@ if __name__ == '__main__':
     # plt.clf()
 
     mse_loss = torch.nn.MSELoss()
-    estimator = 'classifier'
+    estimator = 'TRE'
     device = GPUtil.getFirstAvailable(order='memory')[0]
     i = 1
-    n = 1000
+    n = 10000
     data_dir = 'univariate_1000_seeds'
     X, Y, Z, w_true = torch.load(f'./{data_dir}/ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n={n}_seeds=1000_0.9_0.81/data_seed={i}.pt',map_location=f'cuda:{device}')
     get_density_plot(w_true, X, Z)
@@ -35,17 +35,20 @@ if __name__ == '__main__':
     print(indep.p_val)
     print(sanity_pval)
     #
-    est_params = {'lr': 1e-5,
-                  'max_its': 5000,
+    est_params = {'lr': 1e-3,
+                  'max_its': 2500,
                   'width': 32,
-                  'layers': 4,
+                  'layers': 2,
                   'mixed': False,
                   'bs_ratio': 1e-2,
                   'kappa': 10,
                   'val_rate':1e-2,
                   'n_sample':1000,
                   'criteria_limit':0.25,
-                  'kill_counter':10}
+                  'kill_counter':10,
+                  'depth_main':2,
+                  'depth_task':2,
+                  'outputs': [1,1,1]}
     w_classification = get_w_estimate_and_plot(X,Z,est_params,estimator,device)
     W_classification = w_classification.unsqueeze(-1)@w_classification.unsqueeze(-1).t()
     debug_W(w_classification,'w_classification')
