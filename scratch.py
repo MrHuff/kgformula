@@ -3,7 +3,7 @@ from kgformula.utils import simulation_object,get_density_plot
 import torch
 import GPUtil
 import seaborn as sns; sns.set()
-from density_estimator_comparison import get_w_estimate_and_plot,debug_W
+from kgformula.utils import get_w_estimate_and_plot,debug_W
 import pandas as pd
 import gpytorch
 from matplotlib import pyplot as plt
@@ -18,16 +18,17 @@ if __name__ == '__main__':
     mse_loss = torch.nn.MSELoss()
     estimator = 'TRE'
     device = GPUtil.getFirstAvailable(order='memory')[0]
-    i = 1
+    i = 0
     n = 10000
-    data_dir = 'univariate_1000_seeds'
-    X, Y, Z, w_true = torch.load(f'./{data_dir}/ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n={n}_seeds=1000_0.9_0.81/data_seed={i}.pt',map_location=f'cuda:{device}')
-    get_density_plot(w_true, X, Z)
+    data_dir ='multivariate_1000' #'multivariate_1000' #univariate_1000_seeds
+    X, Y, Z, w_true = torch.load(f'./{data_dir}/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n={n}_yz=0.5_beta_XZ=0.5_theta=12_phi=6.86/data_seed={i}.pt',map_location=f'cuda:{device}')
+    # get_density_plot(w_true, X, Z)
     print(w_true.shape)
-    #     # 'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=1000_seeds=1000'
+    #'ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n={n}_seeds=1000_0.9_0.81'
+    #beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n={n}_yz=0.5_beta_XZ=0.5_theta=12_phi=6.86
     W_true = w_true.unsqueeze(-1)@w_true.unsqueeze(-1).t()
     # print(W_true.shape)
-    # debug_W(w_true,'w_true')
+    debug_W(w_true,'w_true')
     # debug_W(W_true,'W_true')
 
     indep = HSIC_independence_test(X,Z,1000)
@@ -35,8 +36,8 @@ if __name__ == '__main__':
     print(indep.p_val)
     print(sanity_pval)
     #
-    est_params = {'lr': 1e-3,
-                  'max_its': 2500,
+    est_params = {'lr': 1e-4,
+                  'max_its': 5000,
                   'width': 32,
                   'layers': 2,
                   'mixed': False,
@@ -48,11 +49,11 @@ if __name__ == '__main__':
                   'kill_counter':10,
                   'depth_main':2,
                   'depth_task':2,
-                  'outputs': [1,1,1]}
+                  'outputs': [1,1,1,1,1]}
     w_classification = get_w_estimate_and_plot(X,Z,est_params,estimator,device)
     W_classification = w_classification.unsqueeze(-1)@w_classification.unsqueeze(-1).t()
     debug_W(w_classification,'w_classification')
-    debug_W(W_classification,'W_classification')
+    # debug_W(W_classification,'W_classification')
     print(w_true)
     print(w_classification)
 

@@ -311,7 +311,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     beta_xz = torch.tensor(beta_xz)
     if beta_xz.dim()<2:
         beta_xz = beta_xz.unsqueeze(-1)
-    _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence
+    _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence (n x (1+d)) matmul (1+d x 1)
     # Look at X[:,0] - _x_mu[:,0]. Run KS test on that quantity for distribution with correct variance.
     # repeat for each "column". i.e. X[:,i] - _x_mu[:,i].
     # Think each of X and something to regress on Z. Think of the target distribtion. on what you expect post rejection sampling.
@@ -348,7 +348,8 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
 
     if wts_tmp.max().item()>1:
         print('Warning max weight: ',wts_tmp.max())
-    inv_wts = 1. / wts #Weights are completely
+    inv_wts = 1. / wts #Variance of the weights seems to blow up when n is large, this also causes problems for the estimator...
+
     keep_index = (torch.rand_like(wts) < wts_tmp).squeeze()
     X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
     return X,Y,Z,inv_wts

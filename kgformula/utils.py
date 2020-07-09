@@ -13,6 +13,22 @@ import matplotlib.tri as mtri
 import time
 from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
 
+def debug_W(w,str):
+    plt.hist(w.flatten().cpu().numpy(), 100)
+    plt.show()
+    plt.clf()
+    print(f'{str} max_val: ',w.max())
+    print(f'{str} min_val: ',w.min())
+    print(f'{str} var: ',w.var())
+    print(f'{str} median:  ',w.median())
+
+def get_w_estimate_and_plot(X,Z,est_params,estimator,device):
+    d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator,  device=device)
+    if X.shape[1]==1 and Z.shape[1]==1:
+        w = d.return_weights()
+        get_density_plot(w, X, Z)
+    return d.return_weights()
+
 def load_csv(path, d_Z,device):
     ls_Z = [f'z{i}' for i in range(1,d_Z+1)]
     dat = pd.read_csv(path) #Seems like I've screwed up!
@@ -143,8 +159,6 @@ class simulation_object():
 
 
     def run(self):
-        debug_generative_process = self.args['debug_generative_process']
-        d_Z = self.args['debug_d_Z']
         estimate = self.args['estimate']
         job_dir = self.args['job_dir']
         debug_plot = self.args['debug_plot']
@@ -158,38 +172,35 @@ class simulation_object():
         runs = self.args['runs']
         new = self.args['new_consistent']
         ks_data = []
-        suffix = f'_new={new}_seeds={seeds_a}_{seeds_b}_estimate={estimate}_estimator={estimator}'
+        R2_errors = []
+        suffix = f'_new={new}_se={seeds_a}_{seeds_b}_e={estimate}_est={estimator}'
         if estimate:
-            if estimator=='kmm':
-                lamb = est_params['reg_lambda']
-                suffix = suffix + f'lambda={lamb}'
-            elif estimator=='classifier' or estimator=='TRE':
+            if estimator in ['classifier', 'TRE', 'linear_classifier']:
                 hsic_pval_list = []
                 for key,val in est_params.items():
                     suffix = suffix + f'_{key}={val}'
 
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
-
+        mse_loss = torch.nn.MSELoss()
         for j in range(runs):
             p_value_list = []
             reference_metric_list = []
             for i in tqdm.trange(seeds_a,seeds_b):
-                if debug_generative_process:
-                    path = f'./{data_dir}/multivariate_test_ref_seed={i}.csv'
-                    X, Y, Z, _w= load_csv(path,d_Z,self.device)
+                if self.cuda:
+                    X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
-                    if self.cuda:
-                        X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
-                    else:
-                        X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+                    X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
                 if debug_plot:
                     plt.scatter(Z.numpy(), X.numpy())
                     plt.show()
                 if estimate:
                     d = density_estimator(x=X, z=Z, cuda=self.cuda, est_params=est_params, type=estimator,device=self.device)
                     w = d.return_weights()
-                    if estimator=='classifier':
+                    if estimator in ['classifier', 'TRE', 'linear_classifier']:
+                        with torch.no_grad():
+                            l = mse_loss(_w, w) / _w.var()
+                        R2_errors.append(1-l.item())
                         hsic_pval_list.append(d.hsic_pval)
                 else:
                     w = _w
@@ -219,160 +230,22 @@ class simulation_object():
             ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
             print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
             ks_data.append([ks_stat, p_val_ks_test])
-            if estimator == 'classifier':
-                hsic_pval_list = torch.Tensor(hsic_pval_list)
+            if estimator in ['classifier','TRE','linear_classifier']:
+                hsic_pval_list = torch.tensor(hsic_pval_list).float()
+                r2_tensor = torch.tensor(R2_errors).float()
                 torch.save(hsic_pval_list,
                            f'./{data_dir}/{job_dir}/hsic_pval_array{suffix}.pt')
+                torch.save(r2_tensor,
+                           f'./{data_dir}/{job_dir}/r2_array{suffix}.pt')
+                df_data = torch.stack([hsic_pval_list,r2_tensor],dim=1).numpy()
+                df_perf = pd.DataFrame(df_data,columns=['hsic_pval','r2'])
+                df_perf.to_csv(f'./{data_dir}/{job_dir}/perf{suffix}.csv')
+                s_perf = df_perf.describe()
+                s_perf.to_csv(f'./{data_dir}/{job_dir}/psum{suffix}.csv')
+
         df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
         df.to_csv(f'./{data_dir}/{job_dir}/df{suffix}.csv')
         s = df.describe()
         s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
         return
 
-    def plot_and_save(self,x, mean, std, median, name='xyz'):
-        reg = self.args['lamb']
-        data_dir = self.args['data_dir']
-        plt.plot(x, mean,marker=".")
-        plt.savefig(f'./{data_dir}/{name}_{reg}_mean_scatter.png')
-        plt.clf()
-
-        plt.scatter(x, median)
-        plt.savefig(f'./{data_dir}/{name}_{reg}_median_scatter.png')
-        plt.clf()
-
-    def do_error_plot(self,data, name):
-        x, mean, std, median = get_median_and_std(data)
-        self.plot_and_save(x, mean, std, median, name)
-
-    def big_histogram(self,data,name):
-        data_dir = self.args['data_dir']
-        arr = data.flatten().cpu().numpy()
-        # arr = reject_outliers(arr,m=1)
-        plt.hist(arr,bins=self.args['seeds'])
-        plt.savefig(f'./{data_dir}/{name}_histogram_big.png')
-        plt.clf()
-
-    def error_classification(self,errors):
-        errors = errors.flatten().cpu().unsqueeze(-1).numpy()
-        low = np.quantile(errors, 0.3)
-        mid = np.quantile(errors, 0.7)
-        mask_low = errors<low
-        mask_mid = (errors>=low) & (errors<=mid)
-        mask_high = errors> mid
-        errors[mask_low] = 0
-        errors[mask_mid] = 1
-        errors[mask_high] = 2
-        return errors
-
-    def diagnostic_plot(self,errors, X, Z,name='xyz'):
-        with torch.no_grad():
-            reg = self.args['lamb']
-            data_dir = self.args['data_dir']
-            c = self.error_classification(errors)
-            classes = ['low_error:green','medium_error:yellow','high_error:red']
-            colours = ListedColormap(['g', 'y', 'r'])
-            scatter = plt.scatter(X.cpu().numpy(), Z.cpu().numpy(),c=c,alpha=0.3,marker=".",cmap=colours)
-            plt.legend(handles=scatter.legend_elements()[0], labels=classes)
-            plt.savefig(f'./{data_dir}/{name}_{reg}_median_scatter.png')
-            plt.clf()
-
-    def estimator_error_plot(self,org,est,name):
-        reg = self.args['lamb']
-        data_dir = self.args['data_dir']
-        o = np.array(org)
-        e = np.array(est)
-        error = (e-o)/o
-        plt.hist(error,bins=50)
-        plt.savefig(f'./{data_dir}/{name}_{reg}_expectation_error.png')
-        plt.clf()
-
-    def surface_plot(self,X,Z,errors,name=''):
-        reg = self.args['lamb']
-        data_dir = self.args['data_dir']
-        errors = errors.flatten().cpu().numpy()
-        ax = plt.axes(projection='3d')
-        ax.plot_trisurf(X.cpu().flatten().numpy(), Z.cpu().flatten().numpy(), errors, cmap='viridis', edgecolor='none')
-        ax.set_title('Surface plot')
-        plt.savefig(f'./{data_dir}/{name}_{reg}_surface.png')
-        plt.clf()
-
-    def diagnose_technique(self,dmw,plot_true,big_X,big_Z,lamb,estimator,org,est):
-        plot_technique = torch.stack(dmw, dim=0)
-        print(f'shape of plot_{estimator} = {plot_technique.shape}')
-        self.do_error_plot(plot_technique, f'w_{estimator}')
-        error_plot = (plot_technique-plot_true)/plot_true
-        self.do_error_plot(error_plot, f'error_w_{estimator}')
-        self.diagnostic_plot(error_plot, big_X, big_Z, f'diagnostic_plot_{estimator}')
-        self.big_histogram(plot_technique, f'w_{estimator}_lambda={lamb}')
-        self.surface_plot(big_X,big_Z,error_plot,f'surface_plot_{estimator}')
-        self.estimator_error_plot(org,est,f'{estimator}')
-
-    # def debug_w(self,lambdas,expected_shape,estimator='truth'):
-    #     data_dir = self.args['data_dir']
-    #     seeds = self.args['seeds']
-    #
-    #     for lamb in lambdas:
-    #         self.args['lamb'] = lamb
-    #         dmw_true = []
-    #         dmw_estimator = []
-    #         big_X = []
-    #         big_Z = []
-    #         og_stat_list = []
-    #         est_stat_list = []
-    #         for i in tqdm.trange(seeds):
-    #             if self.cuda:
-    #                 X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
-    #             else:
-    #                 X, Y, Z, w = torch.load(f'./{data_dir}/data_seed={i}.pt')
-    #
-    #             if X.shape[0] != expected_shape:
-    #                 print(X.shape[0])
-    #                 continue
-    #             else:
-    #                 big_X.append(X)
-    #                 big_Z.append(Z)
-    #                 # Cheating case
-    #                 dmw_true.append(w)
-    #                 if estimator=='kmm':
-    #                     d = density_estimator(x=X, z=Z, cuda=True, est_params=None, type='kmm', reg_lambda=lamb,device=self.device)
-    #                     w_estimator = d.return_weights()
-    #                     dmw_estimator.append(w_estimator)
-    #                 elif estimator=='semi':
-    #                     d = density_estimator(x=X, z=Z, cuda=True, est_params=None, type='semi', reg_lambda=lamb,device=self.device)
-    #                     w_estimator = d.return_weights()
-    #                     dmw_estimator.append(w_estimator)
-    #                 elif estimator=='classifier':
-    #                     d = density_estimator(x=X, z=Z, cuda=True, est_params=self.args['est_params'], type='classifier', reg_lambda=lamb,
-    #                                           device=self.device)
-    #                     w_estimator = d.return_weights()
-    #                     dmw_estimator.append(w_estimator)
-    #
-    #                 c_0 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
-    #                 orginal = c_0.calculate_weighted_statistic()
-    #                 og_stat_list.append(orginal.item())
-    #
-    #                 if estimator is not 'truth':
-    #                     c_1 = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w_estimator, cuda=self.cuda, device=self.device)
-    #                     est = c_1.calculate_weighted_statistic()
-    #                     est_stat_list.append(est.item())
-    #
-    #         big_X  = torch.cat(big_X,dim=0)
-    #         big_Z  = torch.cat(big_Z,dim=0)
-    #         plot_true = torch.stack(dmw_true, dim=0)
-    #         print(f'shape of plot_true = {plot_true.shape}')
-    #         print(f'shape of big_X = {big_X.shape}')
-    #         print(f'shape of big_Z = {big_Z.shape}')
-    #
-    #         if estimator=='truth':
-    #             self.do_error_plot(plot_true, 'w_true')
-    #             self.big_histogram(plot_true,'w_true')
-    #         else:
-    #             self.diagnose_technique(dmw=dmw_estimator,
-    #                                     plot_true=plot_true,
-    #                                     big_X=big_X,
-    #                                     big_Z=big_Z,
-    #                                     lamb=lamb,
-    #                                     estimator=estimator,
-    #                                     org=og_stat_list,
-    #                                     est=est_stat_list)
-    #

@@ -33,20 +33,19 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                             'debug_generative_process': False,
                             'debug_d_Z': 3,
                             'est_params': {'lr': 1e-4,
-                                           'max_its': 10000,
+                                           'max_its': 2500,
                                            'width': width,
-                                           'layers': layers,
                                            'mixed': False,
                                            'bs_ratio': 10. / n,
-                                           'kappa': 10,
                                            'val_rate': val_rate,
                                            'n_sample': 250,
                                            'criteria_limit': 0.05,
-                                           'kill_counter': 5,
-                                           'reg_lambda': 1e-2,
-                                           'alpha': 0.5,
+                                           'kill_counter': 10,
+                                           'depth_main': layers,
+                                           'depth_task': layers,
+                                           'outputs': [1, 1, 1]
                                            },
-                            'estimator': 'classifier', #ones, classifier
+                            'estimator': 'TRE', #ones, classifier
                             'runs': runs,
                             'cuda': True,
                         }
@@ -65,9 +64,9 @@ if __name__ == '__main__':
     phi = round(theta/1.75,2)
     seed_max = 1000
     cuda = True
-    nr_of_gpus = 5
-    net_layers = [2]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
-    net_width = [128]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
+    nr_of_gpus = 8
+    net_layers = [3]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
+    net_width = [128,512,2048]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     if cuda:
         if nr_of_gpus>1:
             devices = GPUtil.getAvailable(order='memory',limit=nr_of_gpus)
