@@ -4,17 +4,32 @@ import torch.nn as nn
 import numpy as np
 from torch.utils.data import Dataset
 import time
+from math import log
+class Swish(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, i):
+        result = i * torch.sigmoid(i)
+        ctx.save_for_backward(i)
+        return result
 
+    @staticmethod
+    def backward(ctx, grad_output):
+        i = ctx.saved_variables[0]
+        sigmoid_i = torch.sigmoid(i)
+        return grad_output * (sigmoid_i * (1 + i * (1 - sigmoid_i)))
+
+class CustomSwish(nn.Module):
+    def forward(self, input_tensor):
+        return Swish.apply(input_tensor)
 class _res_block(torch.nn.Module):
     def __init__(self,input,output):
         super(_res_block, self).__init__()
 
         self.f = nn.Sequential(nn.Linear(input,output),
-                               nn.BatchNorm1d(output),
-                               nn.Sigmoid(),
+                               CustomSwish(),
                                )
     def forward(self,x):
-        return self.f(x)+x
+        return self.f(x)
 
 class TRE(torch.nn.Module):
     def __init__(self,input_dim,latent_size,depth_main,outputs,depth_task):
@@ -45,11 +60,10 @@ class MLP(torch.nn.Module):
     def __init__(self,d,f=12,k=2,o=1):
         super(MLP, self).__init__()
         self.model = nn.ModuleList()
-        self.model.append(nn.Linear(d,f))
-        self.model.append(nn.Sigmoid())
+        self.model.append(_res_block(d, f))
         for i in range(k):
             self.model.append(_res_block(f, f))
-        self.model.append(nn.Linear(f, o))
+        self.model.append(_res_block(f, o))
 
     def forward(self,x):
         for l in self.model:
@@ -174,9 +188,6 @@ class classification_dataset_TRD(classification_dataset):
         data.append(torch.cat([x,z_m],dim=1))
         return torch.cat(data,dim=0),self.indicator,self.y
 
-def nu_sigmoid(x,kappa):
-    return 1./(1+kappa*torch.exp(-x))
-
 class Log1PlusExp(torch.autograd.Function):
     """Implementation of x ↦ log(1 + exp(x))."""
     @staticmethod
@@ -191,13 +202,23 @@ class Log1PlusExp(torch.autograd.Function):
 
 log_1_plus_exp = Log1PlusExp.apply
 
-def NCE_objective(true_preds,fake_preds,kappa):
-    _err = -nu_sigmoid(true_preds,kappa).log() -(1.-nu_sigmoid(fake_preds,kappa)).log().sum(dim=1)
-    return _err.mean()
 
-def NCE_objective_stable(true_preds,fake_preds,kappa=1):
-    _err = -(true_preds-log_1_plus_exp(true_preds)-log_1_plus_exp(fake_preds).mean(dim=1))
-    return _err.mean()
+class NCE_objective_stable(torch.nn.Module):
+    def __init__(self,kappa=1.):
+        super(NCE_objective_stable, self).__init__()
+        self.kappa = kappa
+        self.log_kappa = log(kappa)
+    def forward(self,true_preds,fake_preds):
+        # _err = torch.log(torch.sigmoid(true_preds)).mean()+self.kappa*torch.log(1-torch.sigmoid(fake_preds)).mean()
+        _err = (-log_1_plus_exp(-true_preds+self.log_kappa))-(fake_preds+log_1_plus_exp(-fake_preds+self.log_kappa)).sum(dim=1,keepdim=True)
+        return (-_err).mean()
+
+class standard_bce(torch.nn.Module):
+    def __init__(self,pos_weight =1.0):
+        super(standard_bce, self).__init__()
+        self.obj = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight))
+    def forward(self,pred,true):
+        return self.obj(pred,true)
 
 def accuracy_check(y_pred,Y):
     with torch.no_grad():

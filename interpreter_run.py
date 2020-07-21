@@ -45,7 +45,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                                            'depth_task': layers,
                                            'outputs': [1, 1, 1]
                                            },
-                            'estimator': 'TRE', #ones, classifier
+                            'estimator': 'TRE', #ones, 'NCE'
                             'runs': runs,
                             'cuda': True,
                         }

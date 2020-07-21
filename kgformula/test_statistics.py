@@ -5,11 +5,26 @@ import numpy as np
 from pykeops.torch import LazyTensor,Genred
 import time
 from kgformula.networks import *
+import os
 try:
     from torch.cuda.amp import GradScaler,autocast
 except Exception as e:
     print(e)
     print('Install nightly pytorch for mixed precision')
+from cvxopt import matrix, solvers
+import math
+
+def kernel_mean_matching(K,kappa,nz, B=1.0, eps=None):
+    if eps == None:
+        eps = B / math.sqrt(nz)
+    K = matrix(K)
+    kappa = matrix(kappa)
+    G = matrix(np.r_[np.ones((1, nz)), -np.ones((1, nz)), np.eye(nz), -np.eye(nz)])
+    h = matrix(np.r_[nz * (1 + eps), nz * (eps - 1), B * np.ones((nz,)), np.zeros((nz,))])
+    sol = solvers.qp(K, -kappa, G, h)
+    coef = np.array(sol['x'])
+    return coef
+
 
 class HSIC_independence_test():
     def __init__(self,X,Y,n_samples):
@@ -73,8 +88,6 @@ def hsic_test(X,Y,n_sample = 250):
     test = HSIC_independence_test(X,Y,n_sample)
     return test.p_val
 
-
-
 def hsic_sanity_check_w(w,x,z,n_perms=250):
     _w = w.cpu().squeeze().numpy()
     idx_HSIC = np.random.choice(np.arange(x.shape[0]), x.shape[0], p=_w / _w.sum())
@@ -127,33 +140,20 @@ class density_estimator():
         self.est_params = est_params
         self.type = type
         self.kernel_base = gpytorch.kernels.Kernel()
-        if type=='linear':
-            self.alpha = est_params['alpha']
+        self.tmp_path = f'./tmp_folder_{self.device}/'
+        if not os.path.exists(self.tmp_path):
+            os.makedirs(self.tmp_path)
+        if type == 'kmm':
             self.diag = est_params['reg_lambda']*torch.eye(self.n)
             if self.cuda:
                 self.diag = self.diag.cuda(self.device)
-            self.linear_x_of_z()
-            self.get_w_kdre()
+            self.w = self.kernel_mean_matching()
 
-        elif type=='gp':
-            self.alpha = est_params['alpha']
-            self.diag = est_params['reg_lambda']*torch.eye(self.n)
-            if self.cuda:
-                self.diag = self.diag.cuda(self.device)
-            self.kernel_ls_init('kernel_tmp', self.z)
-            self.gp_x_of_z()
-            self.get_w_kdre()
+        elif type=='kmm_qp':
+            pass
 
-        elif type=='semi':
-            self.semi_cheat_x_of_z()
+        elif type == 'NCE':
 
-        elif type == 'kmm':
-            self.diag = est_params['reg_lambda']*torch.eye(self.n)
-            if self.cuda:
-                self.diag = self.diag.cuda(self.device)
-            self.kernel_mean_matching()
-
-        elif type == 'classifier':
             dataset = self.create_classification_data()
             self.model = MLP(d=dataset.X.shape[1]+dataset.Z.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
             self.w = self.train_classifier(dataset)
@@ -172,7 +172,6 @@ class density_estimator():
                              outputs=self.est_params['outputs']).to(self.device)
             self.w = self.train_TRE(dataset)
 
-
         elif type == 'random_uniform':
             self.w = torch.rand(*(self.x.shape[0],1)).cuda(self.device)
 
@@ -185,36 +184,52 @@ class density_estimator():
         if self.type == 'linear_classifier':
             dataset = self.create_classification_data()
             self.w = self.train_classifier(dataset)
-        elif self.type == 'classifier':
+        elif self.type == 'NCE':
             dataset = self.create_classification_data()
             self.w = self.train_classifier(dataset)
 
-    def forward_func(self,dat_T,dat_F,loss_func,kappa):
+    def calc_loss(self,loss_func,pt,pf,target):
+        if loss_func.__class__.__name__=='standard_bce':
+            return loss_func(torch.cat([pt.squeeze(),pf.flatten()]),target)
+        elif loss_func.__class__.__name__=='NCE_objective_stable':
+            pf = pf.view(pt.shape[0], -1)
+            return loss_func(pt,pf)
+
+
+    def get_true_fake(self, dat_T, dat_F):
+
         pred_T = self.model(dat_T)
         pred_F = self.model(dat_F)
-        pred_F = pred_F.view(pred_T.shape[0],-1)
-        return loss_func(pred_T,pred_F,kappa)
+        return pred_T,pred_F
+
 
     def train_classifier(self,dataset):
-        loss_func = NCE_objective_stable
-        opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
+        loss_func = NCE_objective_stable(self.kappa)
+        # loss_func = standard_bce(pos_weight=self.kappa)
+        opt = torch.optim.AdamW(self.model.parameters(),lr=self.est_params['lr'])
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt,factor=0.5, patience=1)
         if self.est_params['mixed']:
             scaler = GradScaler()
         counter = 0
         best = np.inf
         idx = torch.randperm(dataset.X_val.shape[0])
+        one_y = torch.ones(dataset.bs)
+        zero_y = torch.zeros(dataset.bs*self.kappa)
+        target = torch.cat([one_y,zero_y]).to(self.device)
+
         for i in range(self.est_params['max_its']):
             data_pos,data_neg= dataset.get_sample()
             opt.zero_grad()
             if self.est_params['mixed']:
                 with autocast():
-                    l = self.forward_func(data_pos,data_neg,loss_func,self.kappa)
+                    pt,pf = self.get_true_fake(data_pos,data_neg)
+                    l = self.calc_loss(loss_func,pt,pf,target)
                 scaler.scale(l).backward()
                 scaler.step(opt)
                 scaler.update()
             else:
-                l = self.forward_func(data_pos,data_neg,loss_func,self.kappa)
+                pt,pf = self.get_true_fake(data_pos,data_neg)
+                l = self.calc_loss(loss_func, pt, pf, target)
                 l.backward()
                 opt.step()
 
@@ -222,24 +237,38 @@ class density_estimator():
                 # print(l)
                 with torch.no_grad():
                     dataset.val_mode()
-                    logloss = self.forward_func(torch.cat([dataset.X,dataset.Z],dim=1),
-                                                torch.cat([dataset.X,dataset.Z[idx]],dim=1),
-                                                loss_func,
-                                                self.kappa)
+                    self.model.eval()
+                    one_y = torch.ones(dataset.bs)
+                    zero_y = torch.zeros(dataset.bs)
+                    target = torch.cat([one_y, zero_y]).to(self.device)
+                    pt,pf = self.get_true_fake(torch.cat([dataset.X,dataset.Z],dim=1),torch.cat([dataset.X,dataset.Z[idx]],dim=1))
+                    logloss = self.calc_loss(loss_func,pt,pf,target)
                     print(f'logloss epoch {i}: {logloss}')
                     scheduler.step(logloss)
                     if logloss.item()<best:
                         best = logloss.item()
                         counter=0
+                        torch.save({'state_dict':self.model.state_dict(),
+                                    'epoch':i},self.tmp_path+'best_run.pt')
                     else:
                         counter+=1
                     dataset.train_mode()
+                    self.model.train()
+                one_y = torch.ones(dataset.bs)
+                zero_y = torch.zeros(dataset.bs * self.kappa)
+                target = torch.cat([one_y, zero_y]).to(self.device)
+
             if counter>self.est_params['kill_counter']:
                 print('stopped improving, stopping')
                 break
         return self.model_eval()
 
     def model_eval(self):
+        weights = torch.load(self.tmp_path+'best_run.pt')
+        best_epoch = weights['epoch']
+        print(f'loading best epoch {best_epoch}')
+        self.model.load_state_dict(weights['state_dict'])
+        self.model.eval()
         with torch.no_grad():
             w = self.model.get_w(torch.cat([self.x, self.z], dim=1))
             _w = w.cpu().squeeze().numpy()
@@ -256,13 +285,14 @@ class density_estimator():
         preds = self.model(dat,indicator)
         l = 0
         for p in preds:
-            l+=loss_func(p[y,:],p[~y,:])
-        return l/len(preds)
+            tmp = loss_func(p[~y,:],p[y,:])
+            l+=tmp
+        return l
 
     def train_TRE(self,dataset):
         opt = torch.optim.Adam(self.model.parameters(), lr=self.est_params['lr'])
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, factor=0.5, patience=1)
-        loss_func = NCE_objective_stable
+        loss_func = NCE_objective_stable(kappa=1)
         if self.est_params['mixed']:
             scaler = GradScaler()
         counter = 0
@@ -292,6 +322,8 @@ class density_estimator():
                     if logloss.item()<best:
                         best = logloss.item()
                         counter=0
+                        torch.save({'state_dict': self.model.state_dict(),
+                                    'epoch': i}, self.tmp_path + 'best_run.pt')
                     else:
                         counter+=1
                     dataset.train_mode()
@@ -319,44 +351,20 @@ class density_estimator():
     def kernel_mean_matching(self):
         with torch.no_grad():
             list_idx = torch.from_numpy(get_i_not_j_indices(self.n)) #Seems to be working alright!
+            list_idx=list_idx[torch.randperm(self.est_params['m']),:]
             torch_idx_x,torch_idx_z = list_idx.unbind(dim=1)
             data_extended = torch.cat([self.x[torch_idx_x],self.z[torch_idx_z]],dim=1)
             data = torch.cat([self.x,self.z],dim=1)
             self.kernel_ls_init('kernel_up', data)
             ls = self.get_median_ls_XY(data,data_extended)
-            y = self.kernel_ls_init_keops(ls=ls,data=data,data_2=data_extended)
-            self.w,_ = torch.solve(y,(self.kernel_up+self.diag))
-
-    def get_w_kdre(self):
-        self.kernel_ls_init('kernel_up', self.x)
-        self.kernel_ls_init('kernel_down', self.x, self.down_estimator)
-        with torch.no_grad():
-            self.kernel_down = self.kernel_down.evaluate()
-            self.h_hat = self.kernel_up.mean(dim=1,keepdim=True)
-            self.H = self.alpha/self.n * self.kernel_up@self.kernel_up + (1-self.alpha)/self.n * (self.kernel_down@self.kernel_down) + self.diag
-            self.theta,_ = torch.solve(self.h_hat, self.H)
-            self.w = self.kernel_up@self.theta
+            #self.n/list_idx.shape[0]*
+            self.kernel_ls_init('kappa',ls=ls,data=data,data_2=data_extended)
+            r3 = self.kappa.sum(1)*self.n/list_idx.shape[0]
+            w,_= torch.solve(r3.unsqueeze(-1),self.kernel_up)
+            return w
 
     def return_weights(self):
         return self.w.squeeze()
-
-    def linear_x_of_z(self):
-        down = torch.cat([self.z, torch.ones_like(self.z)], dim=1)
-        with torch.no_grad():
-            self.down_estimator = down@(torch.inverse(down.t()@down) @ (down.t() @ self.x))
-
-    def semi_cheat_x_of_z(self):
-        with torch.no_grad():
-            self.linear_x_of_z()
-            res = self.z - self.down_estimator
-            p_1 = Normal(0,scale=res.var()**0.5)
-            p_2 = Normal(0, scale=self.z.var() ** 0.5)
-            self.w = (p_2.log_prob(self.z - self.z.mean()) - p_1.log_prob(res)).exp()
-
-    def gp_x_of_z(self):
-        with torch.no_grad():
-            s,_ = torch.solve(self.x, self.kernel_tmp + self.diag)
-            self.down_estimator = self.kernel_tmp@s
 
     def get_median_ls_XY(self,X,Y):
         with torch.no_grad():
@@ -377,7 +385,7 @@ class density_estimator():
     def kernel_ls_init_keops(self,ls,data,data_2=None):
         with torch.no_grad():
             ker = keops_RBFkernel(ls=1/ls.unsqueeze(0),x=data,y=data_2,device_id=self.device)
-            return ker()/(self.n-1)
+            return ker()
 
     def kernel_ls_init(self,name,data,data_2=None,ls=None):
         ker = gpytorch.kernels.RBFKernel()

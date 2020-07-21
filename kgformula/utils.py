@@ -13,21 +13,98 @@ import matplotlib.tri as mtri
 import time
 from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
 
+def EFF_calc(w):
+    return w.sum()**2/(w**2).sum()
+
+
+def true_dens_plot(var,M,dist_a,dist_b):
+    x, z = np.meshgrid(np.linspace(-var * 5, var * 5, 100), np.linspace(-var * 5, var * 5, 100))
+    val = torch.stack([torch.from_numpy(x), torch.from_numpy(z)], dim=-1).float()
+    w_true_plt = (-M.log_prob(val) + (dist_a.log_prob(torch.from_numpy(x).float()) + dist_b.log_prob(
+        torch.from_numpy(z).float()))).exp().numpy()
+    fig, ax = plt.subplots()
+    c = ax.pcolormesh(x, z, w_true_plt, cmap='RdBu', vmin=w_true_plt.min(), vmax=w_true_plt.max())
+    fig.colorbar(c, ax=ax)
+    plt.show()
+
+def experiment_plt(w_true,w_classify,X,Z,title,var,M,dist_a,dist_b,model):
+
+    def get_data(var):
+        x, z = np.meshgrid(np.linspace(-var * 4, var * 4, 100), np.linspace(-var * 4, var * 4, 100))
+        val = torch.stack([torch.from_numpy(x), torch.from_numpy(z)], dim=-1).float()
+        return x,z,val
+
+    def true_w(x,z,val,M,dist_a,dist_b):
+        return (-M.log_prob(val) + (dist_a.log_prob(torch.from_numpy(x).float()) + dist_b.log_prob(
+        torch.from_numpy(z).float()))).exp().numpy()
+
+    def pred_w(val,model):
+        p_w = model.get_w(val.cuda()).cpu().numpy()
+        return p_w
+
+    def tricol_plt(ax,name,triang,w):
+        p = ax.tricontourf(triang,w)
+        plt.colorbar(p,ax=ax)
+        ax.title.set_text(name)
+
+    def hist(ax,name,w):
+        ax.hist(w)
+        ax.title.set_text(name)
+
+    def plt_dense_w(ax,name,x,z,w):
+        c = ax.pcolormesh(x, z, w, cmap='RdBu', vmin=w.min(), vmax=w.max())
+        plt.colorbar(c, ax=ax)
+        ax.title.set_text(name)
+
+    X = X.cpu().flatten().numpy()
+    Z = Z.cpu().flatten().numpy()
+    x,z,val = get_data(var)
+    dens_w = true_w(x,z,val,M,dist_a,dist_b)
+    with torch.no_grad():
+        dens_w_pred = pred_w(val,model).squeeze()
+
+    w_true = w_true.cpu().flatten().numpy()
+    w_classify = w_classify.cpu().flatten().numpy()
+    fig, axs = plt.subplots(1, 6, figsize=(40, 8))
+    fig.tight_layout()
+    fig.suptitle(title)
+    triang = mtri.Triangulation(X, Z)
+
+    tricol_plt(axs[0],'w_true',triang,w_true)
+    tricol_plt(axs[1],'w_estimate',triang,w_classify)
+    hist(axs[2],'w_true_hist',w_true)
+    hist(axs[3],'w_estimate_hist',w_classify)
+    plt_dense_w(axs[4],'true_dense_w_true',x,z,dens_w)
+    plt_dense_w(axs[5],'pred_dense_w_est',x,z,dens_w_pred)
+    plt.subplots_adjust(top=0.85)
+    plt.savefig(title+'.png')
 def debug_W(w,str):
     plt.hist(w.flatten().cpu().numpy(), 100)
+    plt.title(str)
     plt.show()
     plt.clf()
+    print(f'{str} EFF',EFF_calc(w))
     print(f'{str} max_val: ',w.max())
     print(f'{str} min_val: ',w.min())
     print(f'{str} var: ',w.var())
     print(f'{str} median:  ',w.median())
 
-def get_w_estimate_and_plot(X,Z,est_params,estimator,device):
+def get_density_plot(w,X,Z,ax,title=''):
+    X = X.cpu().numpy().flatten()
+    Z = Z.cpu().numpy().flatten()
+    triang = mtri.Triangulation(X, Z)
+    plt.tricontourf(triang, w)
+    plt.colorbar()
+    plt.title(title)
+    plt.show()
+    plt.clf()
+
+def get_w_estimate_and_plot(X,Z,est_params,estimator,device,title=''):
     d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator,  device=device)
-    if X.shape[1]==1 and Z.shape[1]==1:
-        w = d.return_weights()
-        get_density_plot(w, X, Z)
-    return d.return_weights()
+    # if X.shape[1]==1 and Z.shape[1]==1:
+    #     w = d.return_weights()
+    #     get_density_plot(w, X, Z,title)
+    return d
 
 def load_csv(path, d_Z,device):
     ls_Z = [f'z{i}' for i in range(1,d_Z+1)]
@@ -38,15 +115,7 @@ def load_csv(path, d_Z,device):
     w = torch.from_numpy(dat['w'].values).float().cuda(device)
     return X,Y,Z,1/w
 
-def get_density_plot(w,X,Z):
-    X = X.cpu().flatten().numpy()
-    Z = Z.cpu().flatten().numpy()
-    w = w.cpu().flatten().numpy()
-    triang = mtri.Triangulation(X, Z)
-    plt.tricontourf(triang, w)
-    plt.colorbar()
-    plt.show()
-    plt.clf()
+
 
 def str2bool(v):
     if isinstance(v, bool):
