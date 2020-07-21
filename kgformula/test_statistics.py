@@ -150,7 +150,10 @@ class density_estimator():
             self.w = self.kernel_mean_matching()
 
         elif type=='kmm_qp':
-            pass
+            self.diag = est_params['reg_lambda'] * torch.eye(self.n)
+            if self.cuda:
+                self.diag = self.diag.cuda(self.device)
+            self.w = self.kernel_mean_matching_qp()
 
         elif type == 'NCE':
 
@@ -362,6 +365,23 @@ class density_estimator():
             r3 = self.kappa.sum(1)*self.n/list_idx.shape[0]
             w,_= torch.solve(r3.unsqueeze(-1),self.kernel_up)
             return w
+
+    def kernel_mean_matching_qp(self):
+        with torch.no_grad():
+            list_idx = torch.from_numpy(get_i_not_j_indices(self.n)) #Seems to be working alright!
+            list_idx=list_idx[torch.randperm(self.est_params['m']),:]
+            torch_idx_x,torch_idx_z = list_idx.unbind(dim=1)
+            data_extended = torch.cat([self.x[torch_idx_x],self.z[torch_idx_z]],dim=1)
+            data = torch.cat([self.x,self.z],dim=1)
+            self.kernel_ls_init('kernel_up', data)
+            ls = self.get_median_ls_XY(data,data_extended)
+            #self.n/list_idx.shape[0]*
+            self.kernel_ls_init('kappa',ls=ls,data=data,data_2=data_extended)
+            r3 = self.kappa.sum(1).cpu().double().numpy()*self.n/list_idx.shape[0]
+            self.kernel_up = self.kernel_up.cpu().double().numpy()
+            w = kernel_mean_matching(self.kernel_up,r3,data_extended.shape[0])
+            return torch.tensor(w).to(self.device)
+
 
     def return_weights(self):
         return self.w.squeeze()
