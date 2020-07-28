@@ -31,9 +31,9 @@ class _res_block(torch.nn.Module):
     def forward(self,x):
         return self.f(x)
 
-class TRE(torch.nn.Module):
+class MLP_shared(torch.nn.Module): #try new architecture...
     def __init__(self,input_dim,latent_size,depth_main,outputs,depth_task):
-        super(TRE, self).__init__()
+        super(MLP_shared, self).__init__()
         self.main = MLP(input_dim,latent_size,depth_main,latent_size)
         self.tasks = nn.ModuleList()
         for d in outputs:
@@ -47,12 +47,17 @@ class TRE(torch.nn.Module):
             output.append(m(s))
         return output
 
-    def get_w(self,x):
-        l =self.main(x)
-        output = 1.
-        for i,m in enumerate(self.tasks):
-            output= output* torch.exp(-(m(l)))
-        return output
+class TRE(torch.nn.Module):
+    def __init__(self,input_dim_u,u_out_dim,width,depth_u,input_dim_v,v_out_dims,depth_v):
+        super(TRE, self).__init__()
+        self.g_u = MLP(d=input_dim_u,f=width,k=depth_u,o=u_out_dim)
+        self.f_k = MLP_shared(input_dim=input_dim_v,latent_size=width,depth_main=depth_v,outputs=v_out_dims*u_out_dim,depth_task=depth_v)
+        self.W_tensor = torch.nn.Parameter(torch.randn(*(u_out_dim,u_out_dim,len(v_out_dims))),requires_grad=True)
+
+    def forward(self,u,v,indicator):
+        g_u = self.g_u(u) #bsxdim
+        list_of_fk = self.f_k(v,indicator) #[bsxdim,...,]
+
 
 
 
@@ -68,13 +73,10 @@ class MLP(torch.nn.Module):
     def forward(self,x):
         for l in self.model:
             x = l(x)
-        return x
-
-    def forward_predict(self,x):
-        return self.forward(x)
+        return -x
 
     def get_w(self, x):
-        return torch.exp(-self.forward(x))
+        return torch.exp(self.forward(x))
 
 class logistic_regression(torch.nn.Module):
     def __init__(self,d):
@@ -82,13 +84,10 @@ class logistic_regression(torch.nn.Module):
         self.W = torch.nn.Linear(in_features=d,  out_features=1,bias=True)
 
     def forward(self,X):
-        return self.W(X)
-
-    def forward_predict(self,X):
-        return self.forward(X)
+        return -self.W(X)
 
     def get_w(self, x):
-        return torch.exp(-self.forward(x))
+        return torch.exp(self.forward(x))
 
 class classification_dataset(Dataset):
     def __init__(self,X,Z,bs=1.0,kappa=1,val_rate = 0.01):
@@ -144,10 +143,10 @@ class classification_dataset(Dataset):
         T,F = self.get_indices()
         return torch.cat([self.X[T,:],self.Z[T,:]],dim=1),torch.cat([self.X[T.repeat(self.kappa),:],self.Z[F,:]],dim=1)
 
-class classification_dataset_TRD(classification_dataset):
+class classification_dataset_TRE(classification_dataset):
     def __init__(self,X,Z,m,p=1,bs=1.0,val_rate = 0.01):
         self.m = m
-        self.a_m = [(k/m)**p for k in range(1,m)]
+        self.a_m = [(k/m)**p for k in range(1,m)] #m'=m-1, m. m'=2 -> m=3 ->
         self.a_0 = [(1-el**2)**0.5 for el in self.a_m]
         self.n=X.shape[0]
         mask = np.array([False] * self.n)
@@ -170,7 +169,7 @@ class classification_dataset_TRD(classification_dataset):
         self.Z = self.Z_train
         self.sample_indices_base = np.arange(self.X.shape[0])
         self.bs = int(round(self.bs_perc*self.X.shape[0]))
-        self.indicator = torch.tensor([self.bs*[k] for k in range(0,self.m+1)]).flatten()
+        self.indicator = torch.tensor([self.bs*[k] for k in range(0,self.m+1)]).flatten() # m=2 [1,1] 0,1,2
         self.y = torch.tensor([True]*self.bs+[False]*self.bs)
     def val_mode(self):
         self.X = self.X_val
@@ -180,13 +179,13 @@ class classification_dataset_TRD(classification_dataset):
         self.indicator = torch.tensor([self.bs*[k] for k in range(0,self.m+1)]).flatten()
         self.y = torch.tensor([True]*self.bs+[False]*self.bs)
 
-    def get_sample(self):
+    def get_sample(self): #Finish build the rest of the NN
         x,z_0,z_m = self.get_permute()
-        data = [torch.cat([x,z_0],dim=1)]
-        for k in range(0,self.m-1):
-            data.append(torch.cat([x,self.a_0[k]*z_0+self.a_m[0]*z_m],dim=1))
-        data.append(torch.cat([x,z_m],dim=1))
-        return torch.cat(data,dim=0),self.indicator,self.y
+        data = [z_0]
+        for a_0,a_m in zip(self.a_0,self.a_m):
+            data.append(a_0*z_0+self.a_m*z_m)
+        data.append(z_m)
+        return x,torch.cat(data,dim=0),self.indicator,self.y
 
 class Log1PlusExp(torch.autograd.Function):
     """Implementation of x ↦ log(1 + exp(x))."""
@@ -210,7 +209,7 @@ class NCE_objective_stable(torch.nn.Module):
         self.log_kappa = log(kappa)
     def forward(self,true_preds,fake_preds):
         # _err = torch.log(torch.sigmoid(true_preds)).mean()+self.kappa*torch.log(1-torch.sigmoid(fake_preds)).mean()
-        _err = (-log_1_plus_exp(-true_preds+self.log_kappa))-(fake_preds+log_1_plus_exp(-fake_preds+self.log_kappa)).sum(dim=1,keepdim=True)
+        _err = (-log_1_plus_exp(true_preds+self.log_kappa))-(-fake_preds+log_1_plus_exp(fake_preds+self.log_kappa)).sum(dim=1,keepdim=True)
         return (-_err).mean()
 
 class standard_bce(torch.nn.Module):

@@ -167,12 +167,8 @@ class density_estimator():
             self.w = self.train_classifier(dataset)
 
         elif type=='TRE':
-            dataset = self.create_trd_data()
-            self.model = TRE(dataset.X.shape[1]+dataset.Z.shape[1],
-                             latent_size=self.est_params['width'],
-                             depth_main=self.est_params['depth_main'],
-                             depth_task=self.est_params['depth_task'],
-                             outputs=self.est_params['outputs']).to(self.device)
+            dataset = self.create_tre_data()
+            self.model = TRE().to(self.device)
             self.w = self.train_TRE(dataset)
 
         elif type == 'random_uniform':
@@ -335,8 +331,8 @@ class density_estimator():
                 break
         return self.model_eval()
 
-    def create_trd_data(self):
-        return classification_dataset_TRD(self.x,
+    def create_tre_data(self):
+        return classification_dataset_TRE(self.x,
                                           self.z,
                                           m=len(self.est_params['outputs']),
                                           p=1,

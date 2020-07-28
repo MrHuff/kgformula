@@ -74,22 +74,22 @@ if __name__ == '__main__':
         #KMM QP or parametric estimator. Binary X etc. Read up on A12. Advanced Simulation Methods
         #Might want to use parametric methods.
         mse_loss = torch.nn.MSELoss()
-        estimator = 'kmm_qp' #gradient fix?
+        estimator = 'TRE' #gradient fix?
         # get_density_plot(w_true, X, Z,f'true_w_{experiment}')
-        est_params = {'lr': 1e-4,
+        est_params = {'lr': 5e-5,
                       'max_its': 2500,
                       'width': 32,
                       'layers': 2,
                       'mixed': False,
-                      'bs_ratio': 100/n,
-                      'kappa': 10,
-                      'val_rate': 1e-2,
+                      'bs_ratio': 25/n,
+                      'kappa': 25,
+                      'val_rate': 5e-2,
                       'n_sample': 1000,
                       'criteria_limit': 0.25,
                       'kill_counter': 10,
-                      'depth_main': 1,
-                      'depth_task': 1,
-                      'outputs': [1, 1,1,1],
+                      'depth_main': 2,
+                      'depth_task': 2,
+                      'outputs': [1, 1,1],
                       'reg_lambda':1e-1,
                       'm':n}
         # debug_W(w_true,f'w_true_{experiment}')
