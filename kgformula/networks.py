@@ -48,17 +48,24 @@ class MLP_shared(torch.nn.Module): #try new architecture...
         return output
 
 class TRE(torch.nn.Module):
-    def __init__(self,input_dim_u,u_out_dim,width,depth_u,input_dim_v,v_out_dims,depth_v):
+    def __init__(self,input_dim_u,u_out_dim,width,depth_u,input_dim_v,v_out_dims,depth_v,IP=True):
         super(TRE, self).__init__()
         self.g_u = MLP(d=input_dim_u,f=width,k=depth_u,o=u_out_dim)
         self.f_k = MLP_shared(input_dim=input_dim_v,latent_size=width,depth_main=depth_v,outputs=v_out_dims*u_out_dim,depth_task=depth_v)
-        self.W_tensor = torch.nn.Parameter(torch.randn(*(u_out_dim,u_out_dim,len(v_out_dims))),requires_grad=True)
-
+        self.IP = IP
+        if not self.IP:
+            self.W = nn.ParameterList([nn.Parameter(torch.randn(u_out_dim, u_out_dim),requires_grad=True) for i in range(len(v_out_dims))])
     def forward(self,u,v,indicator):
         g_u = self.g_u(u) #bsxdim
-        list_of_fk = self.f_k(v,indicator) #[bsxdim,...,]
+        list_of_fk = self.f_k(v,indicator) #[bsxdimxv_out_dims]
+        #1. Try IP
 
-
+        if self.IP:
+            return (g_u*torch.stack(list_of_fk,dim=-1)).sum(dim=1).squeeze()
+        else:
+            output = [ torch.bmm((g_u@w).unsqueeze(1),fk.unsqueeze(-1)) for w,fk in zip(self.W,list_of_fk)] #bs x dim
+            return torch.stack(output,dim=-1)
+        #2. Introduce additional parametrization W_k
 
 
 class MLP(torch.nn.Module):

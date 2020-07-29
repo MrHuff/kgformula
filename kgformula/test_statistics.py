@@ -168,7 +168,8 @@ class density_estimator():
 
         elif type=='TRE':
             dataset = self.create_tre_data()
-            self.model = TRE().to(self.device)
+            self.model = TRE(input_dim_u=self.est_params[],
+                             u_out_dim=,width=,depth_u=,input_dim_v=,v_out_dims=,depth_v=,IP=).to(self.device)
             self.w = self.train_TRE(dataset)
 
         elif type == 'random_uniform':
@@ -283,8 +284,8 @@ class density_estimator():
     def forward_func_TRE(self,dat,indicator,y,loss_func):
         preds = self.model(dat,indicator)
         l = 0
-        for p in preds:
-            tmp = loss_func(p[~y,:],p[y,:])
+        for p in range(preds.shape[-1]):
+            tmp = loss_func(p[~y,:,p],p[y,:,p])
             l+=tmp
         return l
 
