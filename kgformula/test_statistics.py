@@ -168,8 +168,14 @@ class density_estimator():
 
         elif type=='TRE':
             dataset = self.create_tre_data()
-            self.model = TRE(input_dim_u=self.est_params[],
-                             u_out_dim=,width=,depth_u=,input_dim_v=,v_out_dims=,depth_v=,IP=).to(self.device)
+            self.model = TRE(input_dim_u=self.est_params['d_X'],
+                             u_out_dim=self.est_params['latent_dim'],
+                             width=self.est_params['width'],
+                             depth_u=self.est_params['depth_u'],
+                             input_dim_v=self.est_params['d_Z'],
+                             v_out_dims=self.est_params['outputs'],
+                             depth_v=self.est_params['depth_v'],
+                             IP=self.est_params['IP']).to(self.device)
             self.w = self.train_TRE(dataset)
 
         elif type == 'random_uniform':
@@ -206,12 +212,12 @@ class density_estimator():
     def train_classifier(self,dataset):
         loss_func = NCE_objective_stable(self.kappa)
         # loss_func = standard_bce(pos_weight=self.kappa)
-        opt = torch.optim.AdamW(self.model.parameters(),lr=self.est_params['lr'])
+        opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt,factor=0.5, patience=1)
         if self.est_params['mixed']:
             scaler = GradScaler()
         counter = 0
-        best = np.inf
+        best = -np.inf
         idx = torch.randperm(dataset.X_val.shape[0])
         one_y = torch.ones(dataset.bs)
         zero_y = torch.zeros(dataset.bs*self.kappa)
@@ -243,10 +249,13 @@ class density_estimator():
                     target = torch.cat([one_y, zero_y]).to(self.device)
                     pt,pf = self.get_true_fake(torch.cat([dataset.X,dataset.Z],dim=1),torch.cat([dataset.X,dataset.Z[idx]],dim=1))
                     logloss = self.calc_loss(loss_func,pt,pf,target)
+                    # print(torch.sigmoid(torch.cat([pt.squeeze(),pf.flatten()])),target)
+                    auc = auc_check( torch.sigmoid(torch.cat([pt.squeeze(),pf.flatten()])) ,target)
                     print(f'logloss epoch {i}: {logloss}')
+                    print(f'auc epoch {i}: {auc}')
                     scheduler.step(logloss)
-                    if logloss.item()<best:
-                        best = logloss.item()
+                    if auc>best:
+                        best = auc
                         counter=0
                         torch.save({'state_dict':self.model.state_dict(),
                                     'epoch':i},self.tmp_path+'best_run.pt')
@@ -270,7 +279,7 @@ class density_estimator():
         self.model.load_state_dict(weights['state_dict'])
         self.model.eval()
         with torch.no_grad():
-            w = self.model.get_w(torch.cat([self.x, self.z], dim=1))
+            w = self.model.get_w(self.x, self.z)
             _w = w.cpu().squeeze().numpy()
             idx_HSIC = np.random.choice(np.arange(self.x.shape[0]), self.x.shape[0], p=_w / _w.sum())
             p_val = hsic_test(self.x[idx_HSIC, :], self.z[idx_HSIC, :], self.est_params['n_sample'])
@@ -281,12 +290,9 @@ class density_estimator():
                 print('failed')
         return w
 
-    def forward_func_TRE(self,dat,indicator,y,loss_func):
-        preds = self.model(dat,indicator)
-        l = 0
-        for p in range(preds.shape[-1]):
-            tmp = loss_func(p[~y,:,p],p[y,:,p])
-            l+=tmp
+    def forward_func_TRE(self,u,v,indicator,y,loss_func):
+        preds = self.model(u,v,indicator)
+        l = loss_func(preds[~y,:],preds[y,:])
         return l
 
     def train_TRE(self,dataset):
@@ -298,16 +304,16 @@ class density_estimator():
         counter = 0
         best = np.inf
         for i in range(self.est_params['max_its']):
-            data,indicator,y= dataset.get_sample()
+            u,v,indicator,y= dataset.get_sample()
             opt.zero_grad()
             if self.est_params['mixed']:
                 with autocast():
-                    l = self.forward_func_TRE(data,indicator,y,loss_func)
+                    l = self.forward_func_TRE(u,v,indicator,y,loss_func)
                 scaler.scale(l).backward()
                 scaler.step(opt)
                 scaler.update()
             else:
-                l = self.forward_func_TRE(data, indicator, y, loss_func)
+                l = self.forward_func_TRE(u,v, indicator, y, loss_func)
                 l.backward()
                 opt.step()
 
@@ -315,9 +321,13 @@ class density_estimator():
                 # print(l)
                 with torch.no_grad():
                     dataset.val_mode()
-                    data, indicator, y = dataset.get_sample()
-                    logloss = self.forward_func_TRE(data,indicator,y,loss_func)
+                    u,v, indicator, y = dataset.get_sample()
+                    logloss = self.forward_func_TRE(u,v,indicator,y,loss_func)
+                    x,z,target = dataset.get_val_classification_sample()
+                    preds  = torch.sigmoid(self.model.predict(x,z))
+                    auc = auc_check(preds ,target)
                     print(f'logloss epoch {i}: {logloss}')
+                    print(f'auc epoch {i}: {auc}')
                     scheduler.step(logloss)
                     if logloss.item()<best:
                         best = logloss.item()

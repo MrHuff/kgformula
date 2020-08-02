@@ -38,9 +38,9 @@ def experiment_plt(w_true,w_classify,X,Z,title,var,M,dist_a,dist_b,model):
         return (-M.log_prob(val) + (dist_a.log_prob(torch.from_numpy(x).float()) + dist_b.log_prob(
         torch.from_numpy(z).float()))).exp().numpy()
 
-    def pred_w(val,model):
-        p_w = model.get_w(val.cuda()).cpu().numpy()
-        return p_w
+    def pred_w(x,z,model):
+        p_w = model.get_w(torch.from_numpy(x).float().view(-1,1).cuda(),torch.from_numpy(z).flatten().float().view(-1,1).cuda()).cpu().numpy()
+        return p_w.reshape(100,100)
 
     def tricol_plt(ax,name,triang,w):
         p = ax.tricontourf(triang,w)
@@ -61,7 +61,7 @@ def experiment_plt(w_true,w_classify,X,Z,title,var,M,dist_a,dist_b,model):
     x,z,val = get_data(var)
     dens_w = true_w(x,z,val,M,dist_a,dist_b)
     with torch.no_grad():
-        dens_w_pred = pred_w(val,model).squeeze()
+        dens_w_pred = pred_w(x,z,model).squeeze()
 
     w_true = w_true.cpu().flatten().numpy()
     w_classify = w_classify.cpu().flatten().numpy()

@@ -5,6 +5,7 @@ import numpy as np
 from torch.utils.data import Dataset
 import time
 from math import log
+
 class Swish(torch.autograd.Function):
     @staticmethod
     def forward(ctx, i):
@@ -47,26 +48,45 @@ class MLP_shared(torch.nn.Module): #try new architecture...
             output.append(m(s))
         return output
 
+    def predict(self,x):
+        l = self.main(x)
+        output = []
+        for i, m in enumerate(self.tasks):
+            output.append(m(l))
+        return output
+
+
 class TRE(torch.nn.Module):
     def __init__(self,input_dim_u,u_out_dim,width,depth_u,input_dim_v,v_out_dims,depth_v,IP=True):
         super(TRE, self).__init__()
         self.g_u = MLP(d=input_dim_u,f=width,k=depth_u,o=u_out_dim)
-        self.f_k = MLP_shared(input_dim=input_dim_v,latent_size=width,depth_main=depth_v,outputs=v_out_dims*u_out_dim,depth_task=depth_v)
+        self.f_k = MLP_shared(input_dim=input_dim_v,latent_size=width,depth_main=depth_v,outputs=[v*u_out_dim for v in v_out_dims],depth_task=depth_v)
         self.IP = IP
         if not self.IP:
             self.W = nn.ParameterList([nn.Parameter(torch.randn(u_out_dim, u_out_dim),requires_grad=True) for i in range(len(v_out_dims))])
     def forward(self,u,v,indicator):
-        g_u = self.g_u(u) #bsxdim
+        g_u = self.g_u(u).repeat(2,1) #bsxdim
         list_of_fk = self.f_k(v,indicator) #[bsxdimxv_out_dims]
         #1. Try IP
 
         if self.IP:
-            return (g_u*torch.stack(list_of_fk,dim=-1)).sum(dim=1).squeeze()
+            return (g_u.unsqueeze(-1)*torch.stack(list_of_fk,dim=-1)).sum(dim=1).squeeze()
         else:
             output = [ torch.bmm((g_u@w).unsqueeze(1),fk.unsqueeze(-1)) for w,fk in zip(self.W,list_of_fk)] #bs x dim
-            return torch.stack(output,dim=-1)
-        #2. Introduce additional parametrization W_k
+            return torch.stack(output,dim=-1).squeeze()
 
+    def predict(self,x,z):
+        g_u = self.g_u(x) #bsxdim
+        list_of_fk = self.f_k.predict(z)
+        if self.IP:
+            return (g_u.unsqueeze(-1) * torch.stack(list_of_fk, dim=-1)).sum(dim=1).squeeze().sum(dim=-1)
+        else:
+            output = [torch.bmm((g_u @ w).unsqueeze(1), fk.unsqueeze(-1)) for w, fk in
+                      zip(self.W, list_of_fk)]  # bs x dim
+            return torch.stack(output, dim=-1).squeeze().sum(dim=-1)
+
+    def get_w(self,x,z):
+        return torch.exp(self.predict(x,z))
 
 class MLP(torch.nn.Module):
     def __init__(self,d,f=12,k=2,o=1):
@@ -80,10 +100,10 @@ class MLP(torch.nn.Module):
     def forward(self,x):
         for l in self.model:
             x = l(x)
-        return -x
+        return x
 
-    def get_w(self, x):
-        return torch.exp(self.forward(x))
+    def get_w(self, x,z):
+        return torch.exp(-self.forward(torch.cat([x,z],dim=1)))
 
 class logistic_regression(torch.nn.Module):
     def __init__(self,d):
@@ -91,10 +111,10 @@ class logistic_regression(torch.nn.Module):
         self.W = torch.nn.Linear(in_features=d,  out_features=1,bias=True)
 
     def forward(self,X):
-        return -self.W(X)
+        return self.W(X)
 
-    def get_w(self, x):
-        return torch.exp(self.forward(x))
+    def get_w(self, x,z):
+        return torch.exp(self.forward(torch.cat([x,z],dim=1)))
 
 class classification_dataset(Dataset):
     def __init__(self,X,Z,bs=1.0,kappa=1,val_rate = 0.01):
@@ -178,6 +198,7 @@ class classification_dataset_TRE(classification_dataset):
         self.bs = int(round(self.bs_perc*self.X.shape[0]))
         self.indicator = torch.tensor([self.bs*[k] for k in range(0,self.m+1)]).flatten() # m=2 [1,1] 0,1,2
         self.y = torch.tensor([True]*self.bs+[False]*self.bs)
+
     def val_mode(self):
         self.X = self.X_val
         self.Z = self.Z_val
@@ -190,15 +211,22 @@ class classification_dataset_TRE(classification_dataset):
         x,z_0,z_m = self.get_permute()
         data = [z_0]
         for a_0,a_m in zip(self.a_0,self.a_m):
-            data.append(a_0*z_0+self.a_m*z_m)
+            data.append(a_0*z_0+a_m*z_m)
         data.append(z_m)
         return x,torch.cat(data,dim=0),self.indicator,self.y
+
+    def get_val_classification_sample(self):
+        X = self.X.repeat(2,1)
+        Z = torch.cat([self.Z,self.Z[torch.randperm(self.Z.shape[0])]])
+        label = torch.tensor([True]*self.X.shape[0]+[False]*self.X.shape[0])
+        return X,Z,label
+
 
 class Log1PlusExp(torch.autograd.Function):
     """Implementation of x ↦ log(1 + exp(x))."""
     @staticmethod
     def forward(ctx, x):
-        exp = torch.exp(x)
+        exp = x.exp_()
         ctx.save_for_backward(x)
         return x.where(torch.isinf(exp), exp.log1p_())
     @staticmethod
@@ -215,9 +243,8 @@ class NCE_objective_stable(torch.nn.Module):
         self.kappa = kappa
         self.log_kappa = log(kappa)
     def forward(self,true_preds,fake_preds):
-        # _err = torch.log(torch.sigmoid(true_preds)).mean()+self.kappa*torch.log(1-torch.sigmoid(fake_preds)).mean()
-        _err = (-log_1_plus_exp(true_preds+self.log_kappa))-(-fake_preds+log_1_plus_exp(fake_preds+self.log_kappa)).sum(dim=1,keepdim=True)
-        return (-_err).mean()
+        _err = torch.log(1+torch.exp(-true_preds+self.log_kappa))+torch.log(1+torch.exp(fake_preds-self.log_kappa)).sum(dim=1,keepdim=True)
+        return _err.sum()
 
 class standard_bce(torch.nn.Module):
     def __init__(self,pos_weight =1.0):
