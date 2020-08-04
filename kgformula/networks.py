@@ -98,9 +98,10 @@ class MLP(torch.nn.Module):
         self.model.append(_res_block(f, o))
 
     def forward(self,x):
+        X,Z = x.unbind(dim=1)
         for l in self.model:
             x = l(x)
-        return x
+        return x + (X.unsqueeze(-1)**2+Z.unsqueeze(-1)**2)
 
     def get_w(self, x,z):
         return torch.exp(-self.forward(torch.cat([x,z],dim=1)))
@@ -132,43 +133,60 @@ class classification_dataset(Dataset):
         self.kappa = kappa
         self.train_mode()
 
+    def divide_data(self):
+        X_dat = torch.chunk(self.X,2,dim=0)
+        self.X_joint = X_dat[0]
+        self.X_pom = X_dat[1]
+        Z_dat = torch.chunk(self.Z,2,dim=0)
+        self.Z_joint = Z_dat[0]
+        self.Z_pom = Z_dat[1]
+
     def train_mode(self):
         self.X = self.X_train
         self.Z = self.Z_train
-        self.sample_indices_base = np.arange(self.X.shape[0])
-        self.bs = int(round(self.bs_perc*self.X.shape[0]))
+        self.divide_data()
+        self.sample_indices_base = np.arange(self.X_pom.shape[0])
+        self.bs = int(round(self.bs_perc*self.X_joint.shape[0]))
 
     def val_mode(self):
         self.X = self.X_val
         self.Z = self.Z_val
-        self.sample_indices_base = np.arange(self.X.shape[0])
-        self.bs = self.X.shape[0]
-
-    def build_sampling_set(self,true_indices):
-        np_cat = []
-        for x in np.nditer(true_indices):
-            np_cat.append(np.delete(self.sample_indices_base,x)[None,:])
-        return np.concatenate(np_cat,axis=0)
-
-    def sample_no_replace(self,fake_set,kappa,replace=False):
-        np_cat = []
-        for row in fake_set:
-            np_cat.append(np.random.choice(row,kappa,replace))
-        return np.concatenate(np_cat)
-
-    def get_indices(self):
-        if self.bs ==self.X.shape[0]:
-            true_indices = self.sample_indices_base
-        else:
-            i_s = np.random.randint(0, self.X.shape[0] - 1 - self.bs)
-            true_indices = np.arange(i_s,i_s+self.bs)
-        fake_set = self.build_sampling_set(true_indices)
-        fake_indices = self.sample_no_replace(fake_set,self.kappa,False)
-        return true_indices,fake_indices#,HSIC_ref_indices_true,HSIC_ref_indices_fake
+        self.divide_data()
+        self.sample_indices_base = np.arange(self.X_pom.shape[0])
+        self.bs = self.X_joint.shape[0]
 
     def get_sample(self):
-        T,F = self.get_indices()
-        return torch.cat([self.X[T,:],self.Z[T,:]],dim=1),torch.cat([self.X[T.repeat(self.kappa),:],self.Z[F,:]],dim=1)
+        i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs)
+        joint_samp = torch.cat([self.X_joint[i_s:(i_s+self.bs),:],self.Z_joint[i_s:(i_s+self.bs),:]],dim=1)
+        i_s_2 = np.random.randint(0, self.X_pom.shape[0] - self.bs*self.kappa)
+        pom_samp = torch.cat([self.X_pom[i_s_2:(i_s_2+self.bs*self.kappa),:], self.Z_pom[torch.randperm(self.bs*self.kappa),:]],dim=1)
+        return joint_samp,pom_samp
+
+    # def build_sampling_set(self,true_indices):
+    #     np_cat = []
+    #     for x in np.nditer(true_indices):
+    #         np_cat.append(np.delete(self.sample_indices_base,x)[None,:])
+    #     return np.concatenate(np_cat,axis=0)
+    #
+    # def sample_no_replace(self,fake_set,kappa,replace=False):
+    #     np_cat = []
+    #     for row in fake_set:
+    #         np_cat.append(np.random.choice(row,kappa,replace))
+    #     return np.concatenate(np_cat)
+    #
+    # def get_indices(self):
+    #     if self.bs ==self.X.shape[0]:
+    #         true_indices = self.sample_indices_base
+    #     else:
+    #         i_s = np.random.randint(0, self.X_joint.shape[0] - 1 - self.bs)
+    #         true_indices = np.arange(i_s,i_s+self.bs)
+    #     fake_set = self.build_sampling_set(true_indices)
+    #     fake_indices = self.sample_no_replace(fake_set,self.kappa,False)
+    #     return true_indices,fake_indices#,HSIC_ref_indices_true,HSIC_ref_indices_fake
+    #
+    # def get_sample(self):
+    #     T,F = self.get_indices()
+    #     return torch.cat([self.X_joint[T,:],self.Z[T,:]],dim=1),torch.cat([self.X[T.repeat(self.kappa),:],self.Z[F,:]],dim=1)
 
 class classification_dataset_TRE(classification_dataset):
     def __init__(self,X,Z,m,p=1,bs=1.0,val_rate = 0.01):

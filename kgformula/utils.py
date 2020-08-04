@@ -99,11 +99,8 @@ def get_density_plot(w,X,Z,ax,title=''):
     plt.show()
     plt.clf()
 
-def get_w_estimate_and_plot(X,Z,est_params,estimator,device,title=''):
+def get_w_estimate_and_plot(X,Z,est_params,estimator,device):
     d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator,  device=device)
-    # if X.shape[1]==1 and Z.shape[1]==1:
-    #     w = d.return_weights()
-    #     get_density_plot(w, X, Z,title)
     return d
 
 def load_csv(path, d_Z,device):

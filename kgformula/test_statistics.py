@@ -159,8 +159,7 @@ class density_estimator():
 
             dataset = self.create_classification_data()
             self.model = MLP(d=dataset.X.shape[1]+dataset.Z.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
-            self.w = self.train_classifier(dataset)
-
+            self.train_classifier(dataset)
         elif type == 'linear_classifier':
             dataset = self.create_classification_data()
             self.model = logistic_regression(d=dataset.X.shape[1]+dataset.Z.shape[1]).to(self.x.device)
@@ -176,7 +175,7 @@ class density_estimator():
                              v_out_dims=self.est_params['outputs'],
                              depth_v=self.est_params['depth_v'],
                              IP=self.est_params['IP']).to(self.device)
-            self.w = self.train_TRE(dataset)
+            self.train_TRE(dataset)
 
         elif type == 'random_uniform':
             self.w = torch.rand(*(self.x.shape[0],1)).cuda(self.device)
@@ -270,19 +269,20 @@ class density_estimator():
             if counter>self.est_params['kill_counter']:
                 print('stopped improving, stopping')
                 break
-        return self.model_eval()
+        return
 
-    def model_eval(self):
+    def model_eval(self,X,Z):
         weights = torch.load(self.tmp_path+'best_run.pt')
         best_epoch = weights['epoch']
         print(f'loading best epoch {best_epoch}')
         self.model.load_state_dict(weights['state_dict'])
         self.model.eval()
+        n = X.shape[0]
         with torch.no_grad():
-            w = self.model.get_w(self.x, self.z)
+            w = self.model.get_w(X, Z)
             _w = w.cpu().squeeze().numpy()
-            idx_HSIC = np.random.choice(np.arange(self.x.shape[0]), self.x.shape[0], p=_w / _w.sum())
-            p_val = hsic_test(self.x[idx_HSIC, :], self.z[idx_HSIC, :], self.est_params['n_sample'])
+            idx_HSIC = np.random.choice(np.arange(n,n, p=_w / _w.sum()))
+            p_val = hsic_test(X[idx_HSIC, :], Z[idx_HSIC, :], self.est_params['n_sample'])
             print(f'HSIC_pval : {p_val}')
             self.hsic_pval = p_val
             if p_val < self.est_params['criteria_limit']:
@@ -340,7 +340,7 @@ class density_estimator():
             if counter>self.est_params['kill_counter']:
                 print('stopped improving, stopping')
                 break
-        return self.model_eval()
+        return
 
     def create_tre_data(self):
         return classification_dataset_TRE(self.x,
@@ -390,7 +390,8 @@ class density_estimator():
             return torch.tensor(w).to(self.device)
 
 
-    def return_weights(self):
+    def return_weights(self,X,Z):
+        self.w = self.model_eval(X,Z)
         return self.w.squeeze()
 
     def get_median_ls_XY(self,X,Y):
