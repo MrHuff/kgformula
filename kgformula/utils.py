@@ -265,6 +265,9 @@ def run_job_func(args):
     j = simulation_object(args)
     j.run()
 
+def split(x,n_half):
+    return x[:n_half,:],x[n_half:,:]
+
 class simulation_object():
     def __init__(self,args):
         self.args=args
@@ -304,12 +307,14 @@ class simulation_object():
                     X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
                     X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
-                if debug_plot:
-                    plt.scatter(Z.numpy(), X.numpy())
-                    plt.show()
+                n_half = X.shape[0]//2
+                X_train,X_test = split(X,n_half)
+                Y_train,Y_test = split(Y,n_half)
+                Z_train,Z_test = split(Z,n_half)
+                _,_w = split(_w,n_half)
                 if estimate:
-                    d = density_estimator(x=X, z=Z, cuda=self.cuda, est_params=est_params, type=estimator,device=self.device)
-                    w = d.return_weights()
+                    d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda, est_params=est_params, type=estimator,device=self.device)
+                    w = d.return_weights(X_test,Z_test)
                     if estimator in ['classifier', 'TRE', 'linear_classifier']:
                         with torch.no_grad():
                             l = mse_loss(_w, w) / _w.var()
@@ -318,9 +323,9 @@ class simulation_object():
                 else:
                     w = _w
                 if new:
-                    c = consistent_weighted_HSIC(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
+                    c = consistent_weighted_HSIC(X=X_test, Y=Y_test, Z=Z_test, w=w, cuda=self.cuda, device=self.device)
                 else:
-                    c = weighted_statistic_new(X=X, Y=Y, Z=Z, w=w, cuda=self.cuda, device=self.device)
+                    c = weighted_statistic_new(X=X_test, Y=Y_test, Z=Z_test, w=w, cuda=self.cuda, device=self.device)
                 reference_metric = c.calculate_weighted_statistic().cpu()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):

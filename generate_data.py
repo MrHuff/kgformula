@@ -2,7 +2,7 @@ from kgformula.utils import generate_data
 
 if __name__ == '__main__':
     seeds = 1000
-    for n in [100,1000,10000]:
+    for n in [1000,10000]:
         for y_a in [0.0]:
             for y_b in [0.0,0.5]:
                 for z_a in [0.0]:
