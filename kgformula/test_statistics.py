@@ -216,8 +216,7 @@ class density_estimator():
         if self.est_params['mixed']:
             scaler = GradScaler()
         counter = 0
-        best = -np.inf
-        idx = torch.randperm(dataset.X_val.shape[0])
+        best = np.inf
         one_y = torch.ones(dataset.bs)
         zero_y = torch.zeros(dataset.bs*self.kappa)
         target = torch.cat([one_y,zero_y]).to(self.device)
@@ -243,18 +242,20 @@ class density_estimator():
                 with torch.no_grad():
                     dataset.val_mode()
                     self.model.eval()
-                    one_y = torch.ones(dataset.bs)
-                    zero_y = torch.zeros(dataset.bs)
+
+                    joint,pom,n = dataset.get_val_sample()
+                    one_y = torch.ones(n)
+                    zero_y = torch.zeros(n)
                     target = torch.cat([one_y, zero_y]).to(self.device)
-                    pt,pf = self.get_true_fake(torch.cat([dataset.X,dataset.Z],dim=1),torch.cat([dataset.X,dataset.Z[idx]],dim=1))
+                    pt,pf = self.get_true_fake(joint,pom)
                     logloss = self.calc_loss(loss_func,pt,pf,target)
                     # print(torch.sigmoid(torch.cat([pt.squeeze(),pf.flatten()])),target)
                     auc = auc_check( torch.sigmoid(torch.cat([pt.squeeze(),pf.flatten()])) ,target)
                     print(f'logloss epoch {i}: {logloss}')
                     print(f'auc epoch {i}: {auc}')
                     scheduler.step(logloss)
-                    if auc>best:
-                        best = auc
+                    if logloss.item()<best:
+                        best = logloss.item()
                         counter=0
                         torch.save({'state_dict':self.model.state_dict(),
                                     'epoch':i},self.tmp_path+'best_run.pt')
@@ -281,7 +282,7 @@ class density_estimator():
         with torch.no_grad():
             w = self.model.get_w(X, Z)
             _w = w.cpu().squeeze().numpy()
-            idx_HSIC = np.random.choice(np.arange(n,n, p=_w / _w.sum()))
+            idx_HSIC = np.random.choice(np.arange(n),n,p=_w / _w.sum())
             p_val = hsic_test(X[idx_HSIC, :], Z[idx_HSIC, :], self.est_params['n_sample'])
             print(f'HSIC_pval : {p_val}')
             self.hsic_pval = p_val
@@ -356,7 +357,8 @@ class density_estimator():
                                       self.z,
                                       bs=self.est_params['bs_ratio'],
                                       kappa=self.kappa,
-                                      val_rate=self.est_params['val_rate'])
+                                      val_rate=self.est_params['val_rate'],
+                                      scale_x=self.est_params['scale_x'])
 
     def kernel_mean_matching(self):
         with torch.no_grad():

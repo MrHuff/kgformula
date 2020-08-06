@@ -98,10 +98,10 @@ class MLP(torch.nn.Module):
         self.model.append(_res_block(f, o))
 
     def forward(self,x):
-        X,Z = x.unbind(dim=1)
+        # X,Z = x.unbind(dim=1)
         for l in self.model:
             x = l(x)
-        return x + (X.unsqueeze(-1)**2+Z.unsqueeze(-1)**2)
+        return x #+ (X.unsqueeze(-1)**2+Z.unsqueeze(-1)**2)
 
     def get_w(self, x,z):
         return torch.exp(-self.forward(torch.cat([x,z],dim=1)))
@@ -118,12 +118,13 @@ class logistic_regression(torch.nn.Module):
         return torch.exp(self.forward(torch.cat([x,z],dim=1)))
 
 class classification_dataset(Dataset):
-    def __init__(self,X,Z,bs=1.0,kappa=1,val_rate = 0.01):
+    def __init__(self,X,Z,bs=1.0,kappa=1,val_rate = 0.01,scale_x = 1.):
         super(classification_dataset, self).__init__()
         self.n=X.shape[0]
         mask = np.array([False] * self.n)
         mask[0:round(val_rate*self.n)] = True
         np.random.shuffle(mask)
+        self.scale_X = scale_x
         self.X_train = X[~mask,:]
         self.Z_train = Z[~mask,:]
         self.X_val = X[mask]
@@ -153,14 +154,20 @@ class classification_dataset(Dataset):
         self.Z = self.Z_val
         self.divide_data()
         self.sample_indices_base = np.arange(self.X_pom.shape[0])
-        self.bs = self.X_joint.shape[0]
 
     def get_sample(self):
-        i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs)
+        i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs-1)
         joint_samp = torch.cat([self.X_joint[i_s:(i_s+self.bs),:],self.Z_joint[i_s:(i_s+self.bs),:]],dim=1)
-        i_s_2 = np.random.randint(0, self.X_pom.shape[0] - self.bs*self.kappa)
-        pom_samp = torch.cat([self.X_pom[i_s_2:(i_s_2+self.bs*self.kappa),:], self.Z_pom[torch.randperm(self.bs*self.kappa),:]],dim=1)
+        i_s_2 = np.random.randint(0, self.X_pom.shape[0] - self.bs*self.kappa-1)
+        pom_samp = torch.cat([self.X_pom[i_s_2:(i_s_2+self.bs*self.kappa),:]*self.scale_X, self.Z_pom[torch.randperm(self.X_pom.shape[0])[:(self.bs*self.kappa)],:]],dim=1)
         return joint_samp,pom_samp
+
+    def get_val_sample(self):
+        n = min(self.X_joint.shape[0],self.X_pom.shape[0])
+
+        joint_samp = torch.cat([self.X_joint[:n,:],self.Z_joint[:n,:]],dim=1)
+        pom_samp = torch.cat([self.X_pom[:n,:]*self.scale_X, self.Z_pom[torch.arange(self.Z_pom.shape[0],0,-1),:]],dim=1)
+        return joint_samp,pom_samp,n
 
     # def build_sampling_set(self,true_indices):
     #     np_cat = []

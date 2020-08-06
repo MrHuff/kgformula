@@ -27,6 +27,53 @@ def true_dens_plot(var,M,dist_a,dist_b):
     fig.colorbar(c, ax=ax)
     plt.show()
 
+
+
+def experiment_plt_do(w_true,w_classify,X,Z,title):
+
+    def tricol_plt(ax,name,triang,w):
+        p = ax.tricontourf(triang,w)
+        plt.colorbar(p,ax=ax)
+        ax.title.set_text(name)
+
+    def hist(ax,name,w):
+        ax.hist(w)
+        ax.title.set_text(name)
+
+    X = X.cpu().flatten().numpy()
+    Z = Z.cpu().flatten().numpy()
+
+    w_true = w_true.cpu().flatten().numpy()
+    w_classify = w_classify.cpu().flatten().numpy()
+    fig, axs = plt.subplots(1, 4, figsize=(40, 8))
+    fig.tight_layout()
+    fig.suptitle(title)
+    triang = mtri.Triangulation(X, Z)
+
+    tricol_plt(axs[0],'w_true',triang,w_true)
+    tricol_plt(axs[1],'w_estimate',triang,w_classify)
+    hist(axs[2],'w_true_hist',w_true)
+    hist(axs[3],'w_estimate_hist',w_classify)
+    plt.subplots_adjust(top=0.85)
+    plt.savefig(title+'.png')
+
+
+def experiment_plt_mv(w_true,w_classify,X,Z,title,var,M,dist_a,dist_b,model):
+
+    def hist(ax,name,w):
+        ax.hist(w,bins=50)
+        ax.title.set_text(name)
+
+    w_true = w_true.cpu().flatten().numpy()
+    w_classify = w_classify.cpu().flatten().numpy()
+    fig, axs = plt.subplots(1, 2, figsize=(40, 8))
+    fig.tight_layout()
+    fig.suptitle(title)
+    hist(axs[0],'w_true_hist',w_true)
+    hist(axs[1],'w_estimate_hist',w_classify)
+    plt.subplots_adjust(top=0.85)
+    plt.savefig(title+'.png')
+
 def experiment_plt(w_true,w_classify,X,Z,title,var,M,dist_a,dist_b,model):
 
     def get_data(var):
@@ -78,6 +125,7 @@ def experiment_plt(w_true,w_classify,X,Z,title,var,M,dist_a,dist_b,model):
     plt_dense_w(axs[5],'pred_dense_w_est',x,z,dens_w_pred)
     plt.subplots_adjust(top=0.85)
     plt.savefig(title+'.png')
+
 def debug_W(w,str):
     plt.hist(w.flatten().cpu().numpy(), 100)
     plt.title(str)
@@ -222,7 +270,6 @@ class simulation_object():
         self.args=args
         self.cuda = self.args['cuda']
         self.device = self.args['device']
-
 
     def run(self):
         estimate = self.args['estimate']

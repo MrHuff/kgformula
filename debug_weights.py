@@ -36,10 +36,12 @@ if __name__ == '__main__':
     #MINE
     #Representation Learning with Contrastive Predictive Coding go to scholar. Check Gutmann else.
     #Mutual information probably no...
-
+    #Test on actual statistic
+    #Doesnt seem to capture tails
 
     var = 1.
-    for experiment in [0,1,2,3,4,5]:
+    scale = 0.7
+    for experiment in [0]:
         if experiment ==0: #Univariate density ratio where the true ratio has a mode, i.e. simplest case?!
             cov = torch.tensor([[var,0.1], [0.1, var]])
         elif experiment==1:#Univariate density ratio where the true ratio has no mode, i.e. univariate w distribution
@@ -52,6 +54,9 @@ if __name__ == '__main__':
             cov = torch.tensor([[var, 0.5], [0.5, var]])
         elif experiment==5:
             cov = torch.tensor([[var, 0.6], [0.6, var]])
+        if experiment == 6:  # Univariate density ratio where the true ratio has a mode, i.e. simplest case?!
+            cov = torch.tensor([[var, 0.05], [0.05, var]])
+
 
         #eigen values from joint i.e. cov variable must be smaller than product of margins. Try simulating such a case...
         #Be careful to what we pass to as training data, ensure only difference is dependencce. So decouple properly.
@@ -70,6 +75,7 @@ if __name__ == '__main__':
         dist_a, dist_b, _, _, _, _ = generate_experiment_data_2dist(Normal, torch.tensor([0.]), torch.tensor([0.]),
                                                                     torch.tensor([var ** 0.5]),
                                                                     torch.tensor([var ** 0.5]), n)
+
         X, Z = torch.unbind(samples, dim=1)
         w_true = (-log_prob + (dist_a.log_prob(X) + dist_b.log_prob(Z))).exp()
         X = X.unsqueeze(-1)
@@ -77,15 +83,15 @@ if __name__ == '__main__':
         train_mask = np.random.rand(n)<train_factor
         X_train = X[train_mask,:]
         Z_train = Z[train_mask,:]
-        X_test = X[~train_mask,]
-        Z_test = Z[~train_mask,]
+        X_test = X[~train_mask,:]
+        Z_test = Z[~train_mask,:]
 
         mse_loss = torch.nn.MSELoss()
         estimator = 'NCE' #gradient fix?
         est_params = {'lr': 1e-4,
                       'max_its': 5000,
                       'width': 32,
-                      'layers': 2,
+                      'layers': 4,
                       'mixed': False,
                       'bs_ratio': 50/n,
                       'kappa': 10,
@@ -101,16 +107,17 @@ if __name__ == '__main__':
                       'latent_dim':16,
                       'depth_u': 2,
                       'depth_v': 2,
-                      'IP':False
+                      'IP':False,
+                      'scale_x':scale
                       }
         # debug_W(w_true,f'w_true_{experiment}')
         torch.cuda.set_device(device)
         X_train,Z_train,X_test,Z_test =X_train.cuda(),Z_train.cuda(),X_test.cuda(),Z_test.cuda()
         print(X_train.shape,Z_train.shape)
         d = get_w_estimate_and_plot(X_train, Z_train, est_params, estimator, device)
-        w_classification = d.return_weights(X_test,X_train)
+        w_classification = d.return_weights(X_test,Z_test)
         # debug_W(d,f'w_classification_{experiment}')
         with torch.no_grad():
-            l = mse_loss(w_true[~train_mask,:].cuda(),w_classification)/w_true[~train_mask,:].var()
+            l = mse_loss(w_true[~train_mask].cuda(),w_classification)/w_true[~train_mask].var()
             print(1-l.item())
-        experiment_plt(w_true[~train_mask,:],w_classification,X_test,Z_test,f'Experiment_{experiment}_{estimator}',var,M,dist_a,dist_b,d.model)
+        experiment_plt(w_true[~train_mask],w_classification,X_test,Z_test,f'Experiment_{experiment}_{estimator}_scale={scale}',var,M,dist_a,dist_b,d.model)
