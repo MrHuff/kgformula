@@ -266,7 +266,10 @@ def run_job_func(args):
     j.run()
 
 def split(x,n_half):
-    return x[:n_half,:],x[n_half:,:]
+    if len(x.shape)==1:
+        return x[:n_half],x[n_half:]
+    else:
+        return x[:n_half,:],x[n_half:,:]
 
 class simulation_object():
     def __init__(self,args):

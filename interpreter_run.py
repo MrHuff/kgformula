@@ -20,7 +20,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                         # layers=int(math.log10(n)-1)
                         # width = 32*2**i
                         job_dir = f'layers={layers}_width={width}_scale={s}'
-                        for h in [h_0_str_mult_2]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+                        for h in [h_0_str,h_1_str]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                             args = {
                                 'new_consistent':False,
                                 'device': device,
@@ -36,6 +36,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                                 'est_params': {'lr': 1e-4,
                                                'max_its': 5000,
                                                'width': width,
+                                               'layers':layers,
                                                'mixed': False,
                                                'bs_ratio': 10. / n,
                                                'val_rate': val_rate,
@@ -44,6 +45,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                                                'kill_counter': 10,
                                                  'outputs': [1, 1],
                                               'reg_lambda':1e-1,
+                                               'kappa':10,
                                               'm':n,
                                               'd_X':1,
                                               'd_Z':1,
@@ -53,7 +55,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                                               'IP':False,
                                               'scale_x':s
                                                },
-                                'estimator': 'TRE', #ones, 'NCE'
+                                'estimator': 'NCE', #ones, 'NCE'
                                 'runs': runs,
                                 'cuda': True,
                             }
@@ -68,13 +70,13 @@ if __name__ == '__main__':
 
     beta_XZ_list = [0.5]#0.5,0.01
     n_list = [10000]
-    theta = 12
-    phi = round(theta/1.75,2)
-    seed_max = 1000
+    theta = 4
+    phi = 2.0 #round(theta/1.75,2)
+    seed_max = 100
     cuda = True
-    nr_of_gpus = 8
-    net_layers = [3]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
-    net_width = [128,512,2048]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
+    nr_of_gpus = 4
+    net_layers = [2,4]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
+    net_width = [32]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     scales = [1.0,0.75,0.5]
     if cuda:
         if nr_of_gpus>1:
