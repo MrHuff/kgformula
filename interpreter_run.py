@@ -4,7 +4,7 @@ import torch.multiprocessing as mp
 import math
 import os
 
-def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000,scales=[1.0]):
+def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
         for i,n in enumerate(n_list):
             h_0_str = f'univariate_{seed_max}_seeds/ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
@@ -14,13 +14,11 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
             h_0_str_mult_2_big = f'multivariate_{seed_max}/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
             h_1_str_mult_2_big = f'multivariate_{seed_max}/beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z=50_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
             val_rate = max(1e-2, 10. / n)
-            for s in scales:
+            for sp in [True,False]:
                 for width in net_width:
                     for layers in net_layers:
-                        # layers=int(math.log10(n)-1)
-                        # width = 32*2**i
-                        job_dir = f'layers={layers}_width={width}_scale={s}'
-                        for h in [h_0_str,h_1_str]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+                        job_dir = f'layers={layers}_width={width}'
+                        for h in [h_0_str]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                             args = {
                                 'new_consistent':False,
                                 'device': device,
@@ -31,8 +29,8 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                                 'seeds_a': seed_a,
                                 'seeds_b': seed_b,
                                 'bootstrap_runs': 250,
-                                'debug_generative_process': False,
-                                'debug_d_Z': 3,
+                                'use_q': True,
+                                'split': sp,
                                 'est_params': {'lr': 1e-4,
                                                'max_its': 5000,
                                                'width': width,
@@ -43,17 +41,17 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                                                'n_sample': 250,
                                                'criteria_limit': 0.05,
                                                'kill_counter': 10,
-                                                 'outputs': [1, 1],
-                                              'reg_lambda':1e-1,
-                                               'kappa':10,
+                                                'kappa':10,
                                               'm':n,
                                               'd_X':1,
                                               'd_Z':1,
-                                              'latent_dim':16,
-                                              'depth_u': 2,
-                                              'depth_v': 2,
-                                              'IP':False,
-                                              'scale_x':s
+
+                                              #  'outputs': [1, 1],
+                                              #  'reg_lambda': 1e-1,
+                                              # 'latent_dim':16,
+                                              # 'depth_u': 2,
+                                              # 'depth_v': 2,
+                                              # 'IP':False,
                                                },
                                 'estimator': 'NCE', #ones, 'NCE'
                                 'runs': runs,
@@ -75,9 +73,8 @@ if __name__ == '__main__':
     seed_max = 100
     cuda = True
     nr_of_gpus = 4
-    net_layers = [2,4]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
+    net_layers = [4]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
     net_width = [32]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
-    scales = [1.0,0.75,0.5]
     if cuda:
         if nr_of_gpus>1:
             devices = GPUtil.getAvailable(order='memory',limit=nr_of_gpus)
@@ -98,7 +95,7 @@ if __name__ == '__main__':
             for i in range(nr_of_gpus):
                 seed_a = jobs[i][0]
                 seed_b = jobs[i][1]
-                p = mp.Process(target=run_jobs, args=(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,devices[i],net_width,net_layers,1,seed_max))
+                p = mp.Process(target=run_jobs, args=(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,devices[i],net_width,net_layers,1,seed_max,scales))
                 p.start()
                 processes.append(p)
             for p in processes:

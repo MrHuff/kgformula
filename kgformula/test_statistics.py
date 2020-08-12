@@ -25,7 +25,6 @@ def kernel_mean_matching(K,kappa,nz, B=1.0, eps=None):
     coef = np.array(sol['x'])
     return coef
 
-
 class HSIC_independence_test():
     def __init__(self,X,Y,n_samples):
         self.X = X
@@ -159,7 +158,7 @@ class density_estimator():
 
             dataset = self.create_classification_data()
             self.model = MLP(d=dataset.X.shape[1]+dataset.Z.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
-            self.train_classifier(dataset)
+            self.train_classifier(dataset,)
         elif type == 'linear_classifier':
             dataset = self.create_classification_data()
             self.model = logistic_regression(d=dataset.X.shape[1]+dataset.Z.shape[1]).to(self.x.device)

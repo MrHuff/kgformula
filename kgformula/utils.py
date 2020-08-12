@@ -16,7 +16,6 @@ from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
 def EFF_calc(w):
     return w.sum()**2/(w**2).sum()
 
-
 def true_dens_plot(var,M,dist_a,dist_b):
     x, z = np.meshgrid(np.linspace(-var * 5, var * 5, 100), np.linspace(-var * 5, var * 5, 100))
     val = torch.stack([torch.from_numpy(x), torch.from_numpy(z)], dim=-1).float()
@@ -26,8 +25,6 @@ def true_dens_plot(var,M,dist_a,dist_b):
     c = ax.pcolormesh(x, z, w_true_plt, cmap='RdBu', vmin=w_true_plt.min(), vmax=w_true_plt.max())
     fig.colorbar(c, ax=ax)
     plt.show()
-
-
 
 def experiment_plt_do(w_true,w_classify,X,Z,title):
 
@@ -160,8 +157,6 @@ def load_csv(path, d_Z,device):
     w = torch.from_numpy(dat['w'].values).float().cuda(device)
     return X,Y,Z,1/w
 
-
-
 def str2bool(v):
     if isinstance(v, bool):
        return v
@@ -185,11 +180,11 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4):
         ground_truth = 'H_0'
     else:
         ground_truth = 'H_1'
-    data_dir = f'univariate_{seeds}_seeds/ground_truth={ground_truth}_y_a={y_a}_y_b={y_b}_z_a={z_a}_z_b={z_b}_cor={cor}_n={n}_seeds={seeds}_{theta}_{round(phi,2)}'
+    data_dir = f'univariate_{seeds}_seeds/Q_ground_truth={ground_truth}_y_a={y_a}_y_b={y_b}_z_a={z_a}_z_b={z_b}_cor={cor}_n={n}_seeds={seeds}_{theta}_{round(phi,2)}'
     if not os.path.exists(f'./{data_dir}/'):
         os.makedirs(f'./{data_dir}/')
     for i in range(seeds):
-        X, Y, Z, w = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi)
+        X, Y, Z, X_q, w,w_q = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi)
         with torch.no_grad():
             if i==0:
                 sig_xxz = phi
@@ -211,7 +206,7 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4):
                 print(f'HSIC X Z: {p_val}')
                 print(f'sanity_check_w : {sanity_pval}')
                 time.sleep(4)
-        torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
+        torch.save((X,Y,Z,X_q,w,w_q),f'./{data_dir}/data_seed={i}.pt')
 
 def job_parser():
 
@@ -280,7 +275,6 @@ class simulation_object():
     def run(self):
         estimate = self.args['estimate']
         job_dir = self.args['job_dir']
-        debug_plot = self.args['debug_plot']
         data_dir = self.args['data_dir']
         seeds_a = self.args['seeds_a']
         seeds_b = self.args['seeds_b']
@@ -290,14 +284,15 @@ class simulation_object():
         estimator = self.args['estimator']
         runs = self.args['runs']
         new = self.args['new_consistent']
+        split_data = self.args['split']
         ks_data = []
         R2_errors = []
-        suffix = f'_new={new}_se={seeds_a}_{seeds_b}_e={estimate}_est={estimator}'
+        suffix = f'_new={new}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}'
         if estimate:
-            if estimator in ['classifier', 'TRE', 'linear_classifier']:
+            if estimator in ['NCE', 'TRE', 'linear_classifier']:
                 hsic_pval_list = []
                 for key,val in est_params.items():
-                    suffix = suffix + f'_{key}={val}'
+                    suffix = suffix + f'_{key[0:2]}={val}'
 
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
@@ -307,14 +302,28 @@ class simulation_object():
             reference_metric_list = []
             for i in tqdm.trange(seeds_a,seeds_b):
                 if self.cuda:
-                    X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
+                    X, Y, Z, X_q, _w, w_q = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
-                    X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
-                n_half = X.shape[0]//2
-                X_train,X_test = split(X,n_half)
-                Y_train,Y_test = split(Y,n_half)
-                Z_train,Z_test = split(Z,n_half)
-                _,_w = split(_w,n_half)
+                    X, Y, Z, X_q, _w, w_q = torch.load(f'./{data_dir}/data_seed={i}.pt')
+
+                if split_data:
+                    n_half = X.shape[0]//2
+                    X_train,X_test = split(X,n_half)
+                    Y_train,Y_test = split(Y,n_half)
+                    Z_train,Z_test = split(Z,n_half)
+                    X_q_train,X_q_test = split(X_q,n_half)
+                    _,_w = split(_w,n_half)
+                    _,w_q = split(w_q,n_half)
+                else:
+                    X_train= X
+                    Z_train = Z
+                    X_test = X
+                    Z_test = Z
+                    Y_train = Y
+                    Y_test = Y
+                    X_q_train = X_q
+                    X_q_test = X_q
+
                 if estimate:
                     d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda, est_params=est_params, type=estimator,device=self.device)
                     w = d.return_weights(X_test,Z_test)

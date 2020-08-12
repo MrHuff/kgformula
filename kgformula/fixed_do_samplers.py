@@ -27,6 +27,7 @@ def rfgmCopula(n,d,alpha):
     return torch.div((2*U),1+B+C)
 
 def sim_X(n,dist,theta,d_X=1):
+    d_q = Normal(loc=0, scale=theta / 2.0)
     if dist==1:
         d = Normal(loc=0,scale=theta)
     elif dist== 4:
@@ -35,7 +36,7 @@ def sim_X(n,dist,theta,d_X=1):
         d = Gamma(concentration=1,rate=1/theta) #Exponential theta
     else:
         raise Exception("X distribution must be normal (1), beta (4) or gamma (3)")
-    return {'data':d.sample((n,d_X)),'density':d.log_prob}
+    return {'data':d.sample((n,d_X)),'density':d.log_prob,'d_q':d_q}
 
 def rnormCopula(N,cov):
 
@@ -118,7 +119,7 @@ def sim_UV(dat,fam,par,par2):
     dat = torch.cat([dat,tmp],dim=1)
     return dat
 
-def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fam_z=1,oversamp = 10, seed=1):
+def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fam_z=1,oversamp = 10):
 
     if oversamp<1:
         warnings.warn("Oversampling rate must be at least 1... changing")
@@ -133,6 +134,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     tmp = sim_X(N,fam_x[0],theta)
     dat = tmp['data']
     qden = tmp['density']
+    d_q = tmp['d_q']
   ## add in extra columns for Y and Zs
   ## get Copula value
     dat = sim_UV(dat, fam, cor, par2) #ZY depedence
@@ -164,7 +166,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     if fam_x[1] == 4:
         mu = expit(X)
         d = Beta(concentration1=phi*mu,concentration0=phi*(1-mu))
-    elif fam_x[1]==1:
+    elif fam_x[1]==1: #do p(x|z) = N(mu,phi)
         mu = X
         d = Normal(loc = mu,scale = phi)
     elif fam_x[1]==3: #Change
@@ -172,9 +174,12 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
         d = Gamma(rate=1/(mu*phi),concentration=1/phi)
     else:
         raise Exception("fam_x must be 1, 3 or 4")
-    ## reject samples based on value of X|Z
-    _prob = d.log_prob(dat[:, 0]) - qden(dat[:, 0])
-    wts = _prob.exp()
+    ## reject samples based on value of odds ratio, induces dependence between X and Z
+    p_cond_z = d.log_prob(dat[:, 0])
+    wts = (p_cond_z-qden(dat[:, 0])).exp()
+    X_q = d_q.sample((dat.shape[0],1))
+    inv_wts_q = (d_q.log_prob(X_q.squeeze()) - p_cond_z).exp()
+
     if fam_x[0]==1 and fam_x[1]==1:
         max_ratio_points = mu*theta/(theta-phi)
         normalization = (d.log_prob(max_ratio_points)-qden(max_ratio_points)).exp()
@@ -188,22 +193,25 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     keep_index = torch.rand_like(wts)<wts_tmp
     dat = dat[keep_index,:]
 
-    return dat,inv_wts[keep_index]
+
+
+    return torch.cat([dat,X_q[keep_index]],dim=1),inv_wts[keep_index],inv_wts_q[keep_index]
 
 def simulate_xyz_univariate(n, beta, cor, phi=2, theta=4, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1):
     torch.manual_seed(seed)
     np.random.seed(seed)
-    data,w = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp, seed)
+    data,w,w_q = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp)
     while data.shape[0]<n:
         print(f'Undersampled: {data.shape[0]}')
         oversamp = n/data.shape[0]*1.5
-        data_new,w_new = sim_XYZ(n, beta, cor, phi, theta, par2, fam, fam_x, fam_y, fam_z, oversamp, seed)
+        data_new,w_new,w_q_new = sim_XYZ(n, beta, cor, phi, theta, par2, fam, fam_x, fam_y, fam_z, oversamp)
         data = torch.cat([data,data_new])
         w = torch.cat([w,w_new])
+        w_q = torch.cat([w_q,w_q_new])
     else:
         print(f'Ok: {data.shape[0]}')
         data = data[0:n,:]
-    return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2].unsqueeze(-1),w[0:n]
+    return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2].unsqueeze(-1),data[:,3].unsqueeze(-1),w[0:n],w_q[0:n]
 
 def sample_naive_multivariate(n,d_X,d_Z,d_Y,beta_xz,beta_xy,seed):
     torch.manual_seed(seed)
