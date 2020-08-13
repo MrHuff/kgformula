@@ -4,7 +4,7 @@ from scipy.stats import kstest
 import tqdm
 import pandas as pd
 import torch
-from kgformula.test_statistics import weighted_statistic_new, density_estimator,consistent_weighted_HSIC
+from kgformula.test_statistics import weighted_statistic_new, density_estimator,Q_weighted_HSIC
 from kgformula.fixed_do_samplers import simulate_xyz_univariate
 import os
 import numpy as np
@@ -283,11 +283,11 @@ class simulation_object():
         est_params = self.args['est_params']
         estimator = self.args['estimator']
         runs = self.args['runs']
-        new = self.args['new_consistent']
+        mode = self.args['mode']
         split_data = self.args['split']
         ks_data = []
         R2_errors = []
-        suffix = f'_new={new}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}'
+        suffix = f'_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}'
         if estimate:
             if estimator in ['NCE', 'TRE', 'linear_classifier']:
                 hsic_pval_list = []
@@ -325,7 +325,12 @@ class simulation_object():
                     X_q_test = X_q
 
                 if estimate:
-                    d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda, est_params=est_params, type=estimator,device=self.device)
+                    if mode=='Q':
+                        d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
+                                              est_params=est_params, type=estimator, device=self.device)
+                    else:
+                        d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda,
+                                              est_params=est_params, type=estimator, device=self.device)
                     w = d.return_weights(X_test,Z_test)
                     if estimator in ['classifier', 'TRE', 'linear_classifier']:
                         with torch.no_grad():
@@ -333,10 +338,17 @@ class simulation_object():
                         R2_errors.append(1-l.item())
                         hsic_pval_list.append(d.hsic_pval)
                 else:
-                    w = _w
-                if new:
-                    c = consistent_weighted_HSIC(X=X_test, Y=Y_test, Z=Z_test, w=w, cuda=self.cuda, device=self.device)
-                else:
+                    if mode=='Q':
+                        w = w_q
+                    elif mode=='new':
+                        w = _w
+                    elif mode=='regular':
+                        w = _w
+                if mode=='Q':
+                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device)
+                elif mode=='new' :
+                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device)
+                elif mode == 'regular':
                     c = weighted_statistic_new(X=X_test, Y=Y_test, Z=Z_test, w=w, cuda=self.cuda, device=self.device)
                 reference_metric = c.calculate_weighted_statistic().cpu()
                 list_of_metrics = []

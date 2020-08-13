@@ -129,7 +129,7 @@ def get_i_not_j_indices(n):
     return list_np
 
 class density_estimator():
-    def __init__(self, x, z, est_params=None, cuda=False, device=0, type='linear'):
+    def __init__(self, x, z,x_q=None, est_params=None, cuda=False, device=0, type='linear'):
         self.failed = False
         self.x = x
         self.z = z
@@ -140,6 +140,7 @@ class density_estimator():
         self.type = type
         self.kernel_base = gpytorch.kernels.Kernel()
         self.tmp_path = f'./tmp_folder_{self.device}/'
+        self.x_q = x_q
         if not os.path.exists(self.tmp_path):
             os.makedirs(self.tmp_path)
         if type == 'kmm':
@@ -155,7 +156,6 @@ class density_estimator():
             self.w = self.kernel_mean_matching_qp()
 
         elif type == 'NCE':
-
             dataset = self.create_classification_data()
             self.model = MLP(d=dataset.X.shape[1]+dataset.Z.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
             self.train_classifier(dataset,)
@@ -352,12 +352,22 @@ class density_estimator():
 
     def create_classification_data(self):
         self.kappa = self.est_params['kappa']
-        return classification_dataset(self.x,
-                                      self.z,
-                                      bs=self.est_params['bs_ratio'],
-                                      kappa=self.kappa,
-                                      val_rate=self.est_params['val_rate'],
-                                      scale_x=self.est_params['scale_x'])
+
+        if self.x_q is None:
+            return classification_dataset(self.x,
+                                   self.z,
+            bs = self.est_params['bs_ratio'],
+                 kappa = self.kappa,
+                         val_rate = self.est_params['val_rate']
+            )
+        else:
+            return classification_dataset_Q(self.x,
+                                          self.z,
+                                          self.x_q,
+                                          bs=self.est_params['bs_ratio'],
+                                          kappa=self.kappa,
+                                          val_rate=self.est_params['val_rate']
+                                          )
 
     def kernel_mean_matching(self):
         with torch.no_grad():
@@ -429,98 +439,50 @@ class density_estimator():
                 setattr(self,name,ker(data,data_2))
         return ls
 
-class consistent_weighted_HSIC():
-    def __init__(self,X,Y,w,Z=None,cuda=False,device=0,half_mode=False):
+class Q_weighted_HSIC():
+    def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False):
         self.X = X
         self.Y = Y
+        self.X_q = X_q
         self.n = X.shape[0]
         self.w = w.unsqueeze(-1)
         self.W = w@w.t()
         self.cuda = cuda
         self.device = device
         self.half_mode = half_mode
+        self.kernel_base = gpytorch.kernels.Kernel().cuda(device)
+        self.kernel_X_X_q = gpytorch.kernels.RBFKernel().cuda(device)
+        _ls = self.get_median_ls(self.X)
+        self.kernel_X_X_q._set_lengthscale(_ls)
+        self.k_X_X_q = self.kernel_X_X_q(self.X,self.X_q).evaluate()
         with torch.no_grad():
-            self.kernel_base = gpytorch.kernels.Kernel().cuda(device)
-            for name, data in zip(['X', 'Y'], [self.X, self.Y]):
+            for name, data in zip(['X', 'Y','X_q'], [self.X, self.Y,self.X_q]):
                 self.kernel_ls_init(name, data)
+            self.a_1 = (self.W*self.kernel_X*self.kernel_Y).mean()
+            self.a_2 = self.kernel_X_q.mean()*(self.kernel_Y*self.W).mean()
+            self.a_3 = torch.sum(self.w*(self.k_X_X_q.mean(dim=1,keepdim=True))*self.kernel_Y@self.w)/self.n**2
 
-            # self.cache_W_K = self.kernel_X*self.W/self.n**2
-            # self.cache_sum_K = self.kernel_X.sum()/self.n**2
-            # self.cache_K_1 = self.kernel_X @ torch.ones_like(self.w)
-            #
-            # self.cache_W_L = self.kernel_Y*self.W/self.n**2
-            # self.cache_L_w = self.kernel_Y@self.w
-            # self.middle_term  = self.cache_W_L.sum() * self.cache_sum_K
-            # self.Y_center_1 =self.cache_W_K - (self.cache_W_L@torch.ones_like(self.w)/self.n).repeat(1,self.n)
-            # self.Y_center_2 = self.Y_center_1 - (self.Y_center_1@torch.ones_like(self.w)/self.n).repeat(1,self.n)
-            self.H = torch.eye(self.n)-torch.ones(self.n,1).repeat(1,self.n)/self.n
-            if self.cuda:
-                self.H = self.H.cuda(self.device)
-            self.M = self.W*self.kernel_Y
-            self.HMH = self.H@self.M@self.H
-
-            # self.H_w = torch.diag(self.w)/self.n-self.w.repeat(1,self.n)/self.n**2
-            # self.H_wXH_w = self.H_w@(self.kernel_X@self.H_w.t())
-            # self.H_wYH_w = self.H_w@(self.kernel_Y@self.H_w.t())
-            #
-            # self.H_w1 = torch.diag(self.w)/self.n-torch.ones(*(self.n,self.n),device=self.device)/self.n**2
-            # self.H_w1XH_w1 = self.H_w1@(self.kernel_X@self.H_w1.t())
-            # self.H_w1YH_w1 = self.H_w1@(self.kernel_Y@self.H_w1.t())
-
-    def get_permuted_HMH_kernel(self):
+    def get_permuted2d(self,ker):
         idx = torch.randperm(self.n)
-        kernel_Y = self.HMH[:,idx]
-        kernel_Y = kernel_Y[idx,:]
-        return kernel_Y,idx
-
-    def get_permuted_Y_kernel(self):
-        idx = torch.randperm(self.n)
-        kernel_Y = self.kernel_Y[:,idx]
-        kernel_Y = kernel_Y[idx,:]
-        return kernel_Y,idx
-
-    def get_permuted_X_kernel(self):
-        idx = torch.randperm(self.n)
-        kernel_X = self.kernel_X[:,idx]
+        kernel_X = ker[:,idx]
         kernel_X = kernel_X[idx,:]
+        return kernel_X,idx
+
+    def get_permuted1d(self,ker):
+        idx = torch.randperm(self.n)
+        kernel_X = ker[idx,:]
         return kernel_X,idx
 
     def calculate_weighted_statistic(self):
         with torch.no_grad():
-            # return self.n * torch.sum(self.kernel_Y*self.H_w1XH_w1)
-            #
-            return self.n * torch.mean(self.kernel_X*self.HMH)
-            # return (torch.sum(self.cache_W_K*self.kernel_Y)+self.middle_term-2*(self.w*self.cache_K_1 * self.cache_L_w).sum()/self.n**3)*self.n
-
-
-    # def permute_Y_sanity(self):
-    #     kernel_Y,_ = self.get_permuted_Y_kernel()
-    #     return self.n*torch.sum(kernel_Y*self.H_wXH_w)
-    #
-    # def permute_Y_sanity_2(self):
-    #     kernel_Y,_ = self.get_permuted_Y_kernel()
-    #     return self.n*torch.sum(kernel_Y*self.H_w1XH_w1)
-
+            return self.n*(self.a_1+self.a_2-2*self.a_3)
 
     def permute_X_sanity(self):
-        # kernel_X,idx = self.get_permuted_X_kernel()
-        HMH,_ = self.get_permuted_HMH_kernel()
-        return self.n*torch.mean(HMH*self.kernel_X)
-        # return self.n*torch.mean(self.HMH*kernel_X)
-
-    #
-    # def permute_Y(self):
-    #     kernel_Y,_ = self.get_permuted_Y_kernel()
-    #     return (torch.sum(self.cache_W_K*kernel_Y)+self.cache_sum_K*(self.W*kernel_Y).sum()/self.n**2-2*(self.w*self.cache_K_1 * (kernel_Y@self.w)).sum()/self.n**3)*self.n
-
-    # def permute_X(self):
-    #     kernel_X,idx = self.get_permuted_X_kernel()
-    #     return (torch.sum(self.cache_W_L * kernel_X) + self.middle_term - 2 * (
-    #                 self.w * self.cache_K_1[idx, :] * self.cache_L_w).sum()) * self.n
-    #
-    # def permute_X_2(self):
-    #     kernel_X,idx = self.get_permuted_X_kernel()
-    #     return self.n*torch.sum(kernel_X*self.Y_center_2)
+        perm_X,idx = self.get_permuted2d(self.kernel_X)
+        perm_k_X_X_q = self.k_X_X_q[idx,:]
+        a_1 = (self.W*perm_X*self.kernel_Y).mean()
+        a_3 = torch.sum(self.w*(perm_k_X_X_q.mean(dim=1,keepdim=True))*self.kernel_Y@self.w)/self.n**2
+        return self.n*(a_1+self.a_2-2*a_3)
 
     def permutation_calculate_weighted_statistic(self):
         with torch.no_grad():

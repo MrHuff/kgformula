@@ -7,59 +7,59 @@ import os
 def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
         for i,n in enumerate(n_list):
-            h_0_str = f'univariate_{seed_max}_seeds/ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
-            h_1_str = f'univariate_{seed_max}_seeds/ground_truth=H_1_y_a=0.0_y_b=0.5_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
+            h_0_str = f'univariate_{seed_max}_seeds/Q_ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
+            h_1_str = f'univariate_{seed_max}_seeds/Q_ground_truth=H_1_y_a=0.0_y_b=0.5_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
             h_0_str_mult_2 = f'multivariate_{seed_max}/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
             h_1_str_mult_2 = f'multivariate_{seed_max}/beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z=3_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
             h_0_str_mult_2_big = f'multivariate_{seed_max}/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
             h_1_str_mult_2_big = f'multivariate_{seed_max}/beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z=50_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
             val_rate = max(1e-2, 10. / n)
-            for sp in [True,False]:
-                for width in net_width:
-                    for layers in net_layers:
-                        job_dir = f'layers={layers}_width={width}'
-                        for h in [h_0_str]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
-                            args = {
-                                'new_consistent':False,
-                                'device': device,
-                                'job_dir':job_dir,
-                                'data_dir': h,
-                                'estimate': True,
-                                'debug_plot': False,
-                                'seeds_a': seed_a,
-                                'seeds_b': seed_b,
-                                'bootstrap_runs': 250,
-                                'use_q': True,
-                                'split': sp,
-                                'est_params': {'lr': 1e-4,
-                                               'max_its': 5000,
-                                               'width': width,
-                                               'layers':layers,
-                                               'mixed': False,
-                                               'bs_ratio': 10. / n,
-                                               'val_rate': val_rate,
-                                               'n_sample': 250,
-                                               'criteria_limit': 0.05,
-                                               'kill_counter': 10,
-                                                'kappa':10,
-                                              'm':n,
-                                              'd_X':1,
-                                              'd_Z':1,
+            for m in ['new','Q','regular']:
+                for sp in [True]:
+                    for width in net_width:
+                        for layers in net_layers:
+                            job_dir = f'layers={layers}_width={width}'
+                            for h in [h_0_str]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+                                args = {
+                                    'device': device,
+                                    'job_dir':job_dir,
+                                    'data_dir': h,
+                                    'estimate': True,
+                                    'debug_plot': False,
+                                    'seeds_a': seed_a,
+                                    'seeds_b': seed_b,
+                                    'bootstrap_runs': 250,
+                                    'mode': m,
+                                    'split': sp,
+                                    'est_params': {'lr': 1e-4,
+                                                   'max_its': 5000,
+                                                   'width': width,
+                                                   'layers':layers,
+                                                   'mixed': False,
+                                                   'bs_ratio': 10. / n,
+                                                   'val_rate': val_rate,
+                                                   'n_sample': 250,
+                                                   'criteria_limit': 0.05,
+                                                   'kill_counter': 10,
+                                                    'kappa':10,
+                                                  'm':n,
+                                                  'd_X':1,
+                                                  'd_Z':1,
 
-                                              #  'outputs': [1, 1],
-                                              #  'reg_lambda': 1e-1,
-                                              # 'latent_dim':16,
-                                              # 'depth_u': 2,
-                                              # 'depth_v': 2,
-                                              # 'IP':False,
-                                               },
-                                'estimator': 'NCE', #ones, 'NCE'
-                                'runs': runs,
-                                'cuda': True,
-                            }
-                            j = simulation_object(args)
-                            j.run()
-                            del j
+                                                  #  'outputs': [1, 1],
+                                                  #  'reg_lambda': 1e-1,
+                                                  # 'latent_dim':16,
+                                                  # 'depth_u': 2,
+                                                  # 'depth_v': 2,
+                                                  # 'IP':False,
+                                                   },
+                                    'estimator': 'NCE', #ones, 'NCE'
+                                    'runs': runs,
+                                    'cuda': True,
+                                }
+                                j = simulation_object(args)
+                                j.run()
+                                del j
 if __name__ == '__main__':
     #problem children:
     #ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=10000_seeds=1000
@@ -95,7 +95,7 @@ if __name__ == '__main__':
             for i in range(nr_of_gpus):
                 seed_a = jobs[i][0]
                 seed_b = jobs[i][1]
-                p = mp.Process(target=run_jobs, args=(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,devices[i],net_width,net_layers,1,seed_max,scales))
+                p = mp.Process(target=run_jobs, args=(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,devices[i],net_width,net_layers,1,seed_max))
                 p.start()
                 processes.append(p)
             for p in processes:
@@ -104,7 +104,8 @@ if __name__ == '__main__':
             device = GPUtil.getFirstAvailable(order='memory')[0]
             seed_a = 0
             seed_b = seed_max
-            run_jobs(seed_a=seed_a,
+            run_jobs(
+                     seed_a=seed_a,
                      seed_b=seed_b,
                      theta=theta,
                      phi=phi,
@@ -113,8 +114,8 @@ if __name__ == '__main__':
                      device=device,
                      net_width=net_width,
                      net_layers=net_layers,
-                     seed_max=seed_max,
-                     scales=scales)
+                     seed_max=seed_max
+                     )
             #Figure out what the hell is going on?! why would it work with "X"?!
     else:
         device = "cpu"
