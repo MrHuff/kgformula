@@ -26,8 +26,8 @@ def rfgmCopula(n,d,alpha):
     C = torch.sqrt((1+B)**2-4*B*U)
     return torch.div((2*U),1+B+C)
 
-def sim_X(n,dist,theta,d_X=1):
-    d_q = Normal(loc=0, scale=theta / 2.0)
+def sim_X(n,dist,theta,d_X=1,q_factor=0.5):
+    d_q = Normal(loc=0, scale=theta*q_factor)
     if dist==1:
         d = Normal(loc=0,scale=theta)
     elif dist== 4:
@@ -119,7 +119,7 @@ def sim_UV(dat,fam,par,par2):
     dat = torch.cat([dat,tmp],dim=1)
     return dat
 
-def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fam_z=1,oversamp = 10):
+def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fam_z=1,oversamp = 10,q_factor=0.5):
 
     if oversamp<1:
         warnings.warn("Oversampling rate must be at least 1... changing")
@@ -131,7 +131,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
         cor = torch.tensor(cor).unsqueeze(-1)
 
     N = round(oversamp*n)
-    tmp = sim_X(N,fam_x[0],theta)
+    tmp = sim_X(N,fam_x[0],theta,d_X=1,q_factor=q_factor)
     dat = tmp['data']
     qden = tmp['density']
     d_q = tmp['d_q']
@@ -193,18 +193,16 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     keep_index = torch.rand_like(wts)<wts_tmp
     dat = dat[keep_index,:]
 
-
-
     return torch.cat([dat,X_q[keep_index]],dim=1),inv_wts[keep_index],inv_wts_q[keep_index]
 
-def simulate_xyz_univariate(n, beta, cor, phi=2, theta=4, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1):
+def simulate_xyz_univariate(n, beta, cor, phi=2, theta=4, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1,q_factor=0.5):
     torch.manual_seed(seed)
     np.random.seed(seed)
-    data,w,w_q = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp)
+    data,w,w_q = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp,q_factor)
     while data.shape[0]<n:
         print(f'Undersampled: {data.shape[0]}')
         oversamp = n/data.shape[0]*1.5
-        data_new,w_new,w_q_new = sim_XYZ(n, beta, cor, phi, theta, par2, fam, fam_x, fam_y, fam_z, oversamp)
+        data_new,w_new,w_q_new = sim_XYZ(n, beta, cor, phi, theta, par2, fam, fam_x, fam_y, fam_z, oversamp,q_factor)
         data = torch.cat([data,data_new])
         w = torch.cat([w,w_new])
         w_q = torch.cat([w_q,w_q_new])

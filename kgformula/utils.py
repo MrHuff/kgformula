@@ -173,18 +173,18 @@ def ecdf(data):
     y = np.arange(1, n+1) / n
     return(x,y)
 
-def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4):
+def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,q_factor=0.5):
     phi = theta/2.
     beta = {'y':[y_a,y_b],'z':[z_a,z_b]}
     if y_b == 0:
         ground_truth = 'H_0'
     else:
         ground_truth = 'H_1'
-    data_dir = f'univariate_{seeds}_seeds/Q_ground_truth={ground_truth}_y_a={y_a}_y_b={y_b}_z_a={z_a}_z_b={z_b}_cor={cor}_n={n}_seeds={seeds}_{theta}_{round(phi,2)}'
+    data_dir = f'univariate_{seeds}_seeds/Q={q_factor}_gt={ground_truth}_y_a={y_a}_y_b={y_b}_z_a={z_a}_z_b={z_b}_cor={cor}_n={n}_seeds={seeds}_{theta}_{round(phi,2)}'
     if not os.path.exists(f'./{data_dir}/'):
         os.makedirs(f'./{data_dir}/')
     for i in range(seeds):
-        X, Y, Z, X_q, w,w_q = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi)
+        X, Y, Z, X_q, w,w_q = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi,q_factor=q_factor)
         with torch.no_grad():
             if i==0:
                 sig_xxz = phi
@@ -372,7 +372,7 @@ class simulation_object():
             ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
             print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
             ks_data.append([ks_stat, p_val_ks_test])
-            if estimator in ['classifier','TRE','linear_classifier']:
+            if estimator in ['NCE','TRE','linear_classifier']:
                 hsic_pval_list = torch.tensor(hsic_pval_list).float()
                 r2_tensor = torch.tensor(R2_errors).float()
                 torch.save(hsic_pval_list,
