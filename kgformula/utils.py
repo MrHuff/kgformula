@@ -332,7 +332,7 @@ class simulation_object():
                         d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda,
                                               est_params=est_params, type=estimator, device=self.device)
                     w = d.return_weights(X_test,Z_test)
-                    if estimator in ['classifier', 'TRE', 'linear_classifier']:
+                    if estimator in ['NCE', 'TRE', 'linear_classifier']:
                         with torch.no_grad():
                             l = mse_loss(_w, w) / _w.var()
                         R2_errors.append(1-l.item())
@@ -347,7 +347,7 @@ class simulation_object():
                 if mode=='Q':
                     c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device)
                 elif mode=='new' :
-                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device)
+                       c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device)
                 elif mode == 'regular':
                     c = weighted_statistic_new(X=X_test, Y=Y_test, Z=Z_test, w=w, cuda=self.cuda, device=self.device)
                 reference_metric = c.calculate_weighted_statistic().cpu()
@@ -359,9 +359,9 @@ class simulation_object():
                 p_value_list.append(p.item())
                 reference_metric_list.append(reference_metric.item())
                 if estimate:
-                    del c,d,X,Y,Z,_w,w
+                    del c,d,X,Y,Z,X_q,_w,w,w_q
                 else:
-                    del c,X,Y,Z,_w,w
+                    del c,X,Y,Z,X_q,_w,w,w_q
 
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
@@ -372,7 +372,7 @@ class simulation_object():
             ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
             print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
             ks_data.append([ks_stat, p_val_ks_test])
-            if estimator in ['NCE','TRE','linear_classifier']:
+            if estimator in ['NCE','TRE','linear_classifier'] and estimate:
                 hsic_pval_list = torch.tensor(hsic_pval_list).float()
                 r2_tensor = torch.tensor(R2_errors).float()
                 torch.save(hsic_pval_list,

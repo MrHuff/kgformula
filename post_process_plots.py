@@ -7,12 +7,23 @@ from scipy.stats import kstest
 def plot_size_power_deviation(levels_alpha,size_y,deviation_y,power_or_size='size',path='./'):
     fig_2, ax1 = plt.subplots()
     ax2 = ax1.twinx()
-    ax1.bar([str(el)for el in levels_alpha], size_y,color='g')
+    rects = ax1.bar([str(el)for el in levels_alpha], size_y,color='g')
     ax2.plot([str(el)for el in levels_alpha], deviation_y,color='b', linestyle='-', marker='o')
+    def autolabel(rects):
+        """Attach a text label above each bar in *rects*, displaying its height."""
+        for rect in rects:
+            height = rect.get_height()
+            ax1.annotate('{}'.format(height),
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom')
+    autolabel(rects)
+
     ax1.set_xlabel('alpha')
     ax1.set_ylabel(power_or_size, color='g')
     ax2.set_ylabel('Relative deviation(%)', color='b')
-    plt.savefig(path+'/size_power_plot.png')
+    plt.savefig(path)
     plt.clf()
 
 def load_pval_data(file_path,suffix):

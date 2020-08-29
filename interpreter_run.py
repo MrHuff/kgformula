@@ -6,26 +6,26 @@ import os
 
 def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for q in [1e-2,1e-3]:
+        for q in [1.25,1.5]:
             for i,n in enumerate(n_list):
                 h_0_str = f'univariate_{seed_max}_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
                 h_1_str = f'univariate_{seed_max}_seeds/Q_ground_truth=H_1_y_a=0.0_y_b=0.5_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
-                h_0_str_mult_2 = f'multivariate_{seed_max}/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
-                h_1_str_mult_2 = f'multivariate_{seed_max}/beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z=3_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
-                h_0_str_mult_2_big = f'multivariate_{seed_max}/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
-                h_1_str_mult_2_big = f'multivariate_{seed_max}/beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z=50_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
+                h_0_str_mult_2 = f'q={q}_mv_{seed_max}/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
+                # h_1_str_mult_2 = f'multivariate_{seed_max}/beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z=3_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
+                # h_0_str_mult_2_big = f'multivariate_{seed_max}/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
+                # h_1_str_mult_2_big = f'multivariate_{seed_max}/beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z=50_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
                 val_rate = max(1e-2, 10. / n)
-                for m in ['new','Q','regular']:
-                    for sp in [True]:
+                for m in ['Q']:
+                    for sp in [False]:
                         for width in net_width:
                             for layers in net_layers:
                                 job_dir = f'layers={layers}_width={width}'
-                                for h in [h_0_str]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+                                for h in [h_0_str_mult_2]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                                     args = {
                                         'device': device,
                                         'job_dir':job_dir,
                                         'data_dir': h,
-                                        'estimate': True,
+                                        'estimate': False,
                                         'debug_plot': False,
                                         'seeds_a': seed_a,
                                         'seeds_b': seed_b,
@@ -44,9 +44,8 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                                                        'kill_counter': 10,
                                                         'kappa':10,
                                                       'm':n,
-                                                      'd_X':1,
-                                                      'd_Z':1,
-
+                                                      'd_X':3,
+                                                      'd_Z':3,
                                                       #  'outputs': [1, 1],
                                                       #  'reg_lambda': 1e-1,
                                                       # 'latent_dim':16,
@@ -66,11 +65,13 @@ if __name__ == '__main__':
     #ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=10000_seeds=1000
     #beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=10000_yz=0.5_beta_XZ=0.03333_theta=8_phi=2.83
     #beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=100_yz=0.5_beta_XZ=0.03333_theta=8_phi=2.83
-
+    # In real life calculate empirical variance X|Z, regress X and Z and find variance of estimate. Then pick q(X) with smaller variance. q normal or MV.
+    # We can use model of q(X) does not have tractable density, closed form is cool but get q(X) from really funky sampler (crazy stuff).
+    # wed 26th Aug 2pm UK time.
     beta_XZ_list = [0.5]#0.5,0.01
     n_list = [10000]
-    theta = 4
-    phi = 2.0 #round(theta/1.75,2)
+    theta = 6
+    phi = round(theta/1.75,2)
     seed_max = 100
     cuda = True
     nr_of_gpus = 4
@@ -79,6 +80,7 @@ if __name__ == '__main__':
     if cuda:
         if nr_of_gpus>1:
             devices = GPUtil.getAvailable(order='memory',limit=nr_of_gpus)
+            print(devices)
             # if 5 in devices:
             #     devices.remove(5)
             residual = seed_max%nr_of_gpus

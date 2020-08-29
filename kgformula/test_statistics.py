@@ -240,16 +240,15 @@ class density_estimator():
                 # print(l)
                 with torch.no_grad():
                     dataset.val_mode()
-                    self.model.eval()
-
                     joint,pom,n = dataset.get_val_sample()
-                    one_y = torch.ones(n)
-                    zero_y = torch.zeros(n)
-                    target = torch.cat([one_y, zero_y]).to(self.device)
+
                     pt,pf = self.get_true_fake(joint,pom)
+                    one_y = torch.ones_like(pt)
+                    zero_y = torch.zeros_like(pf)
+                    target = torch.cat([one_y, zero_y])
                     logloss = self.calc_loss(loss_func,pt,pf,target)
-                    # print(torch.sigmoid(torch.cat([pt.squeeze(),pf.flatten()])),target)
-                    auc = auc_check( torch.sigmoid(torch.cat([pt.squeeze(),pf.flatten()])) ,target)
+                    preds = torch.sigmoid(torch.cat([pt.squeeze(),pf.flatten()]))
+                    auc = auc_check(  preds,target.squeeze())
                     print(f'logloss epoch {i}: {logloss}')
                     print(f'auc epoch {i}: {auc}')
                     scheduler.step(logloss)
@@ -261,7 +260,6 @@ class density_estimator():
                     else:
                         counter+=1
                     dataset.train_mode()
-                    self.model.train()
                 one_y = torch.ones(dataset.bs)
                 zero_y = torch.zeros(dataset.bs * self.kappa)
                 target = torch.cat([one_y, zero_y]).to(self.device)
