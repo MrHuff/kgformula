@@ -20,6 +20,9 @@ def return_file_name(a,b):
     #f'm=new_s={a}_{b}_e=True_est=NCE_sp=True_lr=0.0001_ma=5000_wi=32_la=4_mi=False_bs=0.001_va=0.01_n_=250_cr=0.05_ki=10_ka=10_m=10000_d_=1_d_=1'
     return _tmp
 
+def calc_eff(w):
+    return (w.sum()**2)/(w**2).sum()
+
 prefix_pval = 'p_val_array_'
 prefix_ref = 'ref_val_array_'
 prefix_hsic_pval = 'hsic_pval_array_'
@@ -87,12 +90,15 @@ if __name__ == '__main__':
 
         if histogram_true:
             X, Y, Z, X_q, _w, w_q = torch.load(data_path+'data_seed=0.pt')
+            w_eff = round(calc_eff(_w).item(),2)
+            w_q_eff = round(calc_eff(w_q).item(),2)
+
             plt.hist(_w,250)
-            plt.suptitle('true weights w_i')
+            plt.suptitle(f'true weights w_i, EFF={w_eff}')
             plt.savefig(PATH+f'w_i_{q}_'+return_file_name(0,100)+'.jpg')
             plt.clf()
             plt.hist(w_q,250)
-            plt.suptitle('true weights w_i^q')
+            plt.suptitle(f'true weights w_i^q, EFF={w_q_eff}')
             plt.savefig(PATH+f'w_i^q_{q}_'+return_file_name(0,100)+'.jpg')
             plt.clf()
 

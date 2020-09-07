@@ -6,7 +6,7 @@ import os
 
 def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for q in [1.25,1.5]:
+        for q in [0.5,0.25,0.1]:
             for i,n in enumerate(n_list):
                 h_0_str = f'univariate_{seed_max}_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
                 h_1_str = f'univariate_{seed_max}_seeds/Q_ground_truth=H_1_y_a=0.0_y_b=0.5_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     phi = round(theta/1.75,2)
     seed_max = 100
     cuda = True
-    nr_of_gpus = 4
+    nr_of_gpus = 1
     net_layers = [4]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
     net_width = [32]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     if cuda:

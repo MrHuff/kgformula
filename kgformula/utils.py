@@ -246,7 +246,7 @@ def reject_outliers(data, m = 2.):
 
 def calculate_pval(bootstrapped_list, test_statistic):
     pval = 1-1/(bootstrapped_list.shape[0]+1) *(1 + (bootstrapped_list<=test_statistic).sum())
-    return pval
+    return pval.item()
 
 def get_median_and_std(data):
     with torch.no_grad():
@@ -350,14 +350,14 @@ class simulation_object():
                        c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device)
                 elif mode == 'regular':
                     c = weighted_statistic_new(X=X_test, Y=Y_test, Z=Z_test, w=w, cuda=self.cuda, device=self.device)
-                reference_metric = c.calculate_weighted_statistic().cpu()
+                reference_metric = c.calculate_weighted_statistic().cpu().item()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):
-                    list_of_metrics.append(c.permutation_calculate_weighted_statistic().cpu())
-                array = torch.tensor(list_of_metrics).float()
-                p = calculate_pval(array, reference_metric)
-                p_value_list.append(p.item())
-                reference_metric_list.append(reference_metric.item())
+                    list_of_metrics.append(c.permutation_calculate_weighted_statistic().cpu().item())
+                array = torch.tensor(list_of_metrics).float() #seem to be extremely sensitive to lengthscale, i.e. could be sign flipper
+                p = calculate_pval(array, reference_metric) #comparison is fucking weird
+                p_value_list.append(p)
+                reference_metric_list.append(reference_metric)
                 if estimate:
                     del c,d,X,Y,Z,X_q,_w,w,w_q
                 else:
