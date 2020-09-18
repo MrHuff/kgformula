@@ -437,20 +437,20 @@ class density_estimator():
                 setattr(self,name,ker(data,data_2))
         return ls
 
-class Q_weighted_HSIC():
-    def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False):
+class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
+    def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y'):
         self.X = X
         self.Y = Y
+        self.perm = perm
         self.X_q = X_q
         self.n = X.shape[0]
-        self.w = w.unsqueeze(-1)
+        self.w = w.unsqueeze(-1) #works better with the bug haha
         self.cuda = cuda
         self.device = device
         self.half_mode = half_mode
         with torch.no_grad():
-            self.kernel_base = gpytorch.kernels.Kernel().cuda(device)
             self.kernel_X_X_q = gpytorch.kernels.RBFKernel().cuda(device)
-            _ls = self.get_median_ls(self.X,self.X_q) #This is so critical
+            _ls = self.get_median_ls(self.X,self.X_q) #This is critical, figure out way to get the right lr
             self.kernel_X_X_q._set_lengthscale(_ls)
             self.k_X_X_q = self.kernel_X_X_q(self.X, self.X_q).evaluate()
             for name, data in zip(['X', 'Y','X_q'], [self.X, self.Y,self.X_q]):
@@ -458,6 +458,7 @@ class Q_weighted_HSIC():
             self.a_1 = self.w.t()@(self.kernel_X*self.kernel_Y)@self.w/self.n**2
             self.a_2 = self.kernel_X_q.mean()*(self.w.t()@self.kernel_Y@self.w)/self.n**2
             self.a_3 = self.w.t()@(self.k_X_X_q.mean(dim=1,keepdim=True)*(self.kernel_Y@self.w))/self.n**2
+
     def get_permuted2d(self,ker):
         idx = torch.randperm(self.n)
         kernel_X = ker[:,idx]
@@ -473,7 +474,7 @@ class Q_weighted_HSIC():
         with torch.no_grad():
             return self.n*(self.a_1+self.a_2-2*self.a_3).squeeze()
 
-    def permute_X_sanity(self):
+    def permute_X_sanity(self): #Permutation pathology... might wanna discuss this...
         perm_X,idx = self.get_permuted2d(self.kernel_X)
         perm_k_X_X_q = self.k_X_X_q[idx,:]
         a_1 = self.w.t()@(perm_X*self.kernel_Y)@self.w/self.n**2
@@ -489,7 +490,10 @@ class Q_weighted_HSIC():
 
     def permutation_calculate_weighted_statistic(self):
         with torch.no_grad():
-            return self.permute_X_sanity()
+            if self.perm =='Y':
+                return self.permute_Y_sanity()
+            else:
+                return self.permute_X_sanity()
 
     def kernel_ls_init(self, name, data):
         setattr(self, f'ker_obj_{name}',
@@ -502,14 +506,14 @@ class Q_weighted_HSIC():
             setattr(self, f'kernel_{name}', getattr(self, f'ker_obj_{name}')(data).evaluate())
 
     def get_median_ls(self, X,Y=None):
+        kernel_base = gpytorch.kernels.Kernel().cuda(self.device)
         with torch.no_grad():
             if Y is None:
-                d = self.kernel_base.covar_dist(x1=X, x2=X)
+                d = kernel_base.covar_dist(x1=X, x2=X)
             else:
-                d = self.kernel_base.covar_dist(x1=X, x2=Y)
+                d = kernel_base.covar_dist(x1=X, x2=Y)
             ret = torch.sqrt(torch.median(d[d > 0])) # print this value, should be increasing with d
             return ret
-
 
 class weighted_stat():
     def __init__(self,X,Y,Z,w,do_null = True,cuda=False,device=0,half_mode=False):

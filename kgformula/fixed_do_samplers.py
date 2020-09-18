@@ -43,12 +43,11 @@ def rnormCopula(N,cov):
     if cov.dim()==3:
         pass
     else:
-        p = Normal(0,1)
         m = cov.shape[0]
-        mean = torch.zeros(*(m,N))
+        mean = torch.zeros(*(N,m))
         L = torch.cholesky(cov)
-        samples = mean +  L@torch.randn_like(mean)
-    return p.cdf(samples).t()
+        samples = mean +  torch.randn_like(mean)@L
+    return torch.from_numpy(t.cdf(samples.numpy(),df=1)).float()
 
 def rnormCopula2(n=100,mean = torch.zeros(*(2,1)),cov=torch.eye(2),df=1):
     if cov.shape == torch.Size([2,2]):
@@ -225,8 +224,6 @@ def sim_multivariate_UV(dat,fam,par,d_z):
 
     N = dat.shape[0]
     pars = torch.cat([torch.ones(*(dat.shape[0],1)),dat],dim=1)@par #Don't understand this part.  I think this is a Nx1 matrix?
-    pars = pars.squeeze()
-
     if fam in [1,2]:
         cors = 2*expit(pars)-1
     elif fam in [3]:
@@ -315,7 +312,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     else:
         raise Exception("fam_z must be 1, 2 or 3")
 
-    beta_xz = torch.tensor(beta_xz)
+    beta_xz = torch.tensor(beta_xz).float()
     if beta_xz.dim()<2:
         beta_xz = beta_xz.unsqueeze(-1)
     _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence (n x (1+d)) matmul (1+d x 1)
@@ -329,7 +326,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     elif fam_x[1] == 1:
         mu = _x_mu
         d = Normal(loc=mu, scale=phi) #ks -test uses this target distribution. KS-test on  0 centered d with scale phi...
-
+        #might wanna consider d_X d's for more beta_XZ's
     elif fam_x[1] == 3:  # Change
         mu = torch.exp(_x_mu)
         d = Gamma(rate=1 / (mu * phi), concentration=1 / phi)
@@ -344,11 +341,12 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
         _x = X[:,i].unsqueeze(-1)
         p_cond_z = d.log_prob(_x)
         _prob = p_cond_z- qden(_x)
-        _qprob = p_cond_z - d_q.log_prob(_x)
+        _qprob =d_q.log_prob(_x) -  p_cond_z
         wts = wts + _prob
         inv_wts_q = inv_wts_q + _qprob
-    inv_wts_q = (-inv_wts_q).exp()
+    inv_wts_q = inv_wts_q.exp()
     wts = wts.exp()
+
     if fam_x[0] == 1 and fam_x[1] == 1:
         max_ratio_points = mu * theta / (theta - phi)
         normalization = (d_X*d.log_prob(max_ratio_points) - d_X*qden(max_ratio_points)).exp()

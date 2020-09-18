@@ -278,7 +278,7 @@ class simulation_object():
         data_dir = self.args['data_dir']
         seeds_a = self.args['seeds_a']
         seeds_b = self.args['seeds_b']
-
+        perm = self.args['perm']
         bootstrap_runs  = self.args['bootstrap_runs']
         est_params = self.args['est_params']
         estimator = self.args['estimator']
@@ -287,7 +287,7 @@ class simulation_object():
         split_data = self.args['split']
         ks_data = []
         R2_errors = []
-        suffix = f'_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}'
+        suffix = f'_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_p={perm}'
         if estimate:
             if estimator in ['NCE', 'TRE', 'linear_classifier']:
                 hsic_pval_list = []
@@ -345,9 +345,9 @@ class simulation_object():
                     elif mode=='regular':
                         w = _w
                 if mode=='Q':
-                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device)
+                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
                 elif mode=='new' :
-                       c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device)
+                       c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
                 elif mode == 'regular':
                     c = weighted_statistic_new(X=X_test, Y=Y_test, Z=Z_test, w=w, cuda=self.cuda, device=self.device)
                 reference_metric = c.calculate_weighted_statistic().cpu().item()
