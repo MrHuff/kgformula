@@ -7,7 +7,7 @@ import os
 def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
         for d_Z in [3,50]:
-            for q in [1e-3,1e-2,0.05,0.1,0.25,0.5,1]:
+            for q in [0.6,0.7,0.8]:
                 for perm in ['X','Y']:
                     for i,n in enumerate(n_list):
                         h_0_str = f'univariate_{seed_max}_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     # In real life calculate empirical variance X|Z, regress X and Z and find variance of estimate. Then pick q(X) with smaller variance. q normal or MV.
     # We can use model of q(X) does not have tractable density, closed form is cool but get q(X) from really funky sampler (crazy stuff).
     # wed 26th Aug 2pm UK time.
-    beta_XZ_list = [1.0]
+    beta_XZ_list = [0.0,1e-3,1e-2,0.05,0.1,0.25,0.5,1]
     #0.0,0.001,0.011,0.111
     #0,0.01,0.1,0.25,0.5
     #0.0,0.004,0.02

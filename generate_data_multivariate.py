@@ -34,7 +34,7 @@ if __name__ == '__main__': #This is incorrectly generated...
                 phi = theta/2.0 #choose multiples instead of powers...
                 for n in [10000]:
                     for beta_xy in [[0,0]]:
-                        for q_fac in [1e-3,1e-2,0.05,0.1,0.25,0.5,1]:
+                        for q_fac in [0.6,0.7,0.8]:
                             data_dir = f"q={q_fac}_mv_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z/(d_Z**2),3)}_theta={theta}_phi={round(phi,2)}"
                             if not os.path.exists(f'./{data_dir}/'):
                                 os.makedirs(f'./{data_dir}/')

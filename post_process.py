@@ -36,18 +36,18 @@ seed_max=100
 if __name__ == '__main__':
 
     df_data = []
-    for perm,nr_of_gpus in zip(['Y','X'],[3,4]):
-        for beta_xz in [0.0,1e-3,1e-2,0.05,0.1,0.25,0.5,1]:
+    for perm,nr_of_gpus in zip(['Y','X'],[8,8]):
+        for beta_xz in [0.0,1e-3,1e-2,0.05,0.1,0.25,0.5]:
             #0,0.01,0.1,0.25,0.5
             #0.0, 0.001, 0.011, 0.111
             #0.0,0.004,0.02
                 #[0.0,0.001,0.028,0.056,0.111,0.5]:
-            for q in [1e-3,1e-2,0.05,0.1,0.25,0.5,1]:
+            for q in [0.6,0.7,0.8]:
                 row = [perm,beta_xz,q]
                 residual = seed_max % nr_of_gpus
                 interval_size = (seed_max - residual) / nr_of_gpus
                 suffices = []
-                data_path = f'q={q}_mv_100/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=10000_yz=0.5_beta_XZ={beta_xz}_theta=4_phi=2.0/'
+                data_path = f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_4_2.0/'
                 #f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_4_2.0/'
                 #f'q={q}_mv_100/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=10000_yz=0.5_beta_XZ={beta_xz}_theta=4_phi=2.0/'
                 PATH = data_path+'layers=4_width=32/'
