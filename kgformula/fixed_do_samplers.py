@@ -27,7 +27,7 @@ def rfgmCopula(n,d,alpha):
     return torch.div((2*U),1+B+C)
 
 def sim_X(n,dist,theta,d_X=1,q_factor=0.5):
-    d_q = Normal(loc=0, scale=theta*q_factor)
+    d_q = Normal(loc=0, scale=theta*q_factor) #std
     if dist==1:
         d = Normal(loc=0,scale=theta)
     elif dist== 4:
@@ -133,7 +133,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     tmp = sim_X(N,fam_x[0],theta,d_X=1,q_factor=q_factor)
     dat = tmp['data']
     qden = tmp['density']
-    d_q = tmp['d_q']
+    d_q = tmp['d_q'] #std * q_fac
   ## add in extra columns for Y and Zs
   ## get Copula value
     dat = sim_UV(dat, fam, cor, par2) #ZY depedence
