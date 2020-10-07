@@ -173,8 +173,7 @@ def ecdf(data):
     y = np.arange(1, n+1) / n
     return(x,y)
 
-def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,q_factor=0.5):
-    phi = theta/2.
+def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0,q_factor=0.5):
     beta = {'y':[y_a,y_b],'z':[z_a,z_b]}
     if y_b == 0:
         ground_truth = 'H_0'
@@ -187,16 +186,9 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,q_factor=0.5):
         X, Y, Z, X_q, w,w_q = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi,q_factor=q_factor)
         with torch.no_grad():
             if i==0:
-                sig_xxz = phi
+                sig_xxz = theta
                 e_xz = torch.cat([torch.ones_like(Z), Z],dim=1) @ torch.tensor(beta['z']) #XZ dependence
                 sample_X = (X-e_xz.unsqueeze(-1)).squeeze().numpy()#*sig_xxz
-                # ref = np.random.randn(n)*sig_xxz
-                # x_ref,y_ref = ecdf(ref)
-                # x,y = ecdf(sample_X)
-                # plt.scatter(x=x, y=y)
-                # plt.scatter(x=x_ref, y=y_ref)
-                # plt.show()
-                # plt.clf()
                 stat,pval=kstest(sample_X,'norm',(0,sig_xxz))
                 print(sig_xxz)
                 print(f'KS-stat: {stat}, pval: {pval}')
@@ -205,7 +197,13 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,q_factor=0.5):
                 sanity_pval = hsic_sanity_check_w(w, X, Z, 1000)
                 print(f'HSIC X Z: {p_val}')
                 print(f'sanity_check_w : {sanity_pval}')
-                time.sleep(4)
+                plt.hist(w_q,bins=250)
+                plt.savefig(f'./{data_dir}/w_q.png')
+                plt.clf()
+                plt.hist(w,bins=250)
+                plt.savefig(f'./{data_dir}/w.png')
+                plt.clf()
+
         torch.save((X,Y,Z,X_q,w,w_q),f'./{data_dir}/data_seed={i}.pt')
 
 def job_parser():

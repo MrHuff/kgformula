@@ -26,17 +26,16 @@ def rfgmCopula(n,d,alpha):
     C = torch.sqrt((1+B)**2-4*B*U)
     return torch.div((2*U),1+B+C)
 
-def sim_X(n,dist,theta,d_X=1,q_factor=0.5):
-    d_q = Normal(loc=0, scale=theta*q_factor) #std
+def sim_X(n,dist,theta,d_X=1,phi=1.5):
     if dist==1:
-        d = Normal(loc=0,scale=theta)
+        d = Normal(loc=0,scale=theta*phi)
     elif dist== 4:
         d = Beta(concentration0=theta,concentration1=theta)
     elif dist== 3:
         d = Gamma(concentration=1,rate=1/theta) #Exponential theta
     else:
         raise Exception("X distribution must be normal (1), beta (4) or gamma (3)")
-    return {'data':d.sample((n,d_X)),'density':d.log_prob,'d_q':d_q}
+    return {'data':d.sample((n,d_X)),'density':d.log_prob}
 
 def rnormCopula(N,cov):
 
@@ -130,10 +129,9 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
         cor = torch.tensor(cor).unsqueeze(-1)
 
     N = round(oversamp*n)
-    tmp = sim_X(N,fam_x[0],theta,d_X=1,q_factor=q_factor)
+    tmp = sim_X(N,fam_x[0],theta,d_X=1,phi=phi)
     dat = tmp['data']
     qden = tmp['density']
-    d_q = tmp['d_q'] #std * q_fac
   ## add in extra columns for Y and Zs
   ## get Copula value
     dat = sim_UV(dat, fam, cor, par2) #ZY depedence
@@ -164,23 +162,21 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
         fam_x = [fam_x[0],fam_x[0]]
     if fam_x[1] == 4:
         mu = expit(X)
-        d = Beta(concentration1=phi*mu,concentration0=phi*(1-mu))
+        d = Beta(concentration1=theta*mu,concentration0=theta*(1-mu))
     elif fam_x[1]==1: #do p(x|z) = N(mu,phi)
         mu = X
-        d = Normal(loc = mu,scale = phi)
+        d = Normal(loc = mu,scale = theta) #The drastic change DR behaviour is dodgy, find out why and debug this.
     elif fam_x[1]==3: #Change
         mu = torch.exp(X)
-        d = Gamma(rate=1/(mu*phi),concentration=1/phi)
+        d = Gamma(rate=1/(mu*phi),concentration=1/theta)
     else:
         raise Exception("fam_x must be 1, 3 or 4")
     ## reject samples based on value of odds ratio, induces dependence between X and Z
     p_cond_z = d.log_prob(dat[:, 0])
     wts = (p_cond_z-qden(dat[:, 0])).exp()
-    X_q = d_q.sample((dat.shape[0],1))
-    inv_wts_q = (d_q.log_prob(dat[:, 0]) - p_cond_z).exp()
 
     if fam_x[0]==1 and fam_x[1]==1:
-        max_ratio_points = mu*theta/(theta-phi)
+        max_ratio_points = mu*theta*phi/(theta*phi-theta)
         normalization = (d.log_prob(max_ratio_points)-qden(max_ratio_points)).exp()
     else:
         print("Warning: No analytical solution exist for maximum density ratio using defautl sample max")
@@ -191,8 +187,11 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     inv_wts=1/wts_tmp
     keep_index = torch.rand_like(wts)<wts_tmp
     dat = dat[keep_index,:]
+    d_q = Normal(0,q_factor*theta)
+    X_q = d_q.sample((dat.shape[0],1))
+    wts_q = (d_q.log_prob(dat[:,0])-p_cond_z[keep_index]).exp()
 
-    return torch.cat([dat,X_q[keep_index]],dim=1),inv_wts[keep_index],inv_wts_q[keep_index]
+    return torch.cat([dat,X_q],dim=1),inv_wts[keep_index],wts_q
 
 def simulate_xyz_univariate(n, beta, cor, phi=2, theta=4, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1,q_factor=0.5):
     torch.manual_seed(seed)
@@ -282,7 +281,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
         cor = torch.tensor(yz).unsqueeze(-1)
     cor = torch.cat([cor for i in range(ref_dim)],dim=1)
     N = round(oversamp*n)
-    tmp = sim_X(N,fam_x[0],theta,d_X=d_X,q_factor=q_fac) #nxd_X
+    tmp = sim_X(N,fam_x[0],theta,d_X=d_X,phi=phi) #nxd_X
     dat = tmp['data']
     qden = tmp['density']
     d_q = tmp['d_q']
@@ -322,36 +321,31 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
 
     if fam_x[1] == 4:
         mu = expit(_x_mu)
-        d = Beta(concentration1=phi * mu, concentration0=phi * (1 - mu))
+        d = Beta(concentration1=theta * mu, concentration0=theta * (1 - mu))
     elif fam_x[1] == 1:
         mu = _x_mu
-        d = Normal(loc=mu, scale=phi) #ks -test uses this target distribution. KS-test on  0 centered d with scale phi...
+        d = Normal(loc=mu, scale=theta) #ks -test uses this target distribution. KS-test on  0 centered d with scale phi...
         #might wanna consider d_X d's for more beta_XZ's
     elif fam_x[1] == 3:  # Change
         mu = torch.exp(_x_mu)
-        d = Gamma(rate=1 / (mu * phi), concentration=1 / phi)
+        d = Gamma(rate=1 / (mu * theta), concentration=1 / theta)
     else:
         raise Exception("fam_x must be 1, 3 or 4")
     wts = torch.zeros(*(X.shape[0],1))
-    inv_wts_q = torch.zeros(*(X.shape[0],1))
     #To make Rejectoin sampling work, principal eigenvalue of target distribution i.e. d. Should be less than theta.
-    X_q = d_q.sample((X.shape[0], X.shape[1]))
 
     for i in range(d_X):
         _x = X[:,i].unsqueeze(-1)
         p_cond_z = d.log_prob(_x)
         _prob = p_cond_z- qden(_x)
-        _qprob =d_q.log_prob(_x) -  p_cond_z
         wts = wts + _prob
-        inv_wts_q = inv_wts_q + _qprob
-    inv_wts_q = inv_wts_q.exp()
     wts = wts.exp()
 
     if fam_x[0] == 1 and fam_x[1] == 1:
-        max_ratio_points = mu * theta / (theta - phi)
-        normalization = (d_X*d.log_prob(max_ratio_points) - d_X*qden(max_ratio_points)).exp()
+        max_ratio_points = mu * theta * phi / (theta * phi - theta)
+        normalization = (d.log_prob(max_ratio_points) - qden(max_ratio_points)).exp()
     else:
-        print("Warning: No analytical solution exist for maximum density ratio using default sample max")
+        print("Warning: No analytical solution exist for maximum density ratio using defautl sample max")
         normalization = wts.max()
     if torch.isnan(wts).all():
         raise Exception("Problem with weights")
@@ -362,8 +356,13 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     inv_wts = 1. / wts #Variance of the weights seems to blow up when n is large, this also causes problems for the estimator...
 
     keep_index = (torch.rand_like(wts) < wts_tmp).squeeze()
-    X,Y,Z,X_q,inv_wts,inv_wts_q = X[keep_index,:],Y[keep_index,:],Z[keep_index,:],X_q[keep_index,:], inv_wts[keep_index],inv_wts_q[keep_index]
-    return X,Y,Z,X_q,inv_wts,inv_wts_q
+    X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
+    X_q = d_q.sample((X.shape[0], X.shape[1]))
+    for i in range(d_X):
+        _x = X[:,i].unsqueeze(-1)
+
+
+    return X,Y,Z,X_q,inv_wts
 
 def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=1,phi=2,theta=2,q_fac=1.0):
     """

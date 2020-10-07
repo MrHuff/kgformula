@@ -34,7 +34,7 @@ if __name__ == '__main__': #This is incorrectly generated...
                 phi = theta/2.0 #choose multiples instead of powers...
                 for n in [10000]:
                     for beta_xy in [[0,0]]:
-                        for q_fac in [0.6,0.7,0.8]:
+                        for q_fac in [0.48,0.49,0.51,0.52]:
                             data_dir = f"q={q_fac}_mv_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z/(d_Z**2),3)}_theta={theta}_phi={round(phi,2)}"
                             if not os.path.exists(f'./{data_dir}/'):
                                 os.makedirs(f'./{data_dir}/')
@@ -46,19 +46,9 @@ if __name__ == '__main__': #This is incorrectly generated...
                                     with torch.no_grad():
                                         e_xz = torch.cat([torch.ones(*(X.shape[0], 1)), Z],
                                                          dim=1) @ beta_xz  # XZ dependence
-                                        # plt.hist(w.numpy(),bins=25)
-                                        # plt.show()
-                                        # plt.clf()
                                         sig_xxz = phi
                                         for d in range(d_X):
                                             sample_X = (X[:,d] - e_xz).squeeze().numpy()  # *sig_xxz
-                                            # ref = np.random.randn(n)*sig_xxz
-                                            # x_ref,y_ref = ecdf(ref)
-                                            # x,y = ecdf(sample_X)
-                                            # plt.scatter(x=x, y=y)
-                                            # plt.scatter(x=x_ref, y=y_ref)
-                                            # plt.show()
-                                            # plt.clf()
                                             stat, pval = kstest(sample_X, 'norm', (0, sig_xxz))
                                             # print(sig_xxz)
                                             print(f'KS-stat: {stat}, pval: {pval}')
@@ -69,7 +59,7 @@ if __name__ == '__main__': #This is incorrectly generated...
                                             sanity_pval = hsic_sanity_check_w(w, X, Z, 1000)
                                             print(f'HSIC X Z: {p_val}')
                                             print(f'sanity_check_w : {sanity_pval}')
-                                            time.sleep(0.5)
+
                                     p_val = hsic_test(X, Z, 1000)
                                     sanity_pval = hsic_sanity_check_w(w, X, Z, 1000)
                                     print(f'HSIC X Z: {p_val}')

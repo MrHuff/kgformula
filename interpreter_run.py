@@ -6,8 +6,8 @@ import os
 
 def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for d_Z in [3,50]:
-            for q in [1.0]:
+        for d_Z in [1]:
+            for q in [0.48,0.49,0.51,0.52]:
                 for perm in ['X','Y']:
                     for i,n in enumerate(n_list):
                         h_0_str = f'univariate_{seed_max}_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
@@ -22,7 +22,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                             for width in net_width:
                                 for layers in net_layers:
                                     job_dir = f'layers={layers}_width={width}'
-                                    for h in [h_0_str_mult_2]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+                                    for h in [h_0_str]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                                         args = {
                                             'device': device,
                                             'job_dir':job_dir,
