@@ -284,7 +284,6 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     tmp = sim_X(N,fam_x[0],theta,d_X=d_X,phi=phi) #nxd_X
     dat = tmp['data']
     qden = tmp['density']
-    d_q = tmp['d_q']
     dat = sim_multivariate_UV(dat,1,cor,d_Z+d_Y)
     a = beta_xy[0]
     b = beta_xy[1]  # Controls X y dependence
@@ -357,12 +356,15 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
 
     keep_index = (torch.rand_like(wts) < wts_tmp).squeeze()
     X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
+    d_q = Normal(0,q_fac*theta)
     X_q = d_q.sample((X.shape[0], X.shape[1]))
+    w_q = torch.zeros(*(X.shape[0],1))
     for i in range(d_X):
         _x = X[:,i].unsqueeze(-1)
+        w_q = w_q +  d_q.log_prob(_x)-d.log_prob(_x)
+    w_q = w_q.exp()
 
-
-    return X,Y,Z,X_q,inv_wts
+    return X,Y,Z,X_q,inv_wts,w_q
 
 def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=1,phi=2,theta=2,q_fac=1.0):
     """
