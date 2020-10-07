@@ -46,7 +46,7 @@ if __name__ == '__main__': #This is incorrectly generated...
                                     with torch.no_grad():
                                         e_xz = torch.cat([torch.ones(*(X.shape[0], 1)), Z],
                                                          dim=1) @ beta_xz  # XZ dependence
-                                        sig_xxz = phi
+                                        sig_xxz = theta
                                         for d in range(d_X):
                                             sample_X = (X[:,d] - e_xz).squeeze().numpy()  # *sig_xxz
                                             stat, pval = kstest(sample_X, 'norm', (0, sig_xxz))
@@ -55,13 +55,13 @@ if __name__ == '__main__': #This is incorrectly generated...
                                             print(w.std())
                                             print(w.max())
                                             print(w.min())
-                                            p_val = hsic_test(X, Z, 1000)
-                                            sanity_pval = hsic_sanity_check_w(w, X, Z, 1000)
+                                            p_val = hsic_test(X, Z, 250)
+                                            sanity_pval = hsic_sanity_check_w(w, X, Z, 250)
                                             print(f'HSIC X Z: {p_val}')
                                             print(f'sanity_check_w : {sanity_pval}')
 
-                                    p_val = hsic_test(X, Z, 1000)
-                                    sanity_pval = hsic_sanity_check_w(w, X, Z, 1000)
+                                    p_val = hsic_test(X, Z, 250)
+                                    sanity_pval = hsic_sanity_check_w(w, X, Z, 250)
                                     print(f'HSIC X Z: {p_val}')
                                     print(f'sanity_check_w : {sanity_pval}')
                                     plt.hist(w_q, bins=250)

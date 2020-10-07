@@ -342,7 +342,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
 
     if fam_x[0] == 1 and fam_x[1] == 1:
         max_ratio_points = mu * theta * phi / (theta * phi - theta)
-        normalization = (d.log_prob(max_ratio_points) - qden(max_ratio_points)).exp()
+        normalization = d_X*(d.log_prob(max_ratio_points) - qden(max_ratio_points)).exp()
     else:
         print("Warning: No analytical solution exist for maximum density ratio using defautl sample max")
         normalization = wts.max()
@@ -357,6 +357,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     keep_index = (torch.rand_like(wts) < wts_tmp).squeeze()
     X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
     d_q = Normal(0,q_fac*theta)
+    d = Normal(loc=mu[keep_index,:],scale=theta)  # ks -test uses this target distribution. KS-test on  0 centered d with scale phi...
     X_q = d_q.sample((X.shape[0], X.shape[1]))
     w_q = torch.zeros(*(X.shape[0],1))
     for i in range(d_X):
