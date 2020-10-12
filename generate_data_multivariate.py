@@ -30,11 +30,11 @@ if __name__ == '__main__': #This is incorrectly generated...
                 beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
                 #Try different beta configs, i.e.
                 b_y =  1.0
-                theta = 1.0 #2,4
+                theta = 2.0 #2,4
                 phi = 2.0 #choose multiples instead of powers...
                 for n in [10000]:
                     for beta_xy in [[0,0]]:
-                        for q_fac in [0.5,0.4,0.3,0.2,0.1,0.01,0.6,0.7,0.8,0.9]:
+                        for q_fac in [0.4,0.2,0.01,0.6,0.8,0.9,1.0]:
                             data_dir = f"q={q_fac}_mv_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z/(d_Z**2),3)}_theta={theta}_phi={round(phi,2)}"
                             if not os.path.exists(f'./{data_dir}/'):
                                 os.makedirs(f'./{data_dir}/')
