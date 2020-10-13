@@ -191,23 +191,23 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     X_q = d_q.sample((dat.shape[0],1))
     wts_q = (d_q.log_prob(dat[:,0])-p_cond_z[keep_index]).exp()
 
-    return torch.cat([dat,X_q],dim=1),inv_wts[keep_index],wts_q
+    return torch.cat([dat,X_q],dim=1),inv_wts[keep_index],wts_q,p_cond_z[keep_index].exp(),d_q.log_prob(dat[:,0]).exp()
 
 def simulate_xyz_univariate(n, beta, cor, phi=2, theta=4, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1,q_factor=0.5):
     torch.manual_seed(seed)
     np.random.seed(seed)
-    data,w,w_q = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp,q_factor)
+    data,w,w_q,p_densities,q_densities = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp,q_factor)
     while data.shape[0]<n:
         print(f'Undersampled: {data.shape[0]}')
         oversamp = n/data.shape[0]*1.5
-        data_new,w_new,w_q_new = sim_XYZ(n, beta, cor, phi, theta, par2, fam, fam_x, fam_y, fam_z, oversamp,q_factor)
+        data_new,w_new,w_q_new,p_densities,q_densities = sim_XYZ(n, beta, cor, phi, theta, par2, fam, fam_x, fam_y, fam_z, oversamp,q_factor)
         data = torch.cat([data,data_new])
         w = torch.cat([w,w_new])
         w_q = torch.cat([w_q,w_q_new])
     else:
         print(f'Ok: {data.shape[0]}')
         data = data[0:n,:]
-    return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2].unsqueeze(-1),data[:,3].unsqueeze(-1),w[0:n],w_q[0:n]
+    return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2].unsqueeze(-1),data[:,3].unsqueeze(-1),w[0:n],w_q[0:n],p_densities[0:n],q_densities[0:n]
 
 def sample_naive_multivariate(n,d_X,d_Z,d_Y,beta_xz,beta_xy,seed):
     torch.manual_seed(seed)

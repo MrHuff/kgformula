@@ -1,7 +1,7 @@
 from kgformula.utils import generate_data
 
 if __name__ == '__main__':
-    seeds = 100
+    seeds = 1
     for n in [10000]:
         for y_a in [0.0]:
             for y_b in [0.0]:

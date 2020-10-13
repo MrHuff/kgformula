@@ -183,7 +183,7 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0,q_factor=0.5):
     if not os.path.exists(f'./{data_dir}/'):
         os.makedirs(f'./{data_dir}/')
     for i in range(seeds):
-        X, Y, Z, X_q, w,w_q = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi,q_factor=q_factor)
+        X, Y, Z, X_q, w,w_q,pden,qden = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi,q_factor=q_factor)
         with torch.no_grad():
             if i==0:
                 sig_xxz = theta
@@ -204,7 +204,14 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0,q_factor=0.5):
                 plt.savefig(f'./{data_dir}/w.png')
                 plt.clf()
 
-        torch.save((X,Y,Z,X_q,w,w_q),f'./{data_dir}/data_seed={i}.pt')
+        torch.save((X,Y,Z,X_q,w,w_q,pden,qden),f'./{data_dir}/data_seed={i}.pt')
+
+def torch_to_csv(path,filename):
+    X,Y,Z,X_q,w,w_q,pden,qden= torch.load(path+filename)
+
+    df = pd.DataFrame(torch.cat([X,Y,Z,X_q,w.unsqueeze(-1),w_q.unsqueeze(-1),pden.unsqueeze(-1),qden.unsqueeze(-1)],dim=1).numpy(),columns=['X','Y','Z','X_q','w','w_q','pden','qden'])
+    f = filename.split('.')[0]
+    df.to_csv(path+f+'.csv')
 
 def job_parser():
 

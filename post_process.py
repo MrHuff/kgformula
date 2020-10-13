@@ -35,18 +35,16 @@ hsic_val = False
 macro_mode = True
 seed_max = 100
 if __name__ == '__main__':
-
     df_data = []
-
-    for perm,nr_of_gpus in zip(['Y','X'],[3,3]):
-        for beta_xz in [0.0,1e-3,1e-2,0.05,0.1,0.25,0.5]:
+    for perm,nr_of_gpus in zip(['Y','X'],[4,4]):
+        for beta_xz in [0.0,1e-2,0.1,0.5,1]:
             #0,0.01,0.1,0.25,0.5
             #0.0, 0.001, 0.011, 0.111
             #0.0,0.004,0.02
                 #[0.0,0.001,0.028,0.056,0.111,0.5]:
-            for q in [1e-3,1e-2,0.1,0.25,0.3,0.4,0.5,0.6,0.7,0.8,1]:
+            for q in [0.4,0.2,0.01,0.6,0.8,0.9,1.0]:
                 row = [perm,beta_xz,q]
-                data_path = f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_4_2.0/'
+                data_path = f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_2.0_2.0/'
                 # #f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_4_2.0/'
                 # f'q={q}_mv_100/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=10000_yz=0.5_beta_XZ={beta_xz}_theta=4_phi=2.0/'
                 PATH = data_path + 'layers=4_width=32/'
@@ -69,8 +67,6 @@ if __name__ == '__main__':
                     residual = seed_max % nr_of_gpus
                     interval_size = (seed_max - residual) / nr_of_gpus
                     suffices = []
-
-                        #
                         #f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_4_2.0/'
                     for i in range(nr_of_gpus):
                         if i == nr_of_gpus - 1:
@@ -112,7 +108,7 @@ if __name__ == '__main__':
                             results_size,
                             results_deviation,
                             str_mode,
-                            PATH + str_mode+f'_{q}_{beta_xz}' + return_file_name(0, 100,perm) + '.jpg'
+                            PATH + str_mode+f'_{q}_{beta_xz}_' + return_file_name(0, 100,perm) + '.jpg'
                         )
                     df_data.append(row)
                 else:
