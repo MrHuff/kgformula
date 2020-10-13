@@ -183,7 +183,7 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0,q_factor=0.5):
     if not os.path.exists(f'./{data_dir}/'):
         os.makedirs(f'./{data_dir}/')
     for i in range(seeds):
-        X, Y, Z, X_q, w,w_q,pden,qden = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi,q_factor=q_factor)
+        X, Y, Z, w,pden = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi,q_factor=q_factor)
         with torch.no_grad():
             if i==0:
                 sig_xxz = theta
@@ -197,14 +197,14 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0,q_factor=0.5):
                 sanity_pval = hsic_sanity_check_w(w, X, Z, 100)
                 print(f'HSIC X Z: {p_val}')
                 print(f'sanity_check_w : {sanity_pval}')
-                plt.hist(w_q,bins=250)
-                plt.savefig(f'./{data_dir}/w_q.png')
-                plt.clf()
+                # plt.hist(w_q,bins=250)
+                # plt.savefig(f'./{data_dir}/w_q.png')
+                # plt.clf()
                 plt.hist(w,bins=250)
                 plt.savefig(f'./{data_dir}/w.png')
                 plt.clf()
 
-        torch.save((X,Y,Z,X_q,w,w_q,pden,qden),f'./{data_dir}/data_seed={i}.pt')
+        torch.save((X,Y,Z,w,pden),f'./{data_dir}/data_seed={i}.pt')
 
 def torch_to_csv(path,filename):
     X,Y,Z,X_q,w,w_q,pden,qden= torch.load(path+filename)

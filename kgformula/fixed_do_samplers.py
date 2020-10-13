@@ -117,8 +117,8 @@ def sim_UV(dat,fam,par,par2):
     dat = torch.cat([dat,tmp],dim=1)
     return dat
 
-def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fam_z=1,oversamp = 10,q_factor=0.5):
-
+def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fam_z=1,oversamp = 10):
+    # q_fac * theta < theta < phi * theta
     if oversamp<1:
         warnings.warn("Oversampling rate must be at least 1... changing")
         oversamp=1
@@ -184,30 +184,30 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     if torch.isnan(wts).all():
         raise Exception("Problem with weights")
     wts_tmp = wts/normalization
-    inv_wts=1/wts_tmp
+    inv_wts=1/p_cond_z.exp() ###
     keep_index = torch.rand_like(wts)<wts_tmp
     dat = dat[keep_index,:]
-    d_q = Normal(0,q_factor*theta)
-    X_q = d_q.sample((dat.shape[0],1))
-    wts_q = (d_q.log_prob(dat[:,0])-p_cond_z[keep_index]).exp()
-
-    return torch.cat([dat,X_q],dim=1),inv_wts[keep_index],wts_q,p_cond_z[keep_index].exp(),d_q.log_prob(dat[:,0]).exp()
+    # d_q = Normal(0,q_factor*theta)
+    # X_q = d_q.sample((dat.shape[0],1))
+    # wts_q = (d_q.log_prob(dat[:,0])-p_cond_z[keep_index]).exp()
+    # pick a new distribution q with std < theta.
+    return dat,inv_wts[keep_index],p_cond_z[keep_index].exp()
 
 def simulate_xyz_univariate(n, beta, cor, phi=2, theta=4, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1,q_factor=0.5):
     torch.manual_seed(seed)
     np.random.seed(seed)
-    data,w,w_q,p_densities,q_densities = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp,q_factor)
+    data,w,p_densities = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp)
     while data.shape[0]<n:
         print(f'Undersampled: {data.shape[0]}')
         oversamp = n/data.shape[0]*1.5
-        data_new,w_new,w_q_new,p_densities,q_densities = sim_XYZ(n, beta, cor, phi, theta, par2, fam, fam_x, fam_y, fam_z, oversamp,q_factor)
+        data_new,w_new,p_densities, = sim_XYZ(n, beta, cor, phi, theta, par2, fam, fam_x, fam_y, fam_z, oversamp)
         data = torch.cat([data,data_new])
         w = torch.cat([w,w_new])
-        w_q = torch.cat([w_q,w_q_new])
     else:
         print(f'Ok: {data.shape[0]}')
         data = data[0:n,:]
-    return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2].unsqueeze(-1),data[:,3].unsqueeze(-1),w[0:n],w_q[0:n],p_densities[0:n],q_densities[0:n]
+
+    return data[:,0].unsqueeze(-1),data[:,1].unsqueeze(-1),data[:,2].unsqueeze(-1),w[0:n],p_densities[0:n]
 
 def sample_naive_multivariate(n,d_X,d_Z,d_Y,beta_xz,beta_xy,seed):
     torch.manual_seed(seed)
