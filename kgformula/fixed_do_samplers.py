@@ -2,11 +2,11 @@ import torch
 from torch.distributions import Normal,Beta,Gamma,Exponential
 from pycopula.copula import ArchimedeanCopula
 from pycopula.simulation import simulate
-from scipy.stats import t,gamma
+from scipy.stats import t,gamma,norm
 import numpy as np
 import warnings
 import math
-
+import matplotlib.pyplot as plt
 def nCr(n,r):
     f = math.factorial
     return f(n) // f(r) // f(n-r)
@@ -53,13 +53,24 @@ def rnormCopula2(n=100,mean = torch.zeros(*(2,1)),cov=torch.eye(2),df=1):
         l = torch.cholesky(cov)
         M = mean.t() #nx2
         M = M.repeat(n,1)
-        samples = M + torch.randn(*(n,2))@l
+        samples = M + torch.randn(*(n,2))@l.t()
+        # plt.hist(samples[:, 0].numpy(),bins=100)
+        # plt.show()
+        # plt.clf()
+        # print("Y std", torch.std(samples[:, 0]))
+        # plt.hist(samples[:, 1].numpy(),bins=100)
+        # plt.show()
+        # plt.clf()
+        # print("Z std", torch.std(samples[:, 1]))
+        # Y = samples[:, 0]
+        # Z = samples[:,1]
+        # print("cor",np.corrcoef(Y.numpy(),Z.numpy()))
     else:
         M = mean.t()
         M = M.repeat(n,1)
         v = torch.randn(n)
         samples = M + torch.stack([v,v*cov[:,0]+torch.randn(n)*cov[:,1]],dim=1)
-    return torch.from_numpy(t.cdf(samples.numpy(),df=df)).float()
+    return torch.from_numpy(norm.cdf(samples.numpy())).float()
 
 def expit(x):
     return torch.exp(x)/(1+torch.exp(x))
@@ -132,9 +143,19 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     tmp = sim_X(N,fam_x[0],theta,d_X=1,phi=phi)
     dat = tmp['data']
     qden = tmp['density']
+    # plt.hist(dat.numpy(),bins=100)
+    # plt.show()
+
   ## add in extra columns for Y and Zs
   ## get Copula value
     dat = sim_UV(dat, fam, cor, par2) #ZY depedence
+    # plt.hist(dat[:,1].numpy(),bins=100)
+    # plt.show()
+    # plt.clf()
+    # plt.hist(dat[:, 2].numpy(),bins=100)
+    # plt.show()
+    # plt.clf()
+
     a = beta['y'][0]
     b = beta['y'][1] #Controls X y dependence
     if fam_y==1: #Do XY depdendence
@@ -187,10 +208,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     inv_wts=1/p_cond_z.exp() ###
     keep_index = torch.rand_like(wts)<wts_tmp
     dat = dat[keep_index,:]
-    # d_q = Normal(0,q_factor*theta)
-    # X_q = d_q.sample((dat.shape[0],1))
-    # wts_q = (d_q.log_prob(dat[:,0])-p_cond_z[keep_index]).exp()
-    # pick a new distribution q with std < theta.
+    #inv_wts multiply by some q_density(X) with smaller variance applied, X=dat[:,0], X_q ~ qden make sure sizes match...
     return dat,inv_wts[keep_index],p_cond_z[keep_index].exp()
 
 def simulate_xyz_univariate(n, beta, cor, phi=2, theta=4, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1,q_factor=0.5):

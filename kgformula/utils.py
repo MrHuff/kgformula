@@ -307,18 +307,18 @@ class simulation_object():
             reference_metric_list = []
             for i in tqdm.trange(seeds_a,seeds_b):
                 if self.cuda:
-                    X, Y, Z, X_q, _w, w_q = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
+                    X, Y, Z, _w, pden = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
-                    X, Y, Z, X_q, _w, w_q = torch.load(f'./{data_dir}/data_seed={i}.pt')
+                    X, Y, Z,  _w, pden = torch.load(f'./{data_dir}/data_seed={i}.pt')
 
                 if split_data:
                     n_half = X.shape[0]//2
                     X_train,X_test = split(X,n_half)
                     Y_train,Y_test = split(Y,n_half)
                     Z_train,Z_test = split(Z,n_half)
-                    X_q_train,X_q_test = split(X_q,n_half)
+                    # X_q_train,X_q_test = split(X_q,n_half)
                     _,_w = split(_w,n_half)
-                    _,w_q = split(w_q,n_half)
+                    # _,w_q = split(w_q,n_half)
                 else:
                     X_train= X
                     Z_train = Z
@@ -326,13 +326,14 @@ class simulation_object():
                     Z_test = Z
                     Y_train = Y
                     Y_test = Y
-                    X_q_train = X_q
-                    X_q_test = X_q
+                    # X_q_train = X_q
+                    # X_q_test = X_q
 
                 if estimate:
                     if mode=='Q':
-                        d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
-                                              est_params=est_params, type=estimator, device=self.device)
+                        pass
+                        # d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
+                        #                       est_params=est_params, type=estimator, device=self.device)
                     else:
                         d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda,
                                               est_params=est_params, type=estimator, device=self.device)
@@ -344,13 +345,15 @@ class simulation_object():
                         hsic_pval_list.append(d.hsic_pval)
                 else:
                     if mode=='Q':
-                        w = w_q
+                        # w = w_q
+                        pass
                     elif mode=='new':
                         w = _w
                     elif mode=='regular':
                         w = _w
                 if mode=='Q':
-                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
+                    # c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
+                    pass
                 elif mode=='new' :
                        c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
                 elif mode == 'regular':
@@ -364,9 +367,9 @@ class simulation_object():
                 p_value_list.append(p)
                 reference_metric_list.append(reference_metric)
                 if estimate:
-                    del c,d,X,Y,Z,X_q,_w,w,w_q
+                    del c,d,X,Y,Z,_w,w
                 else:
-                    del c,X,Y,Z,X_q,_w,w,w_q
+                    del c,X,Y,Z,_w,w
 
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
