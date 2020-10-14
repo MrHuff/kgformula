@@ -7,7 +7,7 @@ import os
 def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
         for d_Z in [1]:
-            for q in [0.5]: #0.5,0.4,0.3,0.2,0.1,0.01,0.6,0.7,0.8,0.9
+            for q in [1e-2,0.1,0.2,0.4,0.6,0.8,1.0]:
                 for perm in ['X','Y']:
                     for i,n in enumerate(n_list):
                         h_0_str = f'univariate_{seed_max}_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
@@ -18,7 +18,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                         # h_1_str_mult_2_big = f'multivariate_{seed_max}/beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z=50_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
                         val_rate = max(1e-2, 10. / n)
                         estimate = False
-                        for m in ['new']:
+                        for m in ['Q']:
                             for width in net_width:
                                 for layers in net_layers:
                                     job_dir = f'layers={layers}_width={width}'
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     # In real life calculate empirical variance X|Z, regress X and Z and find variance of estimate. Then pick q(X) with smaller variance. q normal or MV.
     # We can use model of q(X) does not have tractable density, closed form is cool but get q(X) from really funky sampler (crazy stuff).
     # wed 26th Aug 2pm UK time.
-    beta_XZ_list = [0.0,0.25]
+    beta_XZ_list = [0.0,0.01,0.1,0.25,0.5]
     #0.0,0.001,0.011,0.111
     #0,0.01,0.1,0.25,0.5
     #0.0,0.004,0.02
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     phi = 2.0#round(theta/1.75,2)
     seed_max = 100
     cuda = True
-    nr_of_gpus = 2
+    nr_of_gpus = 3
     net_layers = [4]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
     net_width = [32]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     if cuda:

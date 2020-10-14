@@ -1,4 +1,4 @@
-from kgformula.fixed_do_samplers import simulate_xyz_multivariate
+from kgformula.fixed_do_samplers import simulate_xyz_multivariate,apply_qdist
 from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
 import torch
 import os
@@ -25,21 +25,21 @@ if __name__ == '__main__': #This is incorrectly generated...
         d_X = 3 #Try 2 and 1
         d_Y = 3 #Try 1
         for d_Z in [3,50]: #50,3
-            for b_z in [0.0,1e-2,0.1,0.5,1]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
+            for b_z in [0.0,0.01,0.1,0.25,0.5]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
                 b_z= (d_Z**2)*b_z
                 beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
                 #Try different beta configs, i.e.
-                b_y =  1.0
                 theta = 2.0 #2,4
                 phi = 2.0 #choose multiples instead of powers...
                 for n in [10000]:
                     for beta_xy in [[0,0]]:
-                        for q_fac in [0.4,0.2,0.01,0.6,0.8,0.9,1.0]:
+                        for q_fac in [1e-2,0.1,0.2,0.4,0.6,0.8,1.0]:
                             data_dir = f"q={q_fac}_mv_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z/(d_Z**2),3)}_theta={theta}_phi={round(phi,2)}"
                             if not os.path.exists(f'./{data_dir}/'):
                                 os.makedirs(f'./{data_dir}/')
                             for i in range(seeds):
-                                X,Y,Z,X_q,w,w_q = simulate_xyz_multivariate(n,oversamp=5,d_Z=d_Z,beta_xz=beta_xz,beta_xy=beta_xy,seed = i,yz=yz,d_X=d_X,d_Y=d_Y,phi=phi,theta=theta,q_fac=q_fac)
+                                X,Y,Z,w = simulate_xyz_multivariate(n,oversamp=5,d_Z=d_Z,beta_xz=beta_xz,beta_xy=beta_xy,seed = i,yz=yz,d_X=d_X,d_Y=d_Y,phi=phi,theta=theta,q_fac=q_fac)
+                                X_q, w_q = apply_qdist(inv_wts=w, q_factor=q_fac, theta=theta, X=X)
                                 torch.save((X,Y,Z,X_q,w,w_q),f'./{data_dir}/data_seed={i}.pt')
                                 beta_xz = torch.Tensor(beta_xz)
                                 if i == 0:

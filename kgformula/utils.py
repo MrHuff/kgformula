@@ -5,7 +5,7 @@ import tqdm
 import pandas as pd
 import torch
 from kgformula.test_statistics import weighted_statistic_new, density_estimator,Q_weighted_HSIC
-from kgformula.fixed_do_samplers import simulate_xyz_univariate
+from kgformula.fixed_do_samplers import simulate_xyz_univariate,apply_qdist
 import os
 import numpy as np
 from matplotlib.colors import ListedColormap
@@ -184,6 +184,7 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0,q_factor=0.5):
         os.makedirs(f'./{data_dir}/')
     for i in range(seeds):
         X, Y, Z, w,pden = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi,q_factor=q_factor)
+        X_q,w_q = apply_qdist(inv_wts=w,q_factor=q_factor,theta=theta,X=X)
         with torch.no_grad():
             if i==0:
                 sig_xxz = theta
@@ -192,19 +193,18 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0,q_factor=0.5):
                 stat,pval=kstest(sample_X,'norm',(0,sig_xxz))
                 print(sig_xxz)
                 print(f'KS-stat: {stat}, pval: {pval}')
-                print(w)
                 p_val = hsic_test(X, Z, 100)
                 sanity_pval = hsic_sanity_check_w(w, X, Z, 100)
                 print(f'HSIC X Z: {p_val}')
                 print(f'sanity_check_w : {sanity_pval}')
-                # plt.hist(w_q,bins=250)
-                # plt.savefig(f'./{data_dir}/w_q.png')
-                # plt.clf()
-                plt.hist(w,bins=250)
+                plt.hist(w_q.numpy(),bins=250)
+                plt.savefig(f'./{data_dir}/w_q.png')
+                plt.clf()
+                plt.hist(w.numpy(),bins=250)
                 plt.savefig(f'./{data_dir}/w.png')
                 plt.clf()
 
-        torch.save((X,Y,Z,w,pden),f'./{data_dir}/data_seed={i}.pt')
+        torch.save((X,Y,Z,X_q,w,w_q),f'./{data_dir}/data_seed={i}.pt')
 
 def torch_to_csv(path,filename):
     X,Y,Z,X_q,w,w_q,pden,qden= torch.load(path+filename)
@@ -307,33 +307,32 @@ class simulation_object():
             reference_metric_list = []
             for i in tqdm.trange(seeds_a,seeds_b):
                 if self.cuda:
-                    X, Y, Z, _w, pden = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
+                    X, Y, Z,X_q,_w,w_q  = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
-                    X, Y, Z,  _w, pden = torch.load(f'./{data_dir}/data_seed={i}.pt')
+                    X, Y, Z,X_q,_w,w_q  = torch.load(f'./{data_dir}/data_seed={i}.pt')
 
                 if split_data:
                     n_half = X.shape[0]//2
                     X_train,X_test = split(X,n_half)
                     Y_train,Y_test = split(Y,n_half)
                     Z_train,Z_test = split(Z,n_half)
-                    # X_q_train,X_q_test = split(X_q,n_half)
+                    X_q_train,X_q_test = split(X_q,n_half)
                     _,_w = split(_w,n_half)
-                    # _,w_q = split(w_q,n_half)
+                    _,w_q = split(w_q,n_half)
                 else:
                     X_train= X
                     Z_train = Z
                     X_test = X
                     Z_test = Z
-                    Y_train = Y
                     Y_test = Y
-                    # X_q_train = X_q
-                    # X_q_test = X_q
+                    X_q_train = X_q
+                    X_q_test = X_q
 
                 if estimate:
                     if mode=='Q':
                         pass
-                        # d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
-                        #                       est_params=est_params, type=estimator, device=self.device)
+                        d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
+                                              est_params=est_params, type=estimator, device=self.device)
                     else:
                         d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda,
                                               est_params=est_params, type=estimator, device=self.device)
@@ -345,14 +344,14 @@ class simulation_object():
                         hsic_pval_list.append(d.hsic_pval)
                 else:
                     if mode=='Q':
-                        # w = w_q
+                        w = w_q
                         pass
                     elif mode=='new':
                         w = _w
                     elif mode=='regular':
                         w = _w
                 if mode=='Q':
-                    # c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
+                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
                     pass
                 elif mode=='new' :
                        c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
@@ -367,9 +366,10 @@ class simulation_object():
                 p_value_list.append(p)
                 reference_metric_list.append(reference_metric)
                 if estimate:
-                    del c,d,X,Y,Z,_w,w
+                    del c,d,X,Y,Z,_w,w,X_q
+
                 else:
-                    del c,X,Y,Z,_w,w
+                    del c,X,Y,Z,_w,w,X_q
 
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,
