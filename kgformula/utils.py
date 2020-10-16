@@ -345,16 +345,14 @@ class simulation_object():
                 else:
                     if mode=='Q':
                         w = w_q
-                        pass
                     elif mode=='new':
                         w = _w
                     elif mode=='regular':
                         w = _w
                 if mode=='Q':
                     c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
-                    pass
                 elif mode=='new' :
-                       c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
+                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
                 elif mode == 'regular':
                     c = weighted_statistic_new(X=X_test, Y=Y_test, Z=Z_test, w=w, cuda=self.cuda, device=self.device)
                 reference_metric = c.calculate_weighted_statistic().cpu().item()
