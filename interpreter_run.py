@@ -6,9 +6,9 @@ import os
 
 def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for d_Z in [1]:
-            for q in [1]:
-                for perm in ['X','Y']:
+        for d_Z in [3]:
+            for q in [0.8,1.0,0.6,0.4,0.2,0.1,0.01]:
+                for perm in ['Y']:
                     for i,n in enumerate(n_list):
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
                         h_0_str = f'univariate_{seed_max}_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
@@ -19,43 +19,46 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                         # h_1_str_mult_2_big = f'multivariate_{seed_max}/beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z=50_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}'
                         val_rate = max(1e-2, 10. / n)
                         estimate = False
-                        for m in ['Q','new']:
+                        for m in ['Q']:
                             for width in net_width:
                                 for layers in net_layers:
                                     job_dir = f'layers={layers}_width={width}'
-                                    for h in [h_0_test]:  # zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
-                                        args = {
-                                            'device': device,
-                                            'job_dir':job_dir,
-                                            'data_dir': h,
-                                            'estimate': estimate,
-                                            'debug_plot': False,
-                                            'seeds_a': seed_a,
-                                            'seeds_b': seed_b,
-                                            'bootstrap_runs': 500, #play with this (increase it!)
-                                            'mode': m,
-                                            'split': estimate,
-                                            'perm': perm,
-                                            'est_params': {'lr': 1e-4,
-                                                           'max_its': 5000,
-                                                           'width': width,
-                                                           'layers':layers,
-                                                           'mixed': False,
-                                                           'bs_ratio': 10. / n,
-                                                           'val_rate': val_rate,
-                                                           'n_sample': 250,
-                                                           'criteria_limit': 0.05,
-                                                           'kill_counter': 10,
-                                                            'kappa':10,
-                                                          'm':n
-                                                           },
-                                            'estimator': 'NCE', #ones, 'NCE'
-                                            'runs': runs,
-                                            'cuda': True,
-                                        }
-                                        j = simulation_object(args)
-                                        j.run()
-                                        del j
+                                    for h in [h_0_str_mult_2]:
+                                        for variant in [1]:
+                                            for br in [250]:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+                                                args = {
+                                                    'device': device,
+                                                    'job_dir':job_dir,
+                                                    'data_dir': h,
+                                                    'estimate': estimate,
+                                                    'debug_plot': False,
+                                                    'seeds_a': seed_a,
+                                                    'seeds_b': seed_b,
+                                                    'bootstrap_runs': br, #play with this (increase it!)
+                                                    'mode': m,
+                                                    'split': estimate,
+                                                    'perm': perm,
+                                                    'variant': variant,
+                                                    'est_params': {'lr': 1e-4,
+                                                                   'max_its': 5000,
+                                                                   'width': width,
+                                                                   'layers':layers,
+                                                                   'mixed': False,
+                                                                   'bs_ratio': 10. / n,
+                                                                   'val_rate': val_rate,
+                                                                   'n_sample': 250,
+                                                                   'criteria_limit': 0.05,
+                                                                   'kill_counter': 10,
+                                                                    'kappa':10,
+                                                                  'm':n
+                                                                   },
+                                                    'estimator': 'NCE', #ones, 'NCE'
+                                                    'runs': runs,
+                                                    'cuda': True,
+                                                }
+                                                j = simulation_object(args)
+                                                j.run()
+                                                del j
 if __name__ == '__main__':
     #problem children:
     #ground_truth=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b=0.5_cor=0.5_n=10000_seeds=1000
@@ -65,7 +68,7 @@ if __name__ == '__main__':
     # We can use model of q(X) does not have tractable density, closed form is cool but get q(X) from really funky sampler (crazy stuff).
     # wed 26th Aug 2pm UK time
 
-    beta_XZ_list = [0.01]
+    beta_XZ_list = [0.5,0.0,0.01,0.1,0.25]
     #0.0,0.001,0.011,0.111
     #0,0.01,0.1,0.25,0.5
     #0.0,0.004,0.02

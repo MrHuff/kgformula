@@ -4,7 +4,7 @@ from scipy.stats import kstest
 import tqdm
 import pandas as pd
 import torch
-from kgformula.test_statistics import weighted_statistic_new, density_estimator,Q_weighted_HSIC
+from kgformula.test_statistics import *
 from kgformula.fixed_do_samplers import simulate_xyz_univariate,apply_qdist
 import os
 import numpy as np
@@ -290,9 +290,10 @@ class simulation_object():
         runs = self.args['runs']
         mode = self.args['mode']
         split_data = self.args['split']
+        variant = self.args['variant']
         ks_data = []
         R2_errors = []
-        suffix = f'_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_p={perm}'
+        suffix = f'_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_p={perm}_br={bootstrap_runs}_v={variant}'
         if estimate:
             if estimator in ['NCE', 'TRE', 'linear_classifier']:
                 hsic_pval_list = []
@@ -352,9 +353,9 @@ class simulation_object():
                 if mode=='Q':
                     c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
                 elif mode=='new' :
-                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
+                    c = weighted_HSIC(X=X_test, Y=Y_test, w=w, device=self.device,perm=perm,variant=variant)
                 elif mode == 'regular':
-                    c = weighted_statistic_new(X=X_test, Y=Y_test, Z=Z_test, w=w, cuda=self.cuda, device=self.device)
+                    c = weighted_statistic_new(X=X_test, Y=Y_test, w=w, cuda=self.cuda, device=self.device)
                 reference_metric = c.calculate_weighted_statistic().cpu().item()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):
