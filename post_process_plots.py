@@ -3,7 +3,6 @@ import torch
 import numpy as np
 from scipy.stats import kstest
 
-
 def plot_size_power_deviation(levels_alpha,size_y,deviation_y,power_or_size='size',path='./'):
     fig_2, ax1 = plt.subplots()
     ax2 = ax1.twinx()

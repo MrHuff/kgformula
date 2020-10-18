@@ -40,23 +40,24 @@ def calc_eff(w):
     return (w.sum()**2)/(w**2).sum()
 
 if __name__ == '__main__':
-    df_data = []
     for macro_mode in [False,True]:
-        for perm,nr_of_gpus in zip(['X','Y'],[3,3]):
+        df_data = []
+        for perm,nr_of_gpus in zip(['Y'],[3]):
             for beta_xz in [0.0,0.01,0.1,0.25,0.5]:
                 #0,0.01,0.1,0.25,0.5
                 #0.0, 0.001, 0.011, 0.111
                 #0.0,0.004,0.02
                     #[0.0,0.001,0.028,0.056,0.111,0.5]:
-                for q in [0.8,0.6,0.4,0.2,0.1]:
+                for q in [1.0,0.8,0.6,0.4,0.2,0.1,1.0,1e-2]:
                     for bootstrap_runs in [250]:
                         for variant in [1]:
                             row = [perm,beta_xz,q,bootstrap_runs,variant]
-                            data_path = f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_2.0_2.0/'
+                            data_path =f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_2.0_2.0/'
+                                # f'q={q}_mv_100/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=10000_yz=0.5_beta_XZ={beta_xz}_theta=2.0_phi=2.0/'
+                                # f'q={q}_mv_100/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=10000_yz=0.5_beta_XZ={beta_xz}_theta=2.0_phi=2.0/'
+                                # f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_2.0_2.0/'
                                 # f'univariate_{seed_max}_seeds/univariate_test/'
                                 # f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_2.0_2.0/'
-                            # #f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_4_2.0/'
-                            # f'q={q}_mv_100/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=10000_yz=0.5_beta_XZ={beta_xz}_theta=4_phi=2.0/'
                             PATH = data_path + 'layers=4_width=32/'
                             f_name=return_file_name(0,100,perm,bootstrap_runs,variant)
                             if histogram_true:
@@ -129,5 +130,5 @@ if __name__ == '__main__':
 
         df = pd.DataFrame(df_data,columns=['permutation','beta_xz','c_q','nr_of_permutations','variant','EFF w_q','KS pval'])
         df = df.sort_values('KS pval',ascending=False)
-        df.to_csv('post_process.csv')
+        df.to_csv('post_process_univariate.csv')
         print(df.to_latex())

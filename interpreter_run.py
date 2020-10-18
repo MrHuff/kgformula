@@ -6,8 +6,8 @@ import os
 
 def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for d_Z in [3]:
-            for q in [0.8,1.0,0.6,0.4,0.2,0.1,0.01]:
+        for d_Z in [1]:
+            for q in [1e-2,1.0]:
                 for perm in ['Y']:
                     for i,n in enumerate(n_list):
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
@@ -23,7 +23,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                             for width in net_width:
                                 for layers in net_layers:
                                     job_dir = f'layers={layers}_width={width}'
-                                    for h in [h_0_str_mult_2]:
+                                    for h in [h_0_str]:
                                         for variant in [1]:
                                             for br in [250]:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                                                 args = {

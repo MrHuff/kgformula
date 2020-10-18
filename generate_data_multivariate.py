@@ -24,13 +24,13 @@ if __name__ == '__main__': #This is incorrectly generated...
         yz = 0.5
         d_X = 3 #Try 2 and 1
         d_Y = 3 #Try 1
-        for d_Z in [3,50]: #50,3
-            for b_z in [0.0,0.01,0.1,0.25,0.5]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
+        for d_Z in [50]: #50,3
+            for b_z in [0.25,0.5,0.0,0.01,0.1,]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
                 b_z= (d_Z**2)*b_z
                 beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
                 #Try different beta configs, i.e.
-                theta = 2.0 #2,4
-                phi = 2.0 #choose multiples instead of powers...
+                theta = 5.0 #Working config?!
+                phi =4. # theta = 5, phi = 4 seems to be working...
                 for n in [10000]:
                     for beta_xy in [[0,0]]:
                         for q_fac in [1e-2,0.1,0.2,0.4,0.6,0.8,1.0]:
@@ -56,8 +56,8 @@ if __name__ == '__main__': #This is incorrectly generated...
                                             print(w.max())
                                             print(w.min())
 
-                                    p_val = hsic_test(X, Z, 100)
-                                    sanity_pval = hsic_sanity_check_w(w, X, Z, 100)
+                                    p_val = hsic_test(X[0:1000,:], Z[0:1000,:], 100)
+                                    sanity_pval = hsic_sanity_check_w(w[0:1000,:], X[0:1000,:], Z[0:1000,:], 100)
                                     print(f'HSIC X Z: {p_val}')
                                     print(f'sanity_check_w : {sanity_pval}')
                                     plt.hist(w_q, bins=250)
