@@ -6,8 +6,8 @@ import os
 
 def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for d_Z in [1]:
-            for q in [1e-2,1.0]:
+        for d_Z in [50]:
+            for q in [0.1,0.2,0.4,0.6,0.8,1.0]:
                 for perm in ['Y']:
                     for i,n in enumerate(n_list):
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
@@ -23,7 +23,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                             for width in net_width:
                                 for layers in net_layers:
                                     job_dir = f'layers={layers}_width={width}'
-                                    for h in [h_0_str]:
+                                    for h in [h_0_str_mult_2]:
                                         for variant in [1]:
                                             for br in [250]:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                                                 args = {
@@ -68,16 +68,16 @@ if __name__ == '__main__':
     # We can use model of q(X) does not have tractable density, closed form is cool but get q(X) from really funky sampler (crazy stuff).
     # wed 26th Aug 2pm UK time
 
-    beta_XZ_list = [0.5,0.0,0.01,0.1,0.25]
+    beta_XZ_list = [0.25,0.5,0.0,0.01,0.1,]
     #0.0,0.001,0.011,0.111
     #0,0.01,0.1,0.25,0.5
     #0.0,0.004,0.02
     n_list = [10000]
-    theta = 2.0
+    theta = 8.0
     phi = 2.0#round(theta/1.75,2)
     seed_max = 100
     cuda = True
-    nr_of_gpus = 3 #Try running single machine for comparison...
+    nr_of_gpus = 5 #Try running single machine for comparison...
     net_layers = [4]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
     net_width = [32]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     if cuda:

@@ -29,11 +29,11 @@ if __name__ == '__main__': #This is incorrectly generated...
                 b_z= (d_Z**2)*b_z
                 beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
                 #Try different beta configs, i.e.
-                theta = 5.0 #Working config?!
-                phi =4. # theta = 5, phi = 4 seems to be working...
+                theta = 8.0 #Working config?!
+                phi =2. # theta = 7, phi = 2 seems to be working...
                 for n in [10000]:
                     for beta_xy in [[0,0]]:
-                        for q_fac in [1e-2,0.1,0.2,0.4,0.6,0.8,1.0]:
+                        for q_fac in [0.1,0.2,0.4,0.6,0.8,1.0]:
                             data_dir = f"q={q_fac}_mv_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z/(d_Z**2),3)}_theta={theta}_phi={round(phi,2)}"
                             if not os.path.exists(f'./{data_dir}/'):
                                 os.makedirs(f'./{data_dir}/')
@@ -57,7 +57,7 @@ if __name__ == '__main__': #This is incorrectly generated...
                                             print(w.min())
 
                                     p_val = hsic_test(X[0:1000,:], Z[0:1000,:], 100)
-                                    sanity_pval = hsic_sanity_check_w(w[0:1000,:], X[0:1000,:], Z[0:1000,:], 100)
+                                    sanity_pval = hsic_sanity_check_w(w[0:1000], X[0:1000,:], Z[0:1000,:], 100)
                                     print(f'HSIC X Z: {p_val}')
                                     print(f'sanity_check_w : {sanity_pval}')
                                     plt.hist(w_q, bins=250)

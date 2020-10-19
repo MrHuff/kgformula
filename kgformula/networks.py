@@ -238,6 +238,7 @@ class classification_dataset_TRE(classification_dataset):
         self.device = X.device
         self.kappa = 1
         self.train_mode()
+
     def get_permute(self):
         T,F = self.get_indices()
         return self.X[T,:],self.Z[T,:],self.Z[F,:]
@@ -272,6 +273,39 @@ class classification_dataset_TRE(classification_dataset):
         label = torch.tensor([True]*self.X.shape[0]+[False]*self.X.shape[0])
         return X,Z,label
 
+class classification_dataset_TRE_Q(Dataset):
+    def __init__(self,X,bs=1.0,kappa=1,val_rate = 0.01):
+        super(classification_dataset_TRE_Q, self).__init__()
+        self.n = X.shape[0]
+        mask = np.array([False] * self.n)
+        mask[0:round(val_rate * self.n)] = True
+        np.random.shuffle(mask)
+        self.X_train = X[~mask, :]
+        self.X_val = X[mask]
+        self.bs_perc = bs
+        self.device = X.device
+        self.kappa = kappa
+        self.train_mode()
+
+    def divide_data(self):
+        X_dat = torch.chunk(self.X, 2, dim=0)
+        self.X_joint = X_dat[0]
+        self.X_pom = X_dat[1]
+
+    def train_mode(self):
+        self.X = self.X_train
+        self.divide_data()
+        self.bs = int(round(self.bs_perc * self.X_joint.shape[0]))
+
+    def val_mode(self):
+        self.X = self.X_val
+        self.divide_data()
+
+    def get_sample(self):
+        pass
+
+    def get_val_sample(self):
+        pass
 
 class Log1PlusExp(torch.autograd.Function):
     """Implementation of x ↦ log(1 + exp(x))."""

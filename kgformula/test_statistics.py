@@ -148,6 +148,9 @@ class density_estimator():
             dataset = self.create_classification_data()
             self.model = MLP(d=dataset.X.shape[1]+dataset.Z.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
             self.train_classifier(dataset,)
+        elif type == 'TRE_Q':
+            pass
+
 
         elif type=='TRE':
             dataset = self.create_tre_data()
