@@ -3,8 +3,8 @@ from sklearn import metrics
 import torch.nn as nn
 import numpy as np
 from torch.utils.data import Dataset
-import time
 from math import log
+from torch.distributions import *
 
 class Swish(torch.autograd.Function):
     @staticmethod
@@ -274,9 +274,10 @@ class classification_dataset_TRE(classification_dataset):
         return X,Z,label
 
 class classification_dataset_TRE_Q(Dataset):
-    def __init__(self,X,bs=1.0,kappa=1,val_rate = 0.01):
+    def __init__(self,X,bs=1.0,kappa=1,val_rate = 0.01,qdist=1,qdist_param={}):
         super(classification_dataset_TRE_Q, self).__init__()
         self.n = X.shape[0]
+        self.d = X.shape[1]
         mask = np.array([False] * self.n)
         mask[0:round(val_rate * self.n)] = True
         np.random.shuffle(mask)
@@ -285,6 +286,15 @@ class classification_dataset_TRE_Q(Dataset):
         self.bs_perc = bs
         self.device = X.device
         self.kappa = kappa
+        if qdist==1:
+            self.q = Normal(0,qdist_param['q_fac']*self.X_train.std(dim=1))
+        elif qdist==2:
+            pass
+        elif qdist==3:
+            pass
+
+
+
         self.train_mode()
 
     def divide_data(self):
