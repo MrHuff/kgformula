@@ -56,6 +56,25 @@ class MLP_shared(torch.nn.Module): #try new architecture...
         return output
 
 
+class MLP_pq(torch.nn.Module):
+    def __init__(self,d_p,d_q,f=12,k=2,o=1):
+        super(MLP_pq, self).__init__()
+        self.model_p = MLP(d_p,f,k,o)
+        self.model_q = MLP(d_q,f,k,o)
+
+    def forward(self, input_p, input_q):
+        return self.model_p(input_p), self.model_q(input_q)
+
+    def forward_p(self, input_p):
+        return self.model_p(input_p)
+
+    def forward_q(self, input_q):
+        return self.model_q(input_q)
+
+    def get_w(self,x_p,z_p,x_q):
+        p,q = self.forward(torch.cat([x_p,z_p],dim=1),torch.cat([x_q,x_p],dim=1))
+        return torch.exp(-(p+q))
+
 class TRE(torch.nn.Module):
     def __init__(self,input_dim_u,u_out_dim,width,depth_u,input_dim_v,v_out_dims,depth_v,IP=True):
         super(TRE, self).__init__()
@@ -103,7 +122,7 @@ class MLP(torch.nn.Module):
             x = l(x)
         return x #+ (X.unsqueeze(-1)**2+Z.unsqueeze(-1)**2)
 
-    def get_w(self, x,z):
+    def get_w(self, x,z,empty=[]):
         return torch.exp(-self.forward(torch.cat([x,z],dim=1)))
 
 class logistic_regression(torch.nn.Module):
@@ -117,73 +136,17 @@ class logistic_regression(torch.nn.Module):
     def get_w(self, x,z):
         return torch.exp(self.forward(torch.cat([x,z],dim=1)))
 
-class classification_dataset_Q(Dataset):
-    def __init__(self,X,Z,X_q,bs=1.0,kappa=1,val_rate = 0.01):
-        super(classification_dataset_Q, self).__init__()
-        self.n=X.shape[0]
-        mask = np.array([False] * self.n)
-        mask[0:round(val_rate*self.n)] = True
-        np.random.shuffle(mask)
-        self.X_train = X[~mask,:]
-        self.Z_train = Z[~mask,:]
-        self.X_q_train = X_q[~mask,:]
-        self.X_val = X[mask]
-        self.X_q_val = X_q[mask,:]
-        self.Z_val = Z[mask]
-
-        self.bs_perc = bs
-        self.device = X.device
-        self.kappa = kappa
-        self.train_mode()
-
-    def divide_data(self):
-        X_dat = torch.chunk(self.X,2,dim=0)
-        self.X_joint = X_dat[0]
-        self.X_pom = X_dat[1]
-        Z_dat = torch.chunk(self.Z,2,dim=0)
-        self.Z_joint = Z_dat[0]
-        self.Z_pom = Z_dat[1]
-        X_q_dat = torch.chunk(self.X_q,2,dim=0)
-        self.X_q_joint = X_q_dat[0]
-        self.X_q_pom = X_q_dat[1]
-
-    def train_mode(self):
-        self.X = self.X_train
-        self.Z = self.Z_train
-        self.X_q = self.X_q_train
-        self.divide_data()
-        self.bs = int(round(self.bs_perc*self.X_joint.shape[0]))
-
-    def val_mode(self):
-        self.X = self.X_val
-        self.Z = self.Z_val
-        self.divide_data()
-
-    def get_sample(self):
-        i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs-1)
-        joint_samp = torch.cat([self.X_joint[i_s:(i_s+self.bs),:],self.Z_joint[i_s:(i_s+self.bs),:]],dim=1)
-        i_s_2 = np.random.randint(0, self.X_pom.shape[0] - self.bs*self.kappa-1)
-        pom_samp = torch.cat([self.X_q_pom[i_s_2:(i_s_2+self.bs*self.kappa),:], self.Z_pom[i_s_2:(i_s_2+self.bs*self.kappa),:]],dim=1)
-        return joint_samp,pom_samp
-
-    def get_val_sample(self):
-        n = min(self.X_joint.shape[0],self.X_pom.shape[0])
-        joint_samp = torch.cat([self.X_joint[:n,:],self.Z_joint[:n,:]],dim=1)
-        pom_samp = torch.cat([self.X_q_pom[:n,:], self.Z_pom[:n,:]],dim=1)
-        return joint_samp,pom_samp,n
-
-
 class classification_dataset(Dataset):
     def __init__(self,X,Z,bs=1.0,kappa=1,val_rate = 0.01):
         super(classification_dataset, self).__init__()
         self.n=X.shape[0]
-        mask = np.array([False] * self.n)
-        mask[0:round(val_rate*self.n)] = True
-        np.random.shuffle(mask)
-        self.X_train = X[~mask,:]
-        self.Z_train = Z[~mask,:]
-        self.X_val = X[mask]
-        self.Z_val = Z[mask]
+        self.mask = np.array([False] * self.n)
+        self.mask[0:round(val_rate*self.n)] = True
+        np.random.shuffle(self.mask)
+        self.X_train = X[~self.mask,:]
+        self.Z_train = Z[~self.mask,:]
+        self.X_val = X[self.mask]
+        self.Z_val = Z[self.mask]
         self.bs_perc = bs
         self.device = X.device
         self.kappa = kappa
@@ -221,101 +184,72 @@ class classification_dataset(Dataset):
         pom_samp = torch.cat([self.X_pom[:n,:], self.Z_pom[torch.arange(self.Z_pom.shape[0],0,-1),:]],dim=1)
         return joint_samp,pom_samp,n
 
-class classification_dataset_TRE(classification_dataset):
-    def __init__(self,X,Z,m,p=1,bs=1.0,val_rate = 0.01):
-        self.m = m
-        self.a_m = [(k/m)**p for k in range(1,m)] #m'=m-1, m. m'=2 -> m=3 ->
-        self.a_0 = [(1-el**2)**0.5 for el in self.a_m]
-        self.n=X.shape[0]
-        mask = np.array([False] * self.n)
-        mask[0:round(val_rate*self.n)] = True
-        np.random.shuffle(mask)
-        self.X_train = X[~mask,:]
-        self.Z_train = Z[~mask,:]
-        self.X_val = X[mask]
-        self.Z_val = Z[mask]
-        self.bs_perc = bs
-        self.device = X.device
-        self.kappa = 1
+
+class classification_dataset_Q(classification_dataset):
+    def __init__(self,X,Z,X_q,bs=1.0,kappa=1,val_rate = 0.01):
+        super(classification_dataset_Q, self).__init__(X,Z,bs,kappa,val_rate)
+        self.X_q_train = X_q[~self.mask, :]
+        self.X_q_val = X_q[self.mask,:]
         self.train_mode()
 
-    def get_permute(self):
-        T,F = self.get_indices()
-        return self.X[T,:],self.Z[T,:],self.Z[F,:]
+    def divide_data(self):
+        X_dat = torch.chunk(self.X,2,dim=0)
+        self.X_joint = X_dat[0]
+        self.X_pom = X_dat[1]
+        Z_dat = torch.chunk(self.Z,2,dim=0)
+        self.Z_joint = Z_dat[0]
+        self.Z_pom = Z_dat[1]
+        X_q_dat  = torch.chunk(self.X_q,2,dim=0)
+        self.X_q_pom = X_q_dat[1]
 
     def train_mode(self):
         self.X = self.X_train
         self.Z = self.Z_train
-        self.sample_indices_base = np.arange(self.X.shape[0])
-        self.bs = int(round(self.bs_perc*self.X.shape[0]))
-        self.indicator = torch.tensor([self.bs*[k] for k in range(0,self.m+1)]).flatten() # m=2 [1,1] 0,1,2
-        self.y = torch.tensor([True]*self.bs+[False]*self.bs)
+        self.X_q = self.X_q_train
+        self.divide_data()
+        self.bs = int(round(self.bs_perc*self.X_joint.shape[0]))
 
     def val_mode(self):
         self.X = self.X_val
         self.Z = self.Z_val
-        self.sample_indices_base = np.arange(self.X.shape[0])
-        self.bs = self.X.shape[0]
-        self.indicator = torch.tensor([self.bs*[k] for k in range(0,self.m+1)]).flatten()
-        self.y = torch.tensor([True]*self.bs+[False]*self.bs)
-
-    def get_sample(self): #Finish build the rest of the NN
-        x,z_0,z_m = self.get_permute()
-        data = [z_0]
-        for a_0,a_m in zip(self.a_0,self.a_m):
-            data.append(a_0*z_0+a_m*z_m)
-        data.append(z_m)
-        return x,torch.cat(data,dim=0),self.indicator,self.y
-
-    def get_val_classification_sample(self):
-        X = self.X.repeat(2,1)
-        Z = torch.cat([self.Z,self.Z[torch.randperm(self.Z.shape[0])]])
-        label = torch.tensor([True]*self.X.shape[0]+[False]*self.X.shape[0])
-        return X,Z,label
-
-class classification_dataset_TRE_Q(Dataset):
-    def __init__(self,X,bs=1.0,kappa=1,val_rate = 0.01,qdist=1,qdist_param={}):
-        super(classification_dataset_TRE_Q, self).__init__()
-        self.n = X.shape[0]
-        self.d = X.shape[1]
-        mask = np.array([False] * self.n)
-        mask[0:round(val_rate * self.n)] = True
-        np.random.shuffle(mask)
-        self.X_train = X[~mask, :]
-        self.X_val = X[mask]
-        self.bs_perc = bs
-        self.device = X.device
-        self.kappa = kappa
-        if qdist==1:
-            self.q = Normal(0,qdist_param['q_fac']*self.X_train.std(dim=1))
-        elif qdist==2:
-            pass
-        elif qdist==3:
-            pass
-
-
-
-        self.train_mode()
-
-    def divide_data(self):
-        X_dat = torch.chunk(self.X, 2, dim=0)
-        self.X_joint = X_dat[0]
-        self.X_pom = X_dat[1]
-
-    def train_mode(self):
-        self.X = self.X_train
-        self.divide_data()
-        self.bs = int(round(self.bs_perc * self.X_joint.shape[0]))
-
-    def val_mode(self):
-        self.X = self.X_val
+        self.X_q = self.X_q_val
         self.divide_data()
 
     def get_sample(self):
-        pass
+        i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs-1)
+        joint_samp = torch.cat([self.X_joint[i_s:(i_s+self.bs),:],self.Z_joint[i_s:(i_s+self.bs),:]],dim=1)
+        i_s_2 = np.random.randint(0, self.X_q_pom.shape[0] - self.bs*self.kappa-1)
+        pom_samp = torch.cat([self.X_q_pom[i_s_2:(i_s_2+self.bs*self.kappa),:], self.Z_pom[torch.randperm(self.X_pom.shape[0])[:(self.bs*self.kappa)],:]],dim=1)
+        return joint_samp,pom_samp
 
     def get_val_sample(self):
-        pass
+        n = min(self.X_joint.shape[0],self.X_q_pom.shape[0])
+        joint_samp = torch.cat([self.X_joint[:n,:],self.Z_joint[:n,:]],dim=1)
+        pom_samp = torch.cat([self.X_q_pom[:n,:], self.Z_pom[torch.arange(self.Z_pom.shape[0],0,-1),:]],dim=1)
+        return joint_samp,pom_samp,n
+
+class classification_dataset_Q_TRE(classification_dataset_Q):
+    def __init__(self,X,Z,X_q,bs=1.0,kappa=1,val_rate = 0.01):
+        super(classification_dataset_Q_TRE, self).__init__(X,Z,X_q,bs,kappa,val_rate)
+
+    def get_sample(self):
+        i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs-1)
+        joint_samp = torch.cat([self.X_joint[i_s:(i_s+self.bs),:],self.Z_joint[i_s:(i_s+self.bs),:]],dim=1)
+        i_s_2 = np.random.randint(0, self.X_pom.shape[0] - self.bs*self.kappa-1)
+        X_p_samp  =self.X_pom[i_s_2:(i_s_2+self.bs*self.kappa),:]
+        pom_samp = torch.cat([X_p_samp, self.Z_pom[torch.randperm(self.Z_pom.shape[0])[:(self.bs*self.kappa)],:]],dim=1)
+        X_q_samp = self.X_q_pom[self.X_q_pom[i_s:(i_s+self.bs),:],:]
+        return joint_samp,pom_samp,X_p_samp,X_q_samp
+
+    def get_val_sample(self):
+        n = min(self.X_joint.shape[0],self.X_pom.shape[0])
+        joint_samp = torch.cat([self.X_joint[:n,:],self.Z_joint[:n,:]],dim=1)
+        X_p_samp = self.X_pom[:n,:]
+        pom_samp = torch.cat([X_p_samp, self.Z_pom[torch.arange(self.Z_pom.shape[0],0,-1),:]],dim=1)
+        X_q_samp = self.X_q_pom[:n,:]
+
+        return joint_samp,pom_samp,n,X_p_samp,X_q_samp
+
 
 class Log1PlusExp(torch.autograd.Function):
     """Implementation of x ↦ log(1 + exp(x))."""

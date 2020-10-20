@@ -330,13 +330,8 @@ class simulation_object():
                     X_q_test = X_q
 
                 if estimate:
-                    if mode=='Q':
-                        pass
-                        d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
-                                              est_params=est_params, type=estimator, device=self.device)
-                    else:
-                        d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda,
-                                              est_params=est_params, type=estimator, device=self.device)
+                    d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda,
+                                          est_params=est_params, type=estimator, device=self.device)
                     w = d.return_weights(X_test,Z_test)
                     if estimator in ['NCE', 'TRE', 'linear_classifier']:
                         with torch.no_grad():

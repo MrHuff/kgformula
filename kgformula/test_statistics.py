@@ -129,7 +129,7 @@ def get_i_not_j_indices(n):
     return list_np
 
 class density_estimator():
-    def __init__(self, x, z,x_q=None, est_params=None, cuda=False, device=0, type='linear'):
+    def __init__(self, x, z, est_params=None, cuda=False, device=0, type='linear'):
         self.failed = False
         self.x = x
         self.z = z
@@ -140,35 +140,62 @@ class density_estimator():
         self.type = type
         self.kernel_base = gpytorch.kernels.Kernel()
         self.tmp_path = f'./tmp_folder_{self.device}/'
-        self.x_q = x_q
+        qdist = self.est_params['qdist'],
+        qdist_param = self.est_params['qdist_param']
+        if qdist==1:
+            self.q = Normal(self.x.mean(dim=0),qdist_param['q_fac']*self.x.std(dim=0))
+        elif qdist==2:
+            pass
+        elif qdist==3:
+            pass
+        self.x_q = self.q.rsample((self.n,self.x.shape[1]))
+
         if not os.path.exists(self.tmp_path):
             os.makedirs(self.tmp_path)
 
-        elif type == 'NCE':
-            dataset = self.create_classification_data()
+        dataset = self.create_classification_data()
+        if type == 'NCE':
             self.model = MLP(d=dataset.X.shape[1]+dataset.Z.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
-            self.train_classifier(dataset,)
+            self.train_classifier(dataset)
+
+        elif self.type=='NCE_Q':
+            self.model = MLP(d=dataset.X.shape[1] + dataset.Z.shape[1], f=self.est_params['width'],
+                             k=self.est_params['layers']).to(self.x.device)
+            self.train_classifier(dataset)
+
         elif type == 'TRE_Q':
-            pass
-
-
-        elif type=='TRE':
-            dataset = self.create_tre_data()
-            self.model = TRE(input_dim_u=self.est_params['d_X'],
-                             u_out_dim=self.est_params['latent_dim'],
-                             width=self.est_params['width'],
-                             depth_u=self.est_params['depth_u'],
-                             input_dim_v=self.est_params['d_Z'],
-                             v_out_dims=self.est_params['outputs'],
-                             depth_v=self.est_params['depth_v'],
-                             IP=self.est_params['IP']).to(self.device)
-            self.train_TRE(dataset)
-
+            self.model = MLP_pq(d_p=dataset.X.shape[1] + dataset.Z.shape[1],d_q=2*dataset.X.shape[1], f=self.est_params['width'], k=self.est_params['layers']).to(self.x.device)
+            self.train_TRE_Q(dataset)
         elif type == 'random_uniform':
             self.w = torch.rand(*(self.x.shape[0],1)).cuda(self.device)
-
         elif type == 'ones':
             self.w = torch.ones(*(self.x.shape[0],1)).cuda(self.device)
+
+    def create_classification_data(self):
+        self.kappa = self.est_params['kappa']
+        if  self.type == 'NCE':
+            return classification_dataset(self.x,
+                                   self.z,
+                                    bs = self.est_params['bs_ratio'],
+                                    kappa = self.kappa,
+                                    val_rate = self.est_params['val_rate']
+            )
+        elif self.type=='NCE_Q':
+            return classification_dataset_Q(self.x,
+                                          self.z,
+                                          self.x_q,
+                                          bs=self.est_params['bs_ratio'],
+                                          kappa=self.kappa,
+                                          val_rate=self.est_params['val_rate']
+
+                                          )
+        elif self.type=='TRE_Q':
+            return classification_dataset_Q_TRE(self.x,
+                                            self.z,
+                                            self.x_q,
+                                            bs=self.est_params['bs_ratio'],
+                                            kappa=self.kappa,
+                                            val_rate=self.est_params['val_rate'],)
 
     def retrain(self,x,z):
         self.x = x
@@ -179,6 +206,11 @@ class density_estimator():
         elif self.type == 'NCE':
             dataset = self.create_classification_data()
             self.w = self.train_classifier(dataset)
+        elif self.type == 'NCE_Q':
+            dataset = self.create_classification_data()
+            self.w = self.train_classifier(dataset)
+        elif self.type == 'TRE_Q':
+            pass
 
     def calc_loss(self,loss_func,pt,pf,target):
         if loss_func.__class__.__name__=='standard_bce':
@@ -186,7 +218,6 @@ class density_estimator():
         elif loss_func.__class__.__name__=='NCE_objective_stable':
             pf = pf.view(pt.shape[0], -1)
             return loss_func(pt,pf)
-
 
     def get_true_fake(self, dat_T, dat_F):
 
@@ -265,7 +296,14 @@ class density_estimator():
         self.model.eval()
         n = X.shape[0]
         with torch.no_grad():
-            w = self.model.get_w(X, Z)
+            if self.type == 'NCE':
+                w = self.model.get_w(X, Z,[])
+            elif self.type=='NCE_q':
+                X_q_test = self.q.rsample((X.shape[0], X.shape[1]))
+                w = self.model.get_w(X_q_test, Z,[])
+            elif self.type == 'TRE_Q':
+                X_q_test = self.q.rsample((X.shape[0], X.shape[1]))
+                w = self.model.get_w(X, Z, X_q_test)
             _w = w.cpu().squeeze().numpy()
             idx_HSIC = np.random.choice(np.arange(n),n,p=_w / _w.sum())
             p_val = hsic_test(X[idx_HSIC, :], Z[idx_HSIC, :], self.est_params['n_sample'])
@@ -276,12 +314,19 @@ class density_estimator():
                 print('failed')
         return w
 
-    def forward_func_TRE(self,u,v,indicator,y,loss_func):
-        preds = self.model(u,v,indicator)
-        l = loss_func(preds[~y,:],preds[y,:])
-        return l
+    def return_weights(self,X,Z):
+        self.w = self.model_eval(X,Z)
+        return self.w.squeeze()
 
-    def train_TRE(self,dataset):
+    def forward_func_TRE_Q(self,joint_samp, pom_samp, X_p_samp, X_q_samp,loss_func):
+        preds_joint_true,preds_p_true = self.model(joint_samp,X_p_samp)
+        preds_joint_false,preds_p_false = self.model(pom_samp,X_q_samp)
+        loss_1 = self.calc_loss(loss_func,preds_joint_true,preds_joint_false,[])
+        loss_2 = self.calc_loss(loss_func,preds_p_true,preds_p_false,[])
+        return loss_1+loss_2
+
+
+    def train_TRE_Q(self,dataset):
         opt = torch.optim.Adam(self.model.parameters(), lr=self.est_params['lr'])
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, factor=0.5, patience=1)
         loss_func = NCE_objective_stable(kappa=1)
@@ -290,16 +335,16 @@ class density_estimator():
         counter = 0
         best = np.inf
         for i in range(self.est_params['max_its']):
-            u,v,indicator,y= dataset.get_sample()
+            joint_samp, pom_samp, X_p_samp, X_q_samp =dataset.get_sample()
             opt.zero_grad()
             if self.est_params['mixed']:
                 with autocast():
-                    l = self.forward_func_TRE(u,v,indicator,y,loss_func)
+                    l = self.forward_func_TRE_Q(joint_samp, pom_samp, X_p_samp, X_q_samp,loss_func)
                 scaler.scale(l).backward()
                 scaler.step(opt)
                 scaler.update()
             else:
-                l = self.forward_func_TRE(u,v, indicator, y, loss_func)
+                l = self.forward_func_TRE_Q(joint_samp, pom_samp, X_p_samp, X_q_samp, loss_func)
                 l.backward()
                 opt.step()
 
@@ -307,10 +352,15 @@ class density_estimator():
                 # print(l)
                 with torch.no_grad():
                     dataset.val_mode()
-                    u,v, indicator, y = dataset.get_sample()
-                    logloss = self.forward_func_TRE(u,v,indicator,y,loss_func)
-                    x,z,target = dataset.get_val_classification_sample()
-                    preds  = torch.sigmoid(self.model.predict(x,z))
+                    joint_samp,pom_samp,X_p_samp,X_q_samp = dataset.get_sample()
+                    logloss = self.forward_func_TRE_Q(joint_samp, pom_samp, X_p_samp, X_q_samp,loss_func)
+                    joint_samp_val,pom_samp_val,n,X_p_samp_val,X_q_samp_val = dataset.get_val_classification_sample()
+                    true_preds  = self.model.forward_p(joint_samp_val)+self.model.forward_q(X_p_samp_val)
+                    fake_preds  = self.model.forward_p(pom_samp_val)+self.model.forward_q(X_q_samp_val)
+                    one_y = torch.ones_like(true_preds)
+                    zero_y = torch.zeros_like(fake_preds)
+                    target = torch.cat([one_y, zero_y])
+                    preds = torch.sigmoid(torch.cat([true_preds,fake_preds],dim=0))
                     auc = auc_check(preds ,target)
                     print(f'logloss epoch {i}: {logloss}')
                     print(f'auc epoch {i}: {auc}')
@@ -328,36 +378,7 @@ class density_estimator():
                 break
         return
 
-    def create_tre_data(self):
-        return classification_dataset_TRE(self.x,
-                                          self.z,
-                                          m=len(self.est_params['outputs']),
-                                          p=1,
-                                          bs=self.est_params['bs_ratio'],
-                                          val_rate=self.est_params['val_rate'])
 
-    def create_classification_data(self):
-        self.kappa = self.est_params['kappa']
-
-        if self.x_q is None:
-            return classification_dataset(self.x,
-                                   self.z,
-            bs = self.est_params['bs_ratio'],
-                 kappa = self.kappa,
-                         val_rate = self.est_params['val_rate']
-            )
-        else:
-            return classification_dataset_Q(self.x,
-                                          self.z,
-                                          self.x_q,
-                                          bs=self.est_params['bs_ratio'],
-                                          kappa=self.kappa,
-                                          val_rate=self.est_params['val_rate']
-                                          )
-
-    def return_weights(self,X,Z):
-        self.w = self.model_eval(X,Z)
-        return self.w.squeeze()
 
     def get_median_ls_XY(self,X,Y):
         with torch.no_grad():

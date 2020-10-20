@@ -130,5 +130,5 @@ if __name__ == '__main__':
 
         df = pd.DataFrame(df_data,columns=['permutation','beta_xz','c_q','nr_of_permutations','variant','EFF w_q','KS pval'])
         df = df.sort_values('KS pval',ascending=False)
-        df.to_csv('post_process_univariate.csv')
+        df.to_csv('post_process_d=50_theta=8_phi=2.csv')
         print(df.to_latex())
