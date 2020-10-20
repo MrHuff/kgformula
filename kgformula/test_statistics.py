@@ -140,31 +140,30 @@ class density_estimator():
         self.type = type
         self.kernel_base = gpytorch.kernels.Kernel()
         self.tmp_path = f'./tmp_folder_{self.device}/'
-        qdist = self.est_params['qdist'],
+        qdist = self.est_params['qdist']
         qdist_param = self.est_params['qdist_param']
         if qdist==1:
-            self.q = Normal(self.x.mean(dim=0),qdist_param['q_fac']*self.x.std(dim=0))
+            self.q = Normal(self.x.mean(dim=0).squeeze(),qdist_param['q_fac']*self.x.std(dim=0).squeeze())
         elif qdist==2:
             pass
         elif qdist==3:
             pass
-        self.x_q = self.q.rsample((self.n,self.x.shape[1]))
+        self.x_q = self.q.sample((self.n,self.x.shape[1]))
 
         if not os.path.exists(self.tmp_path):
             os.makedirs(self.tmp_path)
 
         dataset = self.create_classification_data()
         if type == 'NCE':
-            self.model = MLP(d=dataset.X.shape[1]+dataset.Z.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
+            self.model = MLP(d=dataset.X_train.shape[1]+dataset.Z_train.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
             self.train_classifier(dataset)
 
         elif self.type=='NCE_Q':
-            self.model = MLP(d=dataset.X.shape[1] + dataset.Z.shape[1], f=self.est_params['width'],
-                             k=self.est_params['layers']).to(self.x.device)
+            self.model = MLP(d=dataset.X_train.shape[1] + dataset.Z_train.shape[1], f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
             self.train_classifier(dataset)
 
         elif type == 'TRE_Q':
-            self.model = MLP_pq(d_p=dataset.X.shape[1] + dataset.Z.shape[1],d_q=2*dataset.X.shape[1], f=self.est_params['width'], k=self.est_params['layers']).to(self.x.device)
+            self.model = MLP_pq(d_p=dataset.X_train.shape[1] + dataset.Z_train.shape[1],d_q=dataset.X_train.shape[1], f=self.est_params['width'], k=self.est_params['layers']).to(self.x.device)
             self.train_TRE_Q(dataset)
         elif type == 'random_uniform':
             self.w = torch.rand(*(self.x.shape[0],1)).cuda(self.device)
@@ -187,7 +186,6 @@ class density_estimator():
                                           bs=self.est_params['bs_ratio'],
                                           kappa=self.kappa,
                                           val_rate=self.est_params['val_rate']
-
                                           )
         elif self.type=='TRE_Q':
             return classification_dataset_Q_TRE(self.x,
@@ -227,6 +225,7 @@ class density_estimator():
 
 
     def train_classifier(self,dataset):
+        dataset.train_mode()
         loss_func = NCE_objective_stable(self.kappa)
         # loss_func = standard_bce(pos_weight=self.kappa)
         opt = torch.optim.Adam(self.model.parameters(),lr=self.est_params['lr'])
@@ -240,6 +239,7 @@ class density_estimator():
         target = torch.cat([one_y,zero_y]).to(self.device)
 
         for i in range(self.est_params['max_its']):
+            dataset.train_mode()
             data_pos,data_neg= dataset.get_sample()
             opt.zero_grad()
             if self.est_params['mixed']:
@@ -278,7 +278,6 @@ class density_estimator():
                                     'epoch':i},self.tmp_path+'best_run.pt')
                     else:
                         counter+=1
-                    dataset.train_mode()
                 one_y = torch.ones(dataset.bs)
                 zero_y = torch.zeros(dataset.bs * self.kappa)
                 target = torch.cat([one_y, zero_y]).to(self.device)
@@ -298,12 +297,12 @@ class density_estimator():
         with torch.no_grad():
             if self.type == 'NCE':
                 w = self.model.get_w(X, Z,[])
-            elif self.type=='NCE_q':
-                X_q_test = self.q.rsample((X.shape[0], X.shape[1]))
-                w = self.model.get_w(X_q_test, Z,[])
+            elif self.type=='NCE_Q':
+                self.X_q_test = self.q.sample((X.shape[0], X.shape[1]))
+                w = self.model.get_w(self.X_q_test, Z,[])
             elif self.type == 'TRE_Q':
-                X_q_test = self.q.rsample((X.shape[0], X.shape[1]))
-                w = self.model.get_w(X, Z, X_q_test)
+                self.X_q_test = self.q.sample((X.shape[0], X.shape[1]))
+                w = self.model.get_w(X, Z, self.X_q_test)
             _w = w.cpu().squeeze().numpy()
             idx_HSIC = np.random.choice(np.arange(n),n,p=_w / _w.sum())
             p_val = hsic_test(X[idx_HSIC, :], Z[idx_HSIC, :], self.est_params['n_sample'])
@@ -327,6 +326,7 @@ class density_estimator():
 
 
     def train_TRE_Q(self,dataset):
+        dataset.train_mode()
         opt = torch.optim.Adam(self.model.parameters(), lr=self.est_params['lr'])
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, factor=0.5, patience=1)
         loss_func = NCE_objective_stable(kappa=1)
@@ -335,6 +335,7 @@ class density_estimator():
         counter = 0
         best = np.inf
         for i in range(self.est_params['max_its']):
+            dataset.train_mode()
             joint_samp, pom_samp, X_p_samp, X_q_samp =dataset.get_sample()
             opt.zero_grad()
             if self.est_params['mixed']:
@@ -354,7 +355,7 @@ class density_estimator():
                     dataset.val_mode()
                     joint_samp,pom_samp,X_p_samp,X_q_samp = dataset.get_sample()
                     logloss = self.forward_func_TRE_Q(joint_samp, pom_samp, X_p_samp, X_q_samp,loss_func)
-                    joint_samp_val,pom_samp_val,n,X_p_samp_val,X_q_samp_val = dataset.get_val_classification_sample()
+                    joint_samp_val,pom_samp_val,n,X_p_samp_val,X_q_samp_val = dataset.get_val_sample()
                     true_preds  = self.model.forward_p(joint_samp_val)+self.model.forward_q(X_p_samp_val)
                     fake_preds  = self.model.forward_p(pom_samp_val)+self.model.forward_q(X_q_samp_val)
                     one_y = torch.ones_like(true_preds)
@@ -372,7 +373,6 @@ class density_estimator():
                                     'epoch': i}, self.tmp_path + 'best_run.pt')
                     else:
                         counter+=1
-                    dataset.train_mode()
             if counter>self.est_params['kill_counter']:
                 print('stopped improving, stopping')
                 break

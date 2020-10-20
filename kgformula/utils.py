@@ -326,7 +326,6 @@ class simulation_object():
                     X_test = X
                     Z_test = Z
                     Y_test = Y
-                    X_q_train = X_q
                     X_q_test = X_q
 
                 if estimate:
@@ -338,6 +337,7 @@ class simulation_object():
                             l = mse_loss(_w, w) / _w.var()
                         R2_errors.append(1-l.item())
                         hsic_pval_list.append(d.hsic_pval)
+                    X_q_test = d.X_q_test
                 else:
                     if mode=='Q':
                         w = w_q
@@ -349,8 +349,6 @@ class simulation_object():
                     c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
                 elif mode=='new' :
                     c = weighted_HSIC(X=X_test, Y=Y_test, w=w, device=self.device,perm=perm,variant=variant)
-                elif mode == 'regular':
-                    c = weighted_statistic_new(X=X_test, Y=Y_test, w=w, cuda=self.cuda, device=self.device)
                 reference_metric = c.calculate_weighted_statistic().cpu().item()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):

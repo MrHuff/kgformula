@@ -72,7 +72,7 @@ class MLP_pq(torch.nn.Module):
         return self.model_q(input_q)
 
     def get_w(self,x_p,z_p,x_q):
-        p,q = self.forward(torch.cat([x_p,z_p],dim=1),torch.cat([x_q,x_p],dim=1))
+        p,q = self.forward(torch.cat([x_p,z_p],dim=1),x_q)
         return torch.exp(-(p+q))
 
 class TRE(torch.nn.Module):
@@ -150,7 +150,6 @@ class classification_dataset(Dataset):
         self.bs_perc = bs
         self.device = X.device
         self.kappa = kappa
-        self.train_mode()
 
     def divide_data(self):
         X_dat = torch.chunk(self.X,2,dim=0)
@@ -190,7 +189,6 @@ class classification_dataset_Q(classification_dataset):
         super(classification_dataset_Q, self).__init__(X,Z,bs,kappa,val_rate)
         self.X_q_train = X_q[~self.mask, :]
         self.X_q_val = X_q[self.mask,:]
-        self.train_mode()
 
     def divide_data(self):
         X_dat = torch.chunk(self.X,2,dim=0)
@@ -238,7 +236,7 @@ class classification_dataset_Q_TRE(classification_dataset_Q):
         i_s_2 = np.random.randint(0, self.X_pom.shape[0] - self.bs*self.kappa-1)
         X_p_samp  =self.X_pom[i_s_2:(i_s_2+self.bs*self.kappa),:]
         pom_samp = torch.cat([X_p_samp, self.Z_pom[torch.randperm(self.Z_pom.shape[0])[:(self.bs*self.kappa)],:]],dim=1)
-        X_q_samp = self.X_q_pom[self.X_q_pom[i_s:(i_s+self.bs),:],:]
+        X_q_samp = self.X_q_pom[i_s:(i_s+self.bs),:]
         return joint_samp,pom_samp,X_p_samp,X_q_samp
 
     def get_val_sample(self):
