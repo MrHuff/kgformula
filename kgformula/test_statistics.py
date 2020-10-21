@@ -294,14 +294,13 @@ class density_estimator():
         self.model.load_state_dict(weights['state_dict'])
         self.model.eval()
         n = X.shape[0]
+        self.X_q_test = self.q.sample((X.shape[0], X.shape[1]))
         with torch.no_grad():
             if self.type == 'NCE':
                 w = self.model.get_w(X, Z,[])
             elif self.type=='NCE_Q':
-                self.X_q_test = self.q.sample((X.shape[0], X.shape[1]))
                 w = self.model.get_w(self.X_q_test, Z,[])
             elif self.type == 'TRE_Q':
-                self.X_q_test = self.q.sample((X.shape[0], X.shape[1]))
                 w = self.model.get_w(X, Z, self.X_q_test)
             _w = w.cpu().squeeze().numpy()
             idx_HSIC = np.random.choice(np.arange(n),n,p=_w / _w.sum())
@@ -353,9 +352,8 @@ class density_estimator():
                 # print(l)
                 with torch.no_grad():
                     dataset.val_mode()
-                    joint_samp,pom_samp,X_p_samp,X_q_samp = dataset.get_sample()
-                    logloss = self.forward_func_TRE_Q(joint_samp, pom_samp, X_p_samp, X_q_samp,loss_func)
                     joint_samp_val,pom_samp_val,n,X_p_samp_val,X_q_samp_val = dataset.get_val_sample()
+                    logloss = self.forward_func_TRE_Q(joint_samp, pom_samp, X_p_samp, X_q_samp,loss_func)
                     true_preds  = self.model.forward_p(joint_samp_val)+self.model.forward_q(X_p_samp_val)
                     fake_preds  = self.model.forward_p(pom_samp_val)+self.model.forward_q(X_q_samp_val)
                     one_y = torch.ones_like(true_preds)

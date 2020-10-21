@@ -9,7 +9,7 @@ if __name__ == '__main__':
     n=5000
     i=0
     estimator = 'TRE_Q' #NCE_Q, #TRE_Q
-    q=1.0
+    q=0.8
     beta_xz = 0.5
     data_dir =f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_2.0_2.0/'
     est_params= {'lr': 1e-4,
@@ -35,3 +35,11 @@ if __name__ == '__main__':
     d = density_estimator(x=X_train, z=Z_train, cuda=True,
                           est_params=est_params, type=estimator, device=device)
     w = d.return_weights(X_test, Z_test)
+    plt.hist(w.cpu().numpy(),bins=50)
+    plt.savefig(f'debug_est_{estimator}.png')
+    plt.clf()
+    plt.hist(w_q.cpu().numpy(),bins=50)
+    plt.savefig(f'debug_true_{estimator}.png')
+    plt.clf()
+
+

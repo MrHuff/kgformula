@@ -233,7 +233,7 @@ class classification_dataset_Q_TRE(classification_dataset_Q):
     def get_sample(self):
         i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs-1)
         joint_samp = torch.cat([self.X_joint[i_s:(i_s+self.bs),:],self.Z_joint[i_s:(i_s+self.bs),:]],dim=1)
-        i_s_2 = np.random.randint(0, self.X_pom.shape[0] - self.bs*self.kappa-1)
+        i_s_2 = np.random.randint(0,  - self.bs*self.kappa-1)
         X_p_samp  =self.X_pom[i_s_2:(i_s_2+self.bs*self.kappa),:]
         pom_samp = torch.cat([X_p_samp, self.Z_pom[torch.randperm(self.Z_pom.shape[0])[:(self.bs*self.kappa)],:]],dim=1)
         X_q_samp = self.X_q_pom[i_s:(i_s+self.bs),:]
