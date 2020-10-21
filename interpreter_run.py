@@ -6,7 +6,7 @@ import os
 
 def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for d_Z in [1]:
+        for d_Z in [3]:
             for q in [1.0]:
                 for perm in ['Y']:
                     for i,n in enumerate(n_list):
@@ -23,7 +23,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                             for width in net_width:
                                 for layers in net_layers:
                                     job_dir = f'layers={layers}_width={width}'
-                                    for h in [h_0_str]:
+                                    for h in [h_0_str_mult_2]:
                                         for variant in [1]:
                                             for model,kappa in  zip(['TRE_Q','NCE_Q'],[1,10]):
                                                 for br in [250]:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
@@ -45,7 +45,7 @@ def run_jobs(seed_a,seed_b,theta,phi,beta_XZ_list,n_list,device,net_width,net_la
                                                                        'width': width,
                                                                        'layers':layers,
                                                                        'mixed': False,
-                                                                       'bs_ratio': 0.1,
+                                                                       'bs_ratio': 0.01,
                                                                        'val_rate': val_rate,
                                                                        'n_sample': 250,
                                                                        'criteria_limit': 0.05,
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     cuda = True
     nr_of_gpus = 5 #Try running single machine for comparison...
     net_layers = [2]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
-    net_width = [16]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
+    net_width = [32]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     if cuda:
         if nr_of_gpus>1:
             devices = GPUtil.getAvailable(order='memory',limit=nr_of_gpus)
