@@ -149,6 +149,8 @@ class density_estimator():
         elif qdist==3:
             pass
         self.x_q = self.q.sample(torch.Size([self.n]))
+        if x.shape[1]==1:
+            self.x_q = self.x_q.unsqueeze(-1)
 
         if not os.path.exists(self.tmp_path):
             os.makedirs(self.tmp_path)
@@ -295,6 +297,8 @@ class density_estimator():
         self.model.eval()
         n = X.shape[0]
         self.X_q_test = self.q.sample(torch.Size([n]))
+        if X.shape[1]==1:
+            self.X_q_test = self.X_q_test.unsqueeze(-1)
         with torch.no_grad():
             if self.type == 'NCE':
                 w = self.model.get_w(X, Z,[])

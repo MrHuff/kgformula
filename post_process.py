@@ -45,7 +45,7 @@ if __name__ == '__main__':
             for est in [True]:
                 df_data = []
                 for perm,nr_of_gpus in zip(['Y'],[5]):
-                    for beta_xz in [0.25,0.5,0.0,0.01,0.1]:
+                    for beta_xz in [0.25,0.5,0.01,0.1]:
                         #0,0.01,0.1,0.25,0.5
                         #0.0, 0.001, 0.011, 0.111
                         #0.0,0.004,0.02
@@ -55,12 +55,13 @@ if __name__ == '__main__':
                                 for variant in [1]:
                                     row = [perm,beta_xz,q,bootstrap_runs,variant]
                                     data_path = f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_2.0_2.0/'
+
                                         # f'q={q}_mv_100/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=10000_yz=0.5_beta_XZ={beta_xz}_theta=8.0_phi=2.0/'
-                                        # f'q={q}_mv_100/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=50_n=10000_yz=0.5_beta_XZ={beta_xz}_theta=2.0_phi=2.0/'
+                                        # f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_2.0_2.0/'
                                         # f'q={q}_mv_100/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z=3_n=10000_yz=0.5_beta_XZ={beta_xz}_theta=2.0_phi=2.0/'
                                         # f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_2.0_2.0/'
                                         # f'univariate_{seed_max}_seeds/univariate_test/'
-                                    PATH = data_path + 'layers=2_width=16/'
+                                    PATH = data_path + 'layers=4_width=32/'
                                     f_name=return_file_name(0,100,perm,bootstrap_runs,variant,nce,est)
                                     if histogram_true:
                                         X, Y, Z, X_q, _w, w_q = torch.load(data_path+'data_seed=0.pt')
