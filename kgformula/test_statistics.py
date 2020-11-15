@@ -174,7 +174,7 @@ class density_estimator():
 
     def create_classification_data(self):
         self.kappa = self.est_params['kappa']
-        if  self.type == 'NCE':
+        if self.type == 'NCE':
             return classification_dataset(self.x,
                                    self.z,
                                     bs = self.est_params['bs_ratio'],
@@ -195,6 +195,12 @@ class density_estimator():
                                             self.x_q,
                                             bs=self.est_params['bs_ratio'],
                                             kappa=self.kappa,
+                                            val_rate=self.est_params['val_rate'],)
+        elif self.type=='real_TRE':
+            return dataset_MI_TRE(self.x,
+                                            self.z,
+                                            m = self.est_params['m'],
+                                            bs=self.est_params['bs_ratio'],
                                             val_rate=self.est_params['val_rate'],)
 
     def retrain(self,x,z):
@@ -327,7 +333,6 @@ class density_estimator():
         loss_2 = self.calc_loss(loss_func,preds_p_true,preds_p_false,[])
         return loss_1+loss_2
 
-
     def train_TRE_Q(self,dataset):
         dataset.train_mode()
         opt = torch.optim.Adam(self.model.parameters(), lr=self.est_params['lr'])
@@ -417,7 +422,8 @@ class density_estimator():
         return ls
 
 class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
-    def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1):
+    def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,seed=1):
+        torch.random.manual_seed(seed)
         self.X = X
         self.Y = Y
         self.perm = perm

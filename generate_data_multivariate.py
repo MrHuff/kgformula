@@ -24,16 +24,14 @@ if __name__ == '__main__': #This is incorrectly generated...
         yz = 0.5
         d_X = 3 #Try 2 and 1
         d_Y = 3 #Try 1
-        for d_Z in [50]: #50,3
+        for d_Z, theta,phi in zip([3],[2.0],[2.0]): #50,3
             for b_z in [0.25,0.5,0.0,0.01,0.1,]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
                 b_z= (d_Z**2)*b_z
                 beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
                 #Try different beta configs, i.e.
-                theta = 8.0 #Working config?!
-                phi =2. # theta = 7, phi = 2 seems to be working...
                 for n in [10000]:
-                    for beta_xy in [[0,0]]:
-                        for q_fac in [0.1,0.2,0.4,0.6,0.8,1.0]:
+                    for beta_xy in [[0,0.5],[0,0.25],[0,0.1],[0,1e-2],[0,1e-3]]:
+                        for q_fac in [1.0,0.5,0.25]:
                             data_dir = f"q={q_fac}_mv_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z/(d_Z**2),3)}_theta={theta}_phi={round(phi,2)}"
                             if not os.path.exists(f'./{data_dir}/'):
                                 os.makedirs(f'./{data_dir}/')

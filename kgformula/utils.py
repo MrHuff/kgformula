@@ -293,12 +293,12 @@ class simulation_object():
         variant = self.args['variant']
         ks_data = []
         R2_errors = []
+        hsic_pval_list = []
         suffix = f'_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_p={perm}_br={bootstrap_runs}_v={variant}'
-        if estimate:
-            if estimator in ['NCE', 'TRE', 'linear_classifier']:
-                hsic_pval_list = []
-                for key,val in est_params.items():
-                    suffix = suffix + f'_{key[0:2]}={val}'
+        # if estimate:
+        #     if estimator in ['NCE', 'TRE', 'linear_classifier']:
+        #         for key,val in est_params.items():
+        #             suffix = suffix + f'_{key[0:2]}={val}'
 
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
@@ -332,12 +332,14 @@ class simulation_object():
                     d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda,
                                           est_params=est_params, type=estimator, device=self.device)
                     w = d.return_weights(X_test,Z_test)
-                    if estimator in ['NCE', 'TRE', 'linear_classifier']:
+                    if estimator in ['NCE', 'TRE_Q','NCE_Q', 'linear_classifier']:
                         with torch.no_grad():
                             l = mse_loss(_w, w) / _w.var()
                         R2_errors.append(1-l.item())
                         hsic_pval_list.append(d.hsic_pval)
                     X_q_test = d.X_q_test
+                    if j == 0:
+                        torch.save(w,f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
                 else:
                     if mode=='Q':
                         w = w_q
@@ -346,7 +348,7 @@ class simulation_object():
                     elif mode=='regular':
                         w = _w
                 if mode=='Q':
-                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm)
+                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm,seed=i)
                 elif mode=='new' :
                     c = weighted_HSIC(X=X_test, Y=Y_test, w=w, device=self.device,perm=perm,variant=variant)
                 reference_metric = c.calculate_weighted_statistic().cpu().item()
