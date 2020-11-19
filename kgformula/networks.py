@@ -75,21 +75,6 @@ class MLP_pq(torch.nn.Module):
         p,q = self.forward(torch.cat([x_p,z_p],dim=1),x_q)
         return torch.exp(-(p+q))
 
-class TRE_net(torch.nn.Module):
-    def __init__(self, dim, o, f, k, m):
-        super(TRE_net).__init__()
-        self.module_list = torch.nn.ModuleList()
-        for i in range(m):
-            self.module_list.append(MLP(dim,f,k,o))
-
-    def forward(self,input):
-        output = []
-        for i in range(len(input)-1):
-            neg = self.module_list[i](input[i])
-            pos = self.module_list[i](input[i+1])
-            output.append([neg,pos])
-        return output
-
 class MLP(torch.nn.Module):
     def __init__(self,d,f=12,k=2,o=1):
         super(MLP, self).__init__()
@@ -107,6 +92,35 @@ class MLP(torch.nn.Module):
 
     def get_w(self, x,z,empty=[]):
         return torch.exp(-self.forward(torch.cat([x,z],dim=1)))
+
+class TRE_net(torch.nn.Module):
+    def __init__(self, dim, o, f, k, m):
+        super(TRE_net, self).__init__()
+        self.module_list = torch.nn.ModuleList()
+        self.m = m
+        for i in range(m):
+            self.module_list.append(MLP(dim,f,k,o))
+
+    def forward(self,input):
+        output = []
+        for i in range(self.m):
+            neg = self.module_list[i](input[i])
+            pos = self.module_list[i](input[i+1])
+            output.append([neg,pos])
+        return output
+
+    def forward_val(self,input):
+        pred = 0
+        for i in range(self.m):
+            pred+= self.module_list[i](input)
+        return pred
+
+    def get_w(self, x, z, empty=[]):
+        dat = torch.cat([x,z],dim=1)
+        base = 0
+        for i in range(0,self.m):
+            base += self.module_list[i](dat)
+        return torch.exp(-base)
 
 class logistic_regression(torch.nn.Module):
     def __init__(self,d):
@@ -163,7 +177,7 @@ class classification_dataset(Dataset):
     def get_val_sample(self):
         n = min(self.X_joint.shape[0],self.X_pom.shape[0])
         joint_samp = torch.cat([self.X_joint[:n,:],self.Z_joint[:n,:]],dim=1)
-        pom_samp = torch.cat([self.X_pom[:n,:], self.Z_pom[torch.arange(self.Z_pom.shape[0],0,-1),:]],dim=1)
+        pom_samp = torch.cat([self.X_pom[:n,:], self.Z_pom[torch.arange(self.Z_pom.shape[0]-1,-1,-1),:]],dim=1)
         return joint_samp,pom_samp,n
 
 
@@ -269,16 +283,16 @@ class dataset_MI_TRE(Dataset):
     def get_sample(self):
         i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs - 1)
         X_joint_samp,Z_joint_samp = self.X_joint[i_s:(i_s + self.bs), :], self.Z_joint[i_s:(i_s + self.bs), :]
-        i_s_2 = np.random.randint(0, self.X_pom.shape[0] - self.bs * self.kappa - 1)
-        X_pom_samp,Z_pom_samp = self.X_pom[i_s_2:(i_s_2 + self.bs * self.kappa), :],self.Z_pom[torch.randperm(self.Z_pom.shape[0])[:(self.bs * self.kappa)], :]
+        i_s_2 = np.random.randint(0, self.Z_pom.shape[0] - self.bs * self.kappa - 1)
+        X_pom_samp,Z_pom_samp = self.X_pom[torch.randperm(self.X_pom.shape[0])[:(self.bs * self.kappa)], :],self.Z_pom[i_s_2:(i_s_2 + self.bs * self.kappa), :]
         data_out = [torch.cat([X_pom_samp,Z_pom_samp],dim=1)]
         for a_0, a_m in zip(self.a_0, self.a_m):
-            transition_z = a_0 * Z_pom_samp + a_m * Z_joint_samp
-            data_out.append(torch.cat([X_pom_samp,transition_z],dim=1))
+            transition_x = a_0 * X_pom_samp + a_m * X_joint_samp
+            data_out.append(torch.cat([transition_x,Z_pom_samp],dim=1))
         data_out.append(torch.cat([X_joint_samp,Z_joint_samp],dim=1))
         return data_out
 
-    def get_val_classification_sample(self):
+    def get_val_sample(self):
         data_out = [torch.cat([self.X_pom, self.Z_pom], dim=1)]
         data_out.append(torch.cat([ self.X_joint, self.Z_joint],dim=1))
         return data_out
@@ -304,21 +318,25 @@ class dataset_MI_TRE_Q(Dataset):
         self.kappa = 1
 
     def divide_data(self):
+        X_q_dat = torch.chunk(self.X_q,2,dim=0)
+        self.X_pom = X_q_dat[1]
         X_dat = torch.chunk(self.X,2,dim=0)
         self.X_joint = X_dat[0]
-        self.X_pom = X_dat[1]
+        self.X_pom_true = X_dat[1]
         Z_dat = torch.chunk(self.Z,2,dim=0)
         self.Z_joint = Z_dat[0]
         self.Z_pom = Z_dat[1]
 
     def train_mode(self):
         self.X = self.X_train
+        self.X_q = self.X_q_train
         self.Z = self.Z_train
         self.divide_data()
         self.bs = int(round(self.bs_perc*self.X_joint.shape[0]))
 
     def val_mode(self):
         self.X = self.X_val
+        self.X_q = self.X_q_val
         self.Z = self.Z_val
         self.divide_data()
 
@@ -326,19 +344,18 @@ class dataset_MI_TRE_Q(Dataset):
         i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs - 1)
         X_joint_samp,Z_joint_samp = self.X_joint[i_s:(i_s + self.bs), :], self.Z_joint[i_s:(i_s + self.bs), :]
         i_s_2 = np.random.randint(0, self.X_pom.shape[0] - self.bs * self.kappa - 1)
-        X_pom_samp,Z_pom_samp = self.X_pom[i_s_2:(i_s_2 + self.bs * self.kappa), :],self.Z_pom[torch.randperm(self.Z_pom.shape[0])[:(self.bs * self.kappa)], :]
+        X_pom_samp,Z_pom_samp = self.X_pom[torch.randperm(self.X_pom.shape[0])[:(self.bs * self.kappa)], :],self.Z_pom[i_s_2:(i_s_2 + self.bs * self.kappa), :]
         data_out = [torch.cat([X_pom_samp,Z_pom_samp],dim=1)]
         for a_0, a_m in zip(self.a_0, self.a_m):
-            transition_z = a_0 * Z_pom_samp + a_m * Z_joint_samp
-            data_out.append(torch.cat([X_pom_samp,transition_z],dim=1))
+            transition_x = a_0 * X_pom_samp + a_m * X_joint_samp
+            data_out.append(torch.cat([transition_x, Z_pom_samp], dim=1))
         data_out.append(torch.cat([X_joint_samp,Z_joint_samp],dim=1))
         return data_out
 
-    def get_val_classification_sample(self):
+    def get_val_sample(self):
         data_out = [torch.cat([self.X_pom, self.Z_pom], dim=1)]
         data_out.append(torch.cat([ self.X_joint, self.Z_joint],dim=1))
         return data_out
-
 
 class Log1PlusExp(torch.autograd.Function):
     """Implementation of x ↦ log(1 + exp(x))."""

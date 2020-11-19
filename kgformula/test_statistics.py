@@ -167,6 +167,22 @@ class density_estimator():
         elif type == 'TRE_Q':
             self.model = MLP_pq(d_p=dataset.X_train.shape[1] + dataset.Z_train.shape[1],d_q=dataset.X_train.shape[1], f=self.est_params['width'], k=self.est_params['layers']).to(self.x.device)
             self.train_TRE_Q(dataset)
+        elif self.type=='real_TRE':
+            self.model = TRE_net(dim=dataset.X_train.shape[1]+dataset.Z_train.shape[1],
+                                 o = 1,
+                                 f=self.est_params['width'],
+                                 k=self.est_params['layers'],
+                                 m = self.est_params['m']
+                                 ).to(self.x.device)
+            self.train_MI_TRE(dataset)
+        elif self.type=='real_TRE_Q':
+            self.model = TRE_net(dim=dataset.X_train.shape[1]+dataset.Z_train.shape[1],
+                                 o = 1,
+                                 f=self.est_params['width'],
+                                 k=self.est_params['layers'],
+                                 m = self.est_params['m']
+                                 ).to(self.x.device)
+            self.train_MI_TRE(dataset)
         elif type == 'random_uniform':
             self.w = torch.rand(*(self.x.shape[0],1)).cuda(self.device)
         elif type == 'ones':
@@ -202,6 +218,13 @@ class density_estimator():
                                             m = self.est_params['m'],
                                             bs=self.est_params['bs_ratio'],
                                             val_rate=self.est_params['val_rate'],)
+        elif self.type=='real_TRE_Q':
+            return dataset_MI_TRE_Q(self.x,self.x_q,
+                                            self.z,
+                                            m = self.est_params['m'],
+                                            bs=self.est_params['bs_ratio'],
+                                            val_rate=self.est_params['val_rate'],)
+
 
     def retrain(self,x,z):
         self.x = x
@@ -216,7 +239,14 @@ class density_estimator():
             dataset = self.create_classification_data()
             self.w = self.train_classifier(dataset)
         elif self.type == 'TRE_Q':
-            pass
+            dataset = self.create_classification_data()
+            self.w = self.train_TRE_Q(dataset)
+        elif self.type=='real_TRE':
+            dataset = self.create_classification_data()
+            self.w = self.train_MI_TRE(dataset)
+        elif self.type=='real_TRE_Q':
+            dataset = self.create_classification_data()
+            self.w = self.train_MI_TRE(dataset)
 
     def calc_loss(self,loss_func,pt,pf,target):
         if loss_func.__class__.__name__=='standard_bce':
@@ -309,8 +339,12 @@ class density_estimator():
             if self.type == 'NCE':
                 w = self.model.get_w(X, Z,[])
             elif self.type=='NCE_Q':
-                w = self.model.get_w(self.X_q_test, Z,[])
+                w = self.model.get_w(X, Z,[])
             elif self.type == 'TRE_Q':
+                w = self.model.get_w(X, Z, self.X_q_test)
+            elif self.type == 'real_TRE':
+                w = self.model.get_w(X, Z, self.X_q_test)
+            elif self.type == 'real_TRE_Q':
                 w = self.model.get_w(X, Z, self.X_q_test)
             _w = w.cpu().squeeze().numpy()
             idx_HSIC = np.random.choice(np.arange(n),n,p=_w / _w.sum())
@@ -344,11 +378,11 @@ class density_estimator():
         best = np.inf
         for i in range(self.est_params['max_its']):
             dataset.train_mode()
-            joint_samp, pom_samp, X_p_samp, X_q_samp =dataset.get_sample()
+            joint_samp, pom_samp, X_p_samp, X_q_samp = dataset.get_sample()
             opt.zero_grad()
             if self.est_params['mixed']:
                 with autocast():
-                    l = self.forward_func_TRE_Q(joint_samp, pom_samp, X_p_samp, X_q_samp,loss_func)
+                    l = self.forward_func_TRE_Q(joint_samp, pom_samp, X_p_samp, X_q_samp, loss_func)
                 scaler.scale(l).backward()
                 scaler.step(opt)
                 scaler.update()
@@ -357,14 +391,71 @@ class density_estimator():
                 l.backward()
                 opt.step()
 
+            if i % (self.est_params['max_its'] // 25) == 0:
+                # print(l)
+                with torch.no_grad():
+                    dataset.val_mode()
+                    joint_samp_val, pom_samp_val, n, X_p_samp_val, X_q_samp_val = dataset.get_val_sample()
+                    logloss = self.forward_func_TRE_Q(joint_samp, pom_samp, X_p_samp, X_q_samp, loss_func)
+                    true_preds = self.model.forward_p(joint_samp_val) + self.model.forward_q(X_p_samp_val)
+                    fake_preds = self.model.forward_p(pom_samp_val) + self.model.forward_q(X_q_samp_val)
+                    one_y = torch.ones_like(true_preds)
+                    zero_y = torch.zeros_like(fake_preds)
+                    target = torch.cat([one_y, zero_y])
+                    preds = torch.sigmoid(torch.cat([true_preds, fake_preds], dim=0))
+                    auc = auc_check(preds, target)
+                    print(f'logloss epoch {i}: {logloss}')
+                    print(f'auc epoch {i}: {auc}')
+                    scheduler.step(logloss)
+                    if logloss.item() < best:
+                        best = logloss.item()
+                        counter = 0
+                        torch.save({'state_dict': self.model.state_dict(),
+                                    'epoch': i}, self.tmp_path + 'best_run.pt')
+                    else:
+                        counter += 1
+            if counter > self.est_params['kill_counter']:
+                print('stopped improving, stopping')
+                break
+        return
+    def forward_func_MI_TRE(self,list_data,loss_func):
+        list_preds = self.model(list_data)
+        loss = 0
+        for preds in list_preds:
+            loss+= self.calc_loss(loss_func, preds[-1], preds[0], [])
+        return loss/len(list_preds)
+
+    def train_MI_TRE(self,dataset):
+        dataset.train_mode()
+        opt = torch.optim.Adam(self.model.parameters(), lr=self.est_params['lr'])
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, factor=0.5, patience=1)
+        loss_func = NCE_objective_stable(kappa=1)
+        if self.est_params['mixed']:
+            scaler = GradScaler()
+        counter = 0
+        best = np.inf
+        for i in range(self.est_params['max_its']):
+            dataset.train_mode()
+            list_data=dataset.get_sample()
+            opt.zero_grad()
+            if self.est_params['mixed']:
+                with autocast():
+                    l = self.forward_func_MI_TRE(list_data,loss_func)
+                scaler.scale(l).backward()
+                scaler.step(opt)
+                scaler.update()
+            else:
+                l = self.forward_func_MI_TRE(list_data, loss_func)
+                l.backward()
+                opt.step()
+
             if i%(self.est_params['max_its']//25)==0:
                 # print(l)
                 with torch.no_grad():
                     dataset.val_mode()
-                    joint_samp_val,pom_samp_val,n,X_p_samp_val,X_q_samp_val = dataset.get_val_sample()
-                    logloss = self.forward_func_TRE_Q(joint_samp, pom_samp, X_p_samp, X_q_samp,loss_func)
-                    true_preds  = self.model.forward_p(joint_samp_val)+self.model.forward_q(X_p_samp_val)
-                    fake_preds  = self.model.forward_p(pom_samp_val)+self.model.forward_q(X_q_samp_val)
+                    list_data= dataset.get_val_sample()
+                    fake_preds,true_preds = self.model.forward_val(list_data[0]),self.model.forward_val(list_data[1])
+                    logloss = self.calc_loss(loss_func,true_preds,fake_preds,[])
                     one_y = torch.ones_like(true_preds)
                     zero_y = torch.zeros_like(fake_preds)
                     target = torch.cat([one_y, zero_y])
@@ -384,8 +475,6 @@ class density_estimator():
                 print('stopped improving, stopping')
                 break
         return
-
-
 
     def get_median_ls_XY(self,X,Y):
         with torch.no_grad():

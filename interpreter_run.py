@@ -6,9 +6,9 @@ import os
 
 def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for d_Z,theta,phi in zip([1,3,50],[2.0,2.0,8.0],[2.0,2.0,2.0]):#zip([1],[2.0],[2.0]):#zip([1],[2.0],[2.0]):#zip([50],[8.0],[2.0]): #zip([1,3,50],[2.0,2.0,8.0],[2.0,2.0,2.0]):#zip([1],[2.0],[2.0]):
-            for q in [0.25,0.5,1.0]:
-                for by in [0.5,0.25,0.1,1e-2,1e-3]:
+        for d_Z,theta,phi in zip([50],[8.0],[2.0]):#zip([1],[2.0],[2.0]):#zip([1],[2.0],[2.0]):#zip([50],[8.0],[2.0]): ##zip([1],[2.0],[2.0]):
+            for q in [1.0]:
+                for by in [0]:
                     for i,n in enumerate(n_list):
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
                         h_0_str = f'univariate_{seed_max}_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_XZ}_cor=0.5_n={n}_seeds={seed_max}_{theta}_{phi}'
@@ -18,9 +18,9 @@ def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=
                         val_rate = max(1e-2, 10. / n)
                         estimate = True
                         if d_Z==1:
-                            h_str = h_1_str
+                            h_str = h_0_str
                         else:
-                            h_str = h_1_str_mult_2
+                            h_str = h_0_str_mult_2
                         for perm in ['Y']:
                             for mode in ['Q']:
                                 for width in net_width:
@@ -28,7 +28,7 @@ def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=
                                         job_dir = f'layers={layers}_width={width}'
                                         for h in [h_str]:
                                             for variant in [1]:
-                                                for model,kappa in zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
+                                                for model,kappa in zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
                                                     for br in [250]:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                                                         args = {
                                                             'device': device,
@@ -43,19 +43,20 @@ def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=
                                                             'split': estimate,
                                                             'perm': perm,
                                                             'variant': variant,
-                                                            'est_params': {'lr': 1e-4,
+                                                            'est_params': {'lr': 1e-6, #use really small LR for TRE
                                                                            'max_its': 5000,
                                                                            'width': width,
                                                                            'layers':layers,
                                                                            'mixed': False,
-                                                                           'bs_ratio': 0.01,
+                                                                           'bs_ratio': 0.05,
                                                                            'val_rate': val_rate,
                                                                            'n_sample': 250,
                                                                            'criteria_limit': 0.05,
                                                                            'kill_counter': 10,
                                                                             'kappa':kappa,
                                                                            'qdist': 1,
-                                                                           'qdist_param': {'q_fac': 0.5}
+                                                                           'qdist_param': {'q_fac': 0.5},
+                                                                           'm': 3
                                                                            },
                                                             'estimator': model, #ones, 'NCE'
                                                             'runs': runs,
@@ -73,14 +74,14 @@ if __name__ == '__main__':
     # We can use model of q(X) does not have tractable density, closed form is cool but get q(X) from really funky sampler (crazy stuff).
     # wed 26th Aug 2pm UK time
 
-    beta_XZ_list = [0.25,0.5,0.0,0.01,0.1,]
+    beta_XZ_list = [0.01]
     #0.0,0.001,0.011,0.111
     #0,0.01,0.1,0.25,0.5
     #0.0,0.004,0.02
     n_list = [10000]
     seed_max = 100
     cuda = True
-    nr_of_gpus = 4 #Try running single machine for comparison...
+    nr_of_gpus = 1 #Try running single machine for comparison...
     net_layers = [2]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
     net_width = [32]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     if cuda:
