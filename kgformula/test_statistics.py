@@ -141,7 +141,7 @@ class density_estimator():
         self.kernel_base = gpytorch.kernels.Kernel()
         self.tmp_path = f'./tmp_folder_{self.device}/'
         self.x_q = x_q
-        if x.shape[1]==1:
+        if self.x_q.dim()==1:
             self.x_q = self.x_q.unsqueeze(-1)
 
         if not os.path.exists(self.tmp_path):
@@ -325,7 +325,7 @@ class density_estimator():
         self.model.eval()
         n = X.shape[0]
         self.X_q_test = X_q_test
-        if X.shape[1]==1:
+        if self.X_q_test.dim()==1:
             self.X_q_test = self.X_q_test.unsqueeze(-1)
         with torch.no_grad():
             if self.type == 'NCE':
@@ -504,7 +504,7 @@ class density_estimator():
 
 class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
     def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,seed=1):
-        torch.random.manual_seed(seed)
+        # torch.random.manual_seed(seed)
         self.X = X
         self.Y = Y
         self.perm = perm
@@ -515,6 +515,9 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
         self.device = device
         self.half_mode = half_mode
         self.variant = variant
+        if self.X_q.dim()==1:
+            self.X_q = self.X_q.unsqueeze(-1)
+
         with torch.no_grad():
             self.kernel_X_X_q = gpytorch.kernels.RBFKernel().cuda(device)
             _ls = self.get_median_ls(self.X,self.X_q) #This is critical, figure out way to get the right lr

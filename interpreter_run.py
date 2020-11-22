@@ -6,20 +6,19 @@ import os
 
 def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for d_Z,theta,phi in zip([1, 3, 50], [2.0, 2.0, 8.0],[2.0, 2.0, 2.0]):
+        for d_X,d_Y,d_Z,theta,phi in zip([1,3,3],[1,3,3],[1, 3, 50], [2.0, 2.0, 8.0],[2.0, 2.0, 2.0]):
             for q in [0.5]:
                 for by in [1e-3,1e-2,1e-1,0.1,0.25,0.5]:
                     for i,n in enumerate(n_list):
                         h_int = int(not by == 1)
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
-                        mv_str = f'q=1.0_mv_100/beta_xy=[0, {by}]_d_X=3_d_Y=3_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}/'
-                        uni_str = f'univariate_100_seeds/Q=1.0_gt=H_{h_int}_y_a=0.0_y_b={by}_z_a=0.0_z_b={beta_XZ}_cor=0.5_n=10000_seeds=100_{theta}_{phi}/'
+                        beta_xy = [0.0, by]
+                        data_dir = f"data_5/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
+                        # mv_str = f'q=1.0_mv_100/beta_xy=[0, {by}]_d_X=3_d_Y=3_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}/'
+                        # uni_str = f'univariate_100_seeds/Q=1.0_gt=H_{h_int}_y_a=0.0_y_b={by}_z_a=0.0_z_b={beta_XZ}_cor=0.5_n=10000_seeds=100_{theta}_{phi}/'
                         val_rate = max(1e-2, 10. / n)
                         estimate = True
-                        if d_Z==1:
-                            h_str = uni_str
-                        else:
-                            h_str = mv_str
+                        h_str =data_dir
                         for perm in ['Y']:
                             for mode in ['Q']:
                                 for width in net_width:
@@ -78,9 +77,9 @@ if __name__ == '__main__':
     #0,0.01,0.1,0.25,0.5
     #0.0,0.004,0.02
     n_list = [10000]
-    seed_max = 100
+    seed_max = 5
     cuda = True
-    nr_of_gpus = 4 #Try running single machine for comparison...
+    nr_of_gpus = 1 #Try running single machine for comparison...
     net_layers = [2]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
     net_width = [32]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     if cuda:

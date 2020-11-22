@@ -275,6 +275,7 @@ class x_q_class():
         self.q_fac = q_fac
         self.X = X
         self.theta = self.X.std(dim=0).squeeze()
+        self.qdist = qdist
         if qdist == 1:
             self.q = Normal(self.X.mean(dim=0).squeeze(), self.q_fac * self.theta)
         elif qdist == 2:
@@ -287,6 +288,8 @@ class x_q_class():
         return x_q
 
     def calc_w_q(self,inv_wts):
+        if self.qdist!=1:
+            self.q = Normal(self.X.mean(dim=0).squeeze(), self.q_fac * self.theta)
         q_dens = 0
         for i in range(self.X.shape[1]):
             q_dens += self.q.log_prob(self.X[:, i])
@@ -320,7 +323,7 @@ class simulation_object():
         ks_data = []
         R2_errors = []
         hsic_pval_list = []
-        suffix = f'qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_p={perm}_br={bootstrap_runs}_v={variant}'
+        suffix = f'_qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_p={perm}_br={bootstrap_runs}_v={variant}'
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
         mse_loss = torch.nn.MSELoss()
@@ -329,12 +332,12 @@ class simulation_object():
             reference_metric_list = []
             for i in tqdm.trange(seeds_a,seeds_b):
                 if self.cuda:
-                    X, Y, Z,_,_w,_  = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
+                    X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
-                    X, Y, Z,_,_w,_  = torch.load(f'./{data_dir}/data_seed={i}.pt')
+                    X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt')
                 Xq_class = x_q_class(qdist=qdist,q_fac=q_fac,X=X)
                 X_q = Xq_class.sample(n=X.shape[0])
-                w_q = Xq_class.calc_w_q(w)
+                w_q = Xq_class.calc_w_q(_w)
                 if split_data:
                     n_half = X.shape[0]//2
                     X_train,X_test = split(X,n_half)
