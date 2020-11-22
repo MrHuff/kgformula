@@ -42,6 +42,11 @@ def get_size_power_of_test(level,p_values,h_0=True):
         relative_deviation = (1.-size)/level
     return size,relative_deviation
 
+def get_power(level,p_values):
+    total_pvals = len(p_values)
+    power = sum(p_values<=level)/total_pvals
+    return power
+
 def big_func(h_0_str_mult_2,suffix,h_0,hsic_pval_cutoff,levels_alpha):
     # h_0_str_mult_2 = './ground_truth=H_1_y_a=0.0_y_b=0.5_z_a=0.0_z_b=0.0_cor=0.5_n=100_seeds=100'
     # suffix = 'seeds=100_estimate=True_estimator=classifier_lr=0.001_max_its=5000_width=32_layers=2_mixed=False_bs_ratio=0.1_kappa=10_val_rate=0.1_n_sample=250_criteria_limit=0.05_kill_counter=10_reg_lambda=0.01_alpha=0.5'
@@ -109,31 +114,3 @@ def plot_size_power_all(folder,size_pow_n,n_s,levels_alpha,size_or_power):
         plt.ylabel(f'estimated {size_or_power}')
         plt.savefig(folder+f'/alpha={l}_size_power={size_or_power}.png')
         plt.clf()
-
-if __name__ == '__main__':
-
-
-    suffix = [
-
-        'seeds=100_estimate=True_estimator=classifier_lr=0.001_max_its=5000_width=32_layers=2_mixed=False_bs_ratio=0.1_kappa=10_val_rate=0.1_n_sample=250_criteria_limit=0.05_kill_counter=10_reg_lambda=0.01_alpha=0.5',
-        'seeds=100_estimate=True_estimator=classifier_lr=0.001_max_its=5000_width=32_layers=3_mixed=False_bs_ratio=0.01_kappa=10_val_rate=0.01_n_sample=250_criteria_limit=0.05_kill_counter=10_reg_lambda=0.01_alpha=0.5',
-        'seeds=100_estimate=True_estimator=classifier_lr=0.001_max_its=5000_width=32_layers=4_mixed=False_bs_ratio=0.001_kappa=10_val_rate=0.01_n_sample=250_criteria_limit=0.05_kill_counter=10_reg_lambda=0.01_alpha=0.5'
-        # 'seeds=100_estimate=True_estimator=classifier_lr=0.001_max_its=5000_width=32_layers=2_mixed=False_bs_ratio=0.1_kappa=10_val_rate=0.1_n_sample=250_criteria_limit=0.05_kill_counter=10_reg_lambda=0.01_alpha=0.5',
-        # 'seeds=100_estimate=True_estimator=classifier_lr=0.001_max_its=5000_width=48_layers=3_mixed=False_bs_ratio=0.01_kappa=10_val_rate=0.01_n_sample=250_criteria_limit=0.05_kill_counter=10_reg_lambda=0.01_alpha=0.5',
-        # 'seeds=100_estimate=True_estimator=classifier_lr=0.001_max_its=5000_width=512_layers=4_mixed=False_bs_ratio=0.001_kappa=10_val_rate=0.01_n_sample=250_criteria_limit=0.05_kill_counter=10_reg_lambda=0.01_alpha=0.5'
-        # 'seeds=100_estimate=True_estimator=classifier_lr=0.001_max_its=5000_width=64_layers=4_mixed=False_bs_ratio=0.001_kappa=10_val_rate=0.001_n_sample=250_criteria_limit=0.05_kill_counter=10_reg_lambda=0.01_alpha=0.5'
-    ]
-    h_0 = False
-    hsic_pval_cutoff = [0, 0.05]
-    levels_alpha = [0.01, 0.025, 0.05, 0.1] if h_0 else [1.0]
-    n_s= [100,1000,10000]
-    size_pow_n = []
-
-    for n,suffix in zip(n_s,suffix):
-        base = f'./beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z=3_n={n}_yz=0.5_beta_XZ=0.03333_theta=8_phi=2.83'
-        # base = f'./ground_truth=H_1_y_a=0.0_y_b=0.5_z_a=0.0_z_b=0.5_cor=0.5_n={n}_seeds=100'
-        # base = f'./ground_truth=H_1_y_a=0.0_y_b=0.5_z_a=0.0_z_b=0.0_cor=0.5_n={n}_seeds=100'
-        size_pow_y = big_func(base, suffix, h_0, hsic_pval_cutoff, levels_alpha)
-        size_pow_n.append(size_pow_y)
-    plot_size_power_all(base,size_pow_n,n_s,levels_alpha,'size' if h_0 else 'power')
-

@@ -129,7 +129,7 @@ def get_i_not_j_indices(n):
     return list_np
 
 class density_estimator():
-    def __init__(self, x, z, est_params=None, cuda=False, device=0, type='linear'):
+    def __init__(self, x, z,x_q, est_params=None, cuda=False, device=0, type='linear'):
         self.failed = False
         self.x = x
         self.z = z
@@ -140,15 +140,7 @@ class density_estimator():
         self.type = type
         self.kernel_base = gpytorch.kernels.Kernel()
         self.tmp_path = f'./tmp_folder_{self.device}/'
-        qdist = self.est_params['qdist']
-        qdist_param = self.est_params['qdist_param']
-        if qdist==1:
-            self.q = Normal(self.x.mean(dim=0).squeeze(),qdist_param['q_fac']*self.x.std(dim=0).squeeze())
-        elif qdist==2:
-            pass
-        elif qdist==3:
-            pass
-        self.x_q = self.q.sample(torch.Size([self.n]))
+        self.x_q = x_q
         if x.shape[1]==1:
             self.x_q = self.x_q.unsqueeze(-1)
 
@@ -325,14 +317,14 @@ class density_estimator():
                 break
         return
 
-    def model_eval(self,X,Z):
+    def model_eval(self,X,Z,X_q_test):
         weights = torch.load(self.tmp_path+'best_run.pt')
         best_epoch = weights['epoch']
         print(f'loading best epoch {best_epoch}')
         self.model.load_state_dict(weights['state_dict'])
         self.model.eval()
         n = X.shape[0]
-        self.X_q_test = self.q.sample(torch.Size([n]))
+        self.X_q_test = X_q_test
         if X.shape[1]==1:
             self.X_q_test = self.X_q_test.unsqueeze(-1)
         with torch.no_grad():
@@ -356,8 +348,8 @@ class density_estimator():
                 print('failed')
         return w
 
-    def return_weights(self,X,Z):
-        self.w = self.model_eval(X,Z)
+    def return_weights(self,X,Z,X_Q):
+        self.w = self.model_eval(X,Z,X_Q)
         return self.w.squeeze()
 
     def forward_func_TRE_Q(self,joint_samp, pom_samp, X_p_samp, X_q_samp,loss_func):

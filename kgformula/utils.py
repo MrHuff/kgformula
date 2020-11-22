@@ -173,18 +173,13 @@ def ecdf(data):
     y = np.arange(1, n+1) / n
     return(x,y)
 
-def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0,q_factor=0.5):
+def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0):
     beta = {'y':[y_a,y_b],'z':[z_a,z_b]}
-    if y_b == 0:
-        ground_truth = 'H_0'
-    else:
-        ground_truth = 'H_1'
-    data_dir = f'univariate_{seeds}_seeds/Q={q_factor}_gt={ground_truth}_y_a={y_a}_y_b={y_b}_z_a={z_a}_z_b={z_b}_cor={cor}_n={n}_seeds={seeds}_{theta}_{round(phi,2)}'
+    data_dir = f"data_{seeds}/beta_xy={beta['y']}_d_X={1}_d_Y={1}_d_Z={1}_n={n}_yz={cor}_beta_XZ={z_b}_theta={theta}_phi={round(phi, 2)}"
     if not os.path.exists(f'./{data_dir}/'):
         os.makedirs(f'./{data_dir}/')
     for i in range(seeds):
-        X, Y, Z, w,pden = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi,q_factor=q_factor)
-        X_q,w_q = apply_qdist(inv_wts=w,q_factor=q_factor,theta=theta,X=X)
+        X, Y, Z, w,pden = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi)
         with torch.no_grad():
             if i==0:
                 sig_xxz = theta
@@ -197,14 +192,11 @@ def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0,q_factor=0.5):
                 sanity_pval = hsic_sanity_check_w(w, X, Z, 100)
                 print(f'HSIC X Z: {p_val}')
                 print(f'sanity_check_w : {sanity_pval}')
-                plt.hist(w_q.numpy(),bins=250)
-                plt.savefig(f'./{data_dir}/w_q.png')
-                plt.clf()
                 plt.hist(w.numpy(),bins=250)
                 plt.savefig(f'./{data_dir}/w.png')
                 plt.clf()
 
-        torch.save((X,Y,Z,X_q,w,w_q),f'./{data_dir}/data_seed={i}.pt')
+        torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
 
 def torch_to_csv(path,filename):
     X,Y,Z,X_q,w,w_q,pden,qden= torch.load(path+filename)
@@ -271,6 +263,38 @@ def split(x,n_half):
     else:
         return x[:n_half,:],x[n_half:,:]
 
+class scale_dist():
+    def __init__(self,X,q_fac):
+        self.X = X
+        self.q_fac = q_fac
+    def sample(self,sizes):
+        return self.X[:sizes[0],:]*self.q_fac
+
+class x_q_class():
+    def __init__(self,qdist,q_fac,X):
+        self.q_fac = q_fac
+        self.X = X
+        self.theta = self.X.std(dim=0).squeeze()
+        if qdist == 1:
+            self.q = Normal(self.X.mean(dim=0).squeeze(), self.q_fac * self.theta)
+        elif qdist == 2:
+            self.q  = scale_dist(X = self.X,q_fac=self.q_fac)
+        elif qdist == 3:
+            pass
+
+    def sample(self,n):
+        x_q = self.q.sample(torch.Size([n]))
+        return x_q
+
+    def calc_w_q(self,inv_wts):
+        q_dens = 0
+        for i in range(self.X.shape[1]):
+            q_dens += self.q.log_prob(self.X[:, i])
+        q_dens = q_dens.exp()
+        w_q = inv_wts * q_dens.squeeze()
+        return w_q
+
+
 class simulation_object():
     def __init__(self,args):
         self.args=args
@@ -283,6 +307,8 @@ class simulation_object():
         data_dir = self.args['data_dir']
         seeds_a = self.args['seeds_a']
         seeds_b = self.args['seeds_b']
+        q_fac = self.args['q_factor']
+        qdist = self.args['qdist']
         perm = self.args['perm']
         bootstrap_runs  = self.args['bootstrap_runs']
         est_params = self.args['est_params']
@@ -294,12 +320,7 @@ class simulation_object():
         ks_data = []
         R2_errors = []
         hsic_pval_list = []
-        suffix = f'_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_p={perm}_br={bootstrap_runs}_v={variant}'
-        # if estimate:
-        #     if estimator in ['NCE', 'TRE', 'linear_classifier']:
-        #         for key,val in est_params.items():
-        #             suffix = suffix + f'_{key[0:2]}={val}'
-
+        suffix = f'qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_p={perm}_br={bootstrap_runs}_v={variant}'
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
         mse_loss = torch.nn.MSELoss()
@@ -308,10 +329,12 @@ class simulation_object():
             reference_metric_list = []
             for i in tqdm.trange(seeds_a,seeds_b):
                 if self.cuda:
-                    X, Y, Z,X_q,_w,w_q  = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
+                    X, Y, Z,_,_w,_  = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
-                    X, Y, Z,X_q,_w,w_q  = torch.load(f'./{data_dir}/data_seed={i}.pt')
-
+                    X, Y, Z,_,_w,_  = torch.load(f'./{data_dir}/data_seed={i}.pt')
+                Xq_class = x_q_class(qdist=qdist,q_fac=q_fac,X=X)
+                X_q = Xq_class.sample(n=X.shape[0])
+                w_q = Xq_class.calc_w_q(w)
                 if split_data:
                     n_half = X.shape[0]//2
                     X_train,X_test = split(X,n_half)
@@ -329,9 +352,9 @@ class simulation_object():
                     X_q_test = X_q
 
                 if estimate:
-                    d = density_estimator(x=X_train, z=Z_train, cuda=self.cuda,
+                    d = density_estimator(x=X_train, z=Z_train,x_q=X_q_train, cuda=self.cuda,
                                           est_params=est_params, type=estimator, device=self.device)
-                    w = d.return_weights(X_test,Z_test)
+                    w = d.return_weights(X_test,Z_test,X_q_test)
                     if estimator in ['NCE', 'TRE_Q','NCE_Q', 'linear_classifier']:
                         with torch.no_grad():
                             l = mse_loss(_w, w) / _w.var()

@@ -226,7 +226,7 @@ def sim_XYZ(n, beta, cor, phi=1, theta=1, par2=1,fam=1, fam_x=[1,1], fam_y=1, fa
     #inv_wts multiply by some q_density(X) with smaller variance applied, X=dat[:,0], X_q ~ qden make sure sizes match...
     return dat,inv_wts[keep_index],p_cond_z[keep_index].exp()
 
-def simulate_xyz_univariate(n, beta, cor, phi=2, theta=4, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1,q_factor=0.5):
+def simulate_xyz_univariate(n, beta, cor, phi=2, theta=4, par2=1, fam=1, fam_x=[1, 1], fam_y=1, fam_z=1, oversamp = 10, seed=1):
     torch.manual_seed(seed)
     np.random.seed(seed)
     data,w,p_densities = sim_XYZ(n, beta, cor, phi,theta, par2,fam, fam_x, fam_y, fam_z,oversamp)
@@ -300,7 +300,7 @@ def sim_multivariate_UV(dat,fam,par,d_z):
     dat = torch.cat([dat,tmp],dim=1)
     return dat
 
-def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,fam_x=[1,1],phi=1,theta=1,d_Y=1,d_X=1,q_fac=1.0):
+def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,fam_x=[1,1],phi=1,theta=1,d_Y=1,d_X=1):
     # torch.manual_seed(seed)
     # np.random.seed(seed)
     if oversamp < 1:
@@ -388,18 +388,18 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
     return X,Y,Z,inv_wts
 
-def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=1,phi=2,theta=2,q_fac=1.0):
+def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=1,phi=2,theta=2):
     """
     beta_xz has dim (d_Z+1) list
     beta_xy has dim 2 list
     """
     torch.manual_seed(seed)
     np.random.seed(seed)
-    X,Y,Z,w = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=[1,1], phi=phi,theta=theta,d_X=d_X,d_Y=d_Y,q_fac=q_fac)
+    X,Y,Z,w = sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=[1,1], phi=phi,theta=theta,d_X=d_X,d_Y=d_Y)
     while X.shape[0]<n:
         print(f'Undersampled: {X.shape[0]}')
         oversamp = oversamp*1.01
-        X_new,Y_new,Z_new, w_new= sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=[1,1], phi=phi,theta=theta,d_X=d_X,d_Y=d_Y,q_fac=q_fac)
+        X_new,Y_new,Z_new, w_new= sim_multivariate_XYZ(oversamp, d_Z, n, beta_xy, beta_xz, yz, seed, par2=1, fam_z=1, fam_x=[1,1], phi=phi,theta=theta,d_X=d_X,d_Y=d_Y)
         X = torch.cat([X,X_new],dim=0)
         Y = torch.cat([Y,Y_new],dim=0)
         Z = torch.cat([Z,Z_new],dim=0)

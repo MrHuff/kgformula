@@ -1,9 +1,5 @@
 import pandas as pd
-import torch
-import numpy as np
-from scipy.stats import kstest
-import matplotlib.pyplot as plt
-from post_process_plots import get_size_power_of_test,plot_size_power_deviation
+from kgformula.post_process_plots import *
 
 
 mode='Q'
@@ -40,25 +36,24 @@ def calc_eff(w):
     return (w.sum()**2)/(w**2).sum()
 
 if __name__ == '__main__':
-    for macro_mode in [False,True]:
-        for est in [False]:
-            df_data = []
-            for q in [1.0,0.5,0.25]:
-                for bootstrap_runs in [250]:
-                    for variant in [1]:
-                        for d_Z, theta, phi in zip([1, 3, 50], [2.0, 2.0, 8.0],[2.0, 2.0, 2.0]):  # zip([1],[2.0],[2.0]):
-                            for beta_xz in [0.25, 0.5, 0.01, 0.1, 0.0]:
-                                for perm, nr_of_gpus in zip(['Y'], [4]):
-                                    for nce in ['NCE']:
-                                        row = [perm,beta_xz,q,bootstrap_runs,variant,nce,d_Z]
-                                        mv_str = f'q={q}_mv_100/beta_xy=[0, 0]_d_X=3_d_Y=3_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_xz}_theta={theta}_phi={phi}/'
-                                        mv_str_h1 = f'q={q}_mv_100/beta_xy=[0, 1.0]_d_X=3_d_Y=3_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_xz}_theta={theta}_phi={phi}/'
-                                        uni_str =  f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_{theta}_{phi}/'
-                                        uni_str_h1 =  f'univariate_100_seeds/Q={q}_gt=H_1_y_a=0.0_y_b=1.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_{theta}_{phi}/'
+    for est in [True]:
+        df_data = []
+        for q in [1.0]:
+            for bootstrap_runs in [250]:
+                for variant in [1]:
+                    for d_Z, theta, phi in zip([1, 3, 50], [2.0, 2.0, 8.0],[2.0, 2.0, 2.0]):  # zip([1],[2.0],[2.0]):
+                        for beta_xz in [0.25, 0.5, 0.01, 0.1, 0.0]:
+                            for perm in ['Y']:
+                                for nce in ['NCE']:
+                                    for beta_xy in [1e-3,1e-2,1e-1,0.1,0.25,0.5]:
+                                        row = [perm,beta_xz,q,bootstrap_runs,variant,nce,d_Z,beta_xy]
+                                        h_int = int(not beta_xy==1)
+                                        mv_str = f'q={q}_mv_100/beta_xy=[0, {beta_xy}]_d_X=3_d_Y=3_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_xz}_theta={theta}_phi={phi}/'
+                                        uni_str =  f'univariate_100_seeds/Q={q}_gt=H_{h_int}_y_a=0.0_y_b={beta_xy}_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_{theta}_{phi}/'
                                         if d_Z==1:
-                                            data_path = uni_str_h1
+                                            data_path = uni_str
                                         else:
-                                            data_path = mv_str_h1
+                                            data_path = mv_str
                                             nr_of_gpus=3
 
                                         PATH = data_path + 'layers=2_width=32/'
@@ -68,70 +63,64 @@ if __name__ == '__main__':
                                             w_eff = round(calc_eff(_w).item(),2)
                                             w_q_eff = round(calc_eff(w_q).item(),2)
                                             row.append(w_q_eff)
-                                            if not macro_mode:
-                                                plt.hist(_w,250)
-                                                plt.suptitle(f'true weights w_i, EFF={w_eff}')
-                                                plt.savefig(PATH+f'w_i_{q}_{beta_xz}'+f_name+'.jpg')
-                                                plt.clf()
-                                                plt.hist(w_q,250)
-                                                plt.suptitle(f'true weights w_i^q, EFF={w_q_eff}')
-                                                plt.savefig(PATH+f'w_i^q_{q}_{beta_xz}'+f_name+'.jpg')
-                                                plt.clf()
+                                            plt.hist(_w,250)
+                                            plt.suptitle(f'true weights w_i, EFF={w_eff}')
+                                            plt.savefig(PATH+f'w_i_{q}_{beta_xz}'+f_name+'.jpg')
+                                            plt.clf()
+                                            plt.hist(w_q,250)
+                                            plt.suptitle(f'true weights w_i^q, EFF={w_q_eff}')
+                                            plt.savefig(PATH+f'w_i^q_{q}_{beta_xz}'+f_name+'.jpg')
+                                            plt.clf()
 
-                                        if not macro_mode:
-                                            residual = seed_max % nr_of_gpus
-                                            interval_size = (seed_max - residual) / nr_of_gpus
-                                            suffices = []
-                                                #f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_4_2.0/'
-                                            for i in range(nr_of_gpus):
-                                                if i == nr_of_gpus - 1:
-                                                    a = int(i * interval_size)
-                                                    b = int((i + 1) * interval_size + residual)
-                                                else:
-                                                    a = int(i * interval_size)
-                                                    b = int((i + 1) * interval_size )
-                                                suffices.append(return_file_name(a,b,perm,bootstrap_runs,variant,nce,est))
+                                        for nr_of_gpus in [1,2,3,4,5,6,7,8]:
+                                            try:
+                                                residual = seed_max % nr_of_gpus
+                                                interval_size = (seed_max - residual) / nr_of_gpus
+                                                suffices = []
+                                                    #f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_4_2.0/'
+                                                for i in range(nr_of_gpus):
+                                                    if i == nr_of_gpus - 1:
+                                                        a = int(i * interval_size)
+                                                        b = int((i + 1) * interval_size + residual)
+                                                    else:
+                                                        a = int(i * interval_size)
+                                                        b = int((i + 1) * interval_size )
+                                                    suffices.append(return_file_name(a,b,perm,bootstrap_runs,variant,nce,est))
 
-                                            if p_val:
-                                                pval_dist = concat_data(PATH,prefix_pval,suffices)
-                                                stat, pval = kstest(pval_dist, 'uniform')
-                                                ks_test = pd.DataFrame([[stat,pval]],columns=['ks-stat','ks-pval'])
-                                                ks_test.to_csv(PATH+'fdf_'+f_name+'.csv')
-                                                plt.hist(pval_dist,25)
-                                                plt.savefig(PATH+f'pval_{q}_{beta_xz}'+f_name+'.jpg')
-                                                plt.clf()
-                                                row.append(pval)
+                                                if p_val:
+                                                    pval_dist = concat_data(PATH,prefix_pval,suffices)
+                                                    stat, pval = kstest(pval_dist, 'uniform')
+                                                    ks_test = pd.DataFrame([[stat,pval]],columns=['ks-stat','ks-pval'])
+                                                    ks_test.to_csv(PATH+'fdf_'+f_name+'.csv')
+                                                    plt.hist(pval_dist,25)
+                                                    plt.savefig(PATH+f'pval_{q}_{beta_xz}'+f_name+'.jpg')
+                                                    plt.clf()
+                                                    row.append(pval)
 
-                                            if ref_val:
-                                                ref_vals = concat_data(PATH,prefix_pval,suffices)
-                                                plt.hist(ref_vals,25)
-                                                plt.savefig(PATH+f'refval_{q}_{beta_xz}'+f_name+'.jpg')
-                                                plt.clf()
+                                                if ref_val:
+                                                    ref_vals = concat_data(PATH,prefix_pval,suffices)
+                                                    plt.hist(ref_vals,25)
+                                                    plt.savefig(PATH+f'refval_{q}_{beta_xz}'+f_name+'.jpg')
+                                                    plt.clf()
 
-                                            if size:
-                                                pval_dist = concat_data(PATH,prefix_pval,suffices)
-                                                levels = [1e-3,1e-2,0.05,1e-1]
-                                                str_mode ='size' if h_0 else 'power'
-                                                results_size = []
-                                                results_deviation = []
-                                                for alpha in levels:
-                                                    size,relative_deviation = get_size_power_of_test(alpha,pval_dist,h_0=h_0)
-                                                    results_size.append(size)
-                                                    results_deviation.append(relative_deviation)
-                                                plot_size_power_deviation(
-                                                    levels,
-                                                    results_size,
-                                                    results_deviation,
-                                                    str_mode,
-                                                    PATH + str_mode+f'_{q}_{beta_xz}_' + f_name + '.jpg'
-                                                )
-                                            df_data.append(row)
-                                        else:
-                                            df_pval = pd.read_csv(PATH+f'fdf_m={mode}_s=0_100_e={est}_est={nce}_sp={est}_p={perm}_br={bootstrap_runs}_v={variant}.csv')
-                                            row.append(df_pval['ks-pval'].values.item())
+                                                if size:
+                                                    pval_dist = concat_data(PATH,prefix_pval,suffices)
+                                                    levels = [1e-3,1e-2,0.05,1e-1]
+                                                    str_mode ='size' if h_0 else 'power'
+                                                    results_size = []
+                                                    for alpha in levels:
+                                                        power = get_power(alpha,pval_dist)
+                                                        results_size.append(power)
+                                                    row = row + results_size
+                                                df_data.append(row)
+                                                print('success')
+                                                break
+                                            except Exception as e:
+                                                print(e)
                                         df_data.append(row)
-
-            df = pd.DataFrame(df_data,columns=['perm','$/beta_{xz}$','$c_q$','# perm','vari','nce_style','d_Z' ,'EFF w_q','KS pval'])
-            df = df.sort_values('KS pval',ascending=False)
-            df.to_csv(f'post_process.csv')
-            print(df.to_latex())
+        columns  = ['perm','$/beta_{xz}$','$c_q$','# perm','vari','nce_style','d_Z','beta_xy' ,'EFF w_q','KS pval'] + [f'power_alpha={el}' for el in levels ]
+        df = pd.DataFrame(df_data,columns=columns)
+        df = df.drop_duplicates()
+        df = df.sort_values('KS pval',ascending=False)
+        df.to_csv(f'post_process.csv')
+        print(df.to_latex(escape=True))
