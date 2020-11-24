@@ -7,6 +7,8 @@ from scipy.stats import kstest
 from matplotlib import pyplot as plt
 import numpy as np
 from kgformula.utils import ecdf
+import matplotlib as mpl
+mpl.use('Agg')
 def generate_sensible_variables(d_Z,b_Z,const=0):
     if d_Z==1:
         variables = [b_Z]
@@ -24,13 +26,13 @@ if __name__ == '__main__': #This is incorrectly generated...
     yz = 0.5
     d_X = 3 #Try 2 and 1
     d_Y = 3 #Try 1
-    for d_Z, theta,phi in zip([3],[2.0],[2.0]): #50,3
+    for d_Z, theta,phi in zip([3,50],[2.0,2.0],[2.0,8.0]): #50,3
         for b_z in [0.25,0.5,0.0,0.01,0.1,]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z= (d_Z**2)*b_z
             beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
             #Try different beta configs, i.e.
             for n in [10000]:
-                for beta_xy in [[0,0.5],[0,0.25],[0,0.1],[0,1e-2],[0,1e-3]]:
+                for beta_xy in [[0,0.0],[0,0.5],[0,0.25],[0,0.1],[0,1e-2],[0,1e-3]]:
                     data_dir = f"data_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z / (d_Z ** 2), 3)}_theta={theta}_phi={round(phi, 2)}"
                     if not os.path.exists(f'./{data_dir}/'):
                         os.makedirs(f'./{data_dir}/')

@@ -12,7 +12,8 @@ from matplotlib.colors import ListedColormap
 import matplotlib.tri as mtri
 import time
 from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
-
+import matplotlib as mpl
+mpl.use('Agg')
 def EFF_calc(w):
     return w.sum()**2/(w**2).sum()
 

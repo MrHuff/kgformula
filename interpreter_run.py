@@ -6,19 +6,23 @@ import os
 
 def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for d_X,d_Y,d_Z,theta,phi in zip([1,3,3],[1,3,3],[1, 3, 50], [2.0, 2.0, 8.0],[2.0, 2.0, 2.0]):
+        for d_X,d_Y,d_Z,theta,phi in zip([1,3],[1,3], [2.0, 2.0],[2.0, 2.0]):
             for q in [0.5]:
-                for by in [1e-3,1e-2,1e-1,0.1,0.25,0.5]:
+                for by in [0.0,1e-3,1e-2,1e-1,0.1,0.25,0.5]:
                     for i,n in enumerate(n_list):
                         h_int = int(not by == 1)
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
                         beta_xy = [0.0, by]
-                        data_dir = f"data_5/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
+                        data_dir = f"data_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
                         # mv_str = f'q=1.0_mv_100/beta_xy=[0, {by}]_d_X=3_d_Y=3_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}/'
                         # uni_str = f'univariate_100_seeds/Q=1.0_gt=H_{h_int}_y_a=0.0_y_b={by}_z_a=0.0_z_b={beta_XZ}_cor=0.5_n=10000_seeds=100_{theta}_{phi}/'
                         val_rate = max(1e-2, 10. / n)
-                        estimate = True
+                        estimate = False
                         h_str =data_dir
+                        if estimate:
+                            models_to_run = zip(['real_TRE_Q','TRE_Q','NCE_Q','NCE'],[1,1,10,10])
+                        else:
+                            models_to_run = zip(['real_weights'],[1])
                         for perm in ['Y']:
                             for mode in ['Q']:
                                 for width in net_width:
@@ -26,7 +30,7 @@ def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=
                                         job_dir = f'layers={layers}_width={width}'
                                         for h in [h_str]:
                                             for variant in [1]:
-                                                for model,kappa in  zip(['real_TRE_Q','TRE_Q','NCE_Q'],[1,1,10]):#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
+                                                for model,kappa in models_to_run:#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
                                                     for br in [250]:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                                                         args = {
                                                             'device': device,
@@ -42,7 +46,7 @@ def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=
                                                             'perm': perm,
                                                             'variant': variant,
                                                             'q_factor':q,
-                                                            'qdist': 1,
+                                                            'qdist': 2,
                                                             'est_params': {'lr': 1e-6, #use really small LR for TRE
                                                                            'max_its': 5000,
                                                                            'width': width,
@@ -77,10 +81,10 @@ if __name__ == '__main__':
     #0,0.01,0.1,0.25,0.5
     #0.0,0.004,0.02
     n_list = [10000]
-    seed_max = 5
+    seed_max = 100
     cuda = True
-    nr_of_gpus = 1 #Try running single machine for comparison...
-    net_layers = [2]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
+    nr_of_gpus = 3 #Try running single machine for comparison...
+    net_layers = [3]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
     net_width = [32]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     if cuda:
         if nr_of_gpus>1:
