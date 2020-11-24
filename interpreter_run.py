@@ -6,13 +6,18 @@ import os
 
 def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
-        for d_X,d_Y,d_Z,theta,phi in zip([1,3],[1,3], [2.0, 2.0],[2.0, 2.0]):
+        for d_X,d_Y,d_Z,theta,phi in zip([1,3],[1,3],[1,3], [2.0,2.0],[2.0,2.0]):
             for q in [0.5]:
-                for by in [0.0,1e-3,1e-2,1e-1,0.1,0.25,0.5]:
+                for by in [1e-3,1e-2,1e-1,0.1,0.25,0.5,0.0]:
                     for i,n in enumerate(n_list):
                         h_int = int(not by == 1)
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
-                        beta_xy = [0.0, by]
+                        ba = 0.0
+                        if d_X==1 and by==0.0:
+                            by = 0
+                        if d_X==3:
+                            ba=0
+                        beta_xy = [ba, by]
                         data_dir = f"data_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
                         # mv_str = f'q=1.0_mv_100/beta_xy=[0, {by}]_d_X=3_d_Y=3_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}/'
                         # uni_str = f'univariate_100_seeds/Q=1.0_gt=H_{h_int}_y_a=0.0_y_b={by}_z_a=0.0_z_b={beta_XZ}_cor=0.5_n=10000_seeds=100_{theta}_{phi}/'
@@ -76,7 +81,7 @@ if __name__ == '__main__':
     # We can use model of q(X) does not have tractable density, closed form is cool but get q(X) from really funky sampler (crazy stuff).
     # wed 26th Aug 2pm UK time
 
-    beta_XZ_list = [0.25, 0.5, 0.01, 0.1, 0.0]
+    beta_XZ_list = [0.25,0.0, 0.5, 0.01, 0.1]
     #0.0,0.001,0.011,0.111
     #0,0.01,0.1,0.25,0.5
     #0.0,0.004,0.02

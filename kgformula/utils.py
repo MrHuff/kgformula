@@ -291,9 +291,7 @@ class x_q_class():
     def calc_w_q(self,inv_wts):
         if self.qdist!=1:
             self.q = Normal(self.X.mean(dim=0).squeeze(), self.q_fac * self.theta)
-        q_dens = 0
-        for i in range(self.X.shape[1]):
-            q_dens += self.q.log_prob(self.X[:, i])
+        q_dens = self.q.log_prob(self.X).sum(dim=1)
         q_dens = q_dens.exp()
         w_q = inv_wts * q_dens.squeeze()
         return w_q
