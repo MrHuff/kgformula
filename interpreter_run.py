@@ -7,10 +7,9 @@ import os
 def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=1,seed_max=1000):
     for beta_XZ in beta_XZ_list:
         for d_X,d_Y,d_Z,theta,phi in zip([1,3],[1,3],[1,3], [2.0,2.0],[2.0,2.0]):
-            for q in [0.5]:
-                for by in [1e-3,1e-2,1e-1,0.1,0.25,0.5,0.0]:
+            for q in [1.0,0.5,0.25]:
+                for by in [0.1,0.25,0.5,0.0]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                     for i,n in enumerate(n_list):
-                        h_int = int(not by == 1)
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
                         ba = 0.0
                         if d_X==1 and by==0.0:
@@ -22,7 +21,7 @@ def run_jobs(seed_a,seed_b,beta_XZ_list,n_list,device,net_width,net_layers,runs=
                         # mv_str = f'q=1.0_mv_100/beta_xy=[0, {by}]_d_X=3_d_Y=3_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}/'
                         # uni_str = f'univariate_100_seeds/Q=1.0_gt=H_{h_int}_y_a=0.0_y_b={by}_z_a=0.0_z_b={beta_XZ}_cor=0.5_n=10000_seeds=100_{theta}_{phi}/'
                         val_rate = max(1e-2, 10. / n)
-                        estimate = False
+                        estimate = True
                         h_str =data_dir
                         if estimate:
                             models_to_run = zip(['real_TRE_Q','TRE_Q','NCE_Q','NCE'],[1,1,10,10])
@@ -81,14 +80,14 @@ if __name__ == '__main__':
     # We can use model of q(X) does not have tractable density, closed form is cool but get q(X) from really funky sampler (crazy stuff).
     # wed 26th Aug 2pm UK time
 
-    beta_XZ_list = [0.25,0.0, 0.5, 0.01, 0.1]
+    beta_XZ_list = [0.25,0.0, 0.5] #Robin new suggest: [0.25,0.5,0.0]
     #0.0,0.001,0.011,0.111
     #0,0.01,0.1,0.25,0.5
     #0.0,0.004,0.02
     n_list = [10000]
     seed_max = 100
     cuda = True
-    nr_of_gpus = 3 #Try running single machine for comparison...
+    nr_of_gpus = 4 #Try running single machine for comparison...
     net_layers = [3]#['T']#[2,4] #[2,3] # #[1,2,3] #[1,2,3]
     net_width = [32]#['T']#[128,256,1024,2048] #[32,512] # "['T']#[32,128,512] #[8,16,32]
     if cuda:

@@ -363,7 +363,7 @@ class simulation_object():
                         R2_errors.append(1-l.item())
                         hsic_pval_list.append(d.hsic_pval)
                     X_q_test = d.X_q_test
-                    if j == 0:
+                    if i == 0:
                         torch.save(w,f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
                 else:
                     if mode=='Q':
