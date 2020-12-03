@@ -311,18 +311,17 @@ class simulation_object():
         seeds_b = self.args['seeds_b']
         q_fac = self.args['q_factor']
         qdist = self.args['qdist']
-        perm = self.args['perm']
         bootstrap_runs  = self.args['bootstrap_runs']
         est_params = self.args['est_params']
         estimator = self.args['estimator']
         runs = self.args['runs']
         mode = self.args['mode']
         split_data = self.args['split']
-        variant = self.args['variant']
+        required_n = self.args['n']
         ks_data = []
         R2_errors = []
         hsic_pval_list = []
-        suffix = f'_qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_p={perm}_br={bootstrap_runs}_v={variant}'
+        suffix = f'_qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
         mse_loss = torch.nn.MSELoss()
@@ -334,6 +333,8 @@ class simulation_object():
                     X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
                 else:
                     X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+
+                X, Y, Z, _w = X[:required_n,:],Y[:required_n,:],Z[:required_n,:],_w[:required_n]
                 Xq_class = x_q_class(qdist=qdist,q_fac=q_fac,X=X)
                 X_q = Xq_class.sample(n=X.shape[0])
                 w_q = Xq_class.calc_w_q(_w)
@@ -355,7 +356,7 @@ class simulation_object():
 
                 if estimate:
                     d = density_estimator(x=X_train, z=Z_train,x_q=X_q_train, cuda=self.cuda,
-                                          est_params=est_params, type=estimator, device=self.device)
+                                          est_params=est_params, type=estimator, device=self.device,secret_indx=self.args['unique_job_idx'])
                     w = d.return_weights(X_test,Z_test,X_q_test)
                     if estimator in ['NCE', 'TRE_Q','NCE_Q', 'linear_classifier']:
                         with torch.no_grad():
@@ -373,9 +374,7 @@ class simulation_object():
                     elif mode=='regular':
                         w = _w
                 if mode=='Q':
-                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm=perm,seed=i)
-                elif mode=='new' :
-                    c = weighted_HSIC(X=X_test, Y=Y_test, w=w, device=self.device,perm=perm,variant=variant)
+                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm='Y',seed=i)
                 reference_metric = c.calculate_weighted_statistic().cpu().item()
                 list_of_metrics = []
                 for i in range(bootstrap_runs):

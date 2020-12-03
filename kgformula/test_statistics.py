@@ -129,7 +129,7 @@ def get_i_not_j_indices(n):
     return list_np
 
 class density_estimator():
-    def __init__(self, x, z,x_q, est_params=None, cuda=False, device=0, type='linear'):
+    def __init__(self, x, z,x_q, est_params=None, cuda=False, device=0, type='linear',secret_indx=0):
         self.failed = False
         self.x = x
         self.z = z
@@ -139,7 +139,7 @@ class density_estimator():
         self.est_params = est_params
         self.type = type
         self.kernel_base = gpytorch.kernels.Kernel()
-        self.tmp_path = f'./tmp_folder_{self.device}/'
+        self.tmp_path = f'./tmp_folder_{secret_indx}/'
         self.x_q = x_q
         if self.x_q.dim()==1:
             self.x_q = self.x_q.unsqueeze(-1)
