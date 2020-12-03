@@ -321,6 +321,7 @@ class simulation_object():
         ks_data = []
         R2_errors = []
         hsic_pval_list = []
+        estimator_list = ['NCE', 'TRE_Q','NCE_Q', 'real_TRE_Q']
         suffix = f'_qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
@@ -358,7 +359,7 @@ class simulation_object():
                     d = density_estimator(x=X_train, z=Z_train,x_q=X_q_train, cuda=self.cuda,
                                           est_params=est_params, type=estimator, device=self.device,secret_indx=self.args['unique_job_idx'])
                     w = d.return_weights(X_test,Z_test,X_q_test)
-                    if estimator in ['NCE', 'TRE_Q','NCE_Q', 'linear_classifier']:
+                    if estimator in estimator_list:
                         with torch.no_grad():
                             l = mse_loss(_w, w) / _w.var()
                         R2_errors.append(1-l.item())
@@ -398,7 +399,7 @@ class simulation_object():
             ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
             print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
             ks_data.append([ks_stat, p_val_ks_test])
-            if estimator in ['NCE','TRE','linear_classifier'] and estimate:
+            if estimator in estimator_list and estimate:
                 hsic_pval_list = torch.tensor(hsic_pval_list).float()
                 r2_tensor = torch.tensor(R2_errors).float()
                 torch.save(hsic_pval_list,
