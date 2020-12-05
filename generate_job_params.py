@@ -10,8 +10,7 @@ def load_obj(name,folder):
     with open(f'{folder}' + name, 'rb') as f:
         return pickle.load(f)
 
-def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False):
-    directory = 'job_dir/'
+def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/'):
     if not os.path.exists(directory):
         os.makedirs(directory)
     else:
@@ -20,7 +19,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
     counter = 0
     for n in n_list:
         for beta_XZ in [0.25,0.0, 0.5]:
-            for d_X,d_Y,d_Z,theta,phi in zip([1,3,3],[1,3,3],[1,3,3], [2.0,2.0,8.0],[2.0,2.0,8.0]):
+            for d_X,d_Y,d_Z,theta,phi in zip([1,3,3],[1,3,3],[1,3,50], [2.0,2.0,2.0],[2.0,2.0,8.0]):
                 for q in [1.0,0.5,0.25]:
                     for by in [0.1,0.25,0.5,0.0]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
@@ -81,4 +80,4 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                 counter+=1
 
 if __name__ == '__main__':
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True)
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='job_dir/')
