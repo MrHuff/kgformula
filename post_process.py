@@ -54,7 +54,7 @@ def get_w_plot(data_path,est,w_est_path,args,pre_path,suffix):
         c=0
 
 
-    eff_est = calc_eff(w_est)
+    eff_est = calc_ess(w_est)
     return eff_est,c
 
 def get_hist(ref_vals,name,pre_path,suffix):
@@ -95,11 +95,10 @@ def data_dir_extract(data_dir):
     return str_list
 
 
-def calc_eff(w):
+def calc_ess(w):
     return (w.sum()**2)/(w**2).sum()
 
-if __name__ == '__main__':
-    base_dir = "job_dir_real"
+def generate_csv_file(base_dir):
     jobs = os.listdir(base_dir)
     jobs.sort()
     df_data = []
@@ -121,6 +120,7 @@ if __name__ == '__main__':
             ks_test = pd.DataFrame([[stat,pval]],columns=['ks-stat','ks-pval'])
             get_hist(pval_dist,name='pvalhsit_',pre_path=pre_path,suffix=suffix)
             row.append(pval)
+            row.append(stat)
             custom_metric = pval_dist.mean()-0.5
             row.append(custom_metric)
 
@@ -137,9 +137,13 @@ if __name__ == '__main__':
             print('success')
         except Exception as e:
             print(e)
-    columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy' ,'EFF est w','true_w_q_corr','KS pval','uniform-dev'] + [f'p_a={el}' for el in levels]
+    columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy' ,'EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
     df = pd.DataFrame(df_data,columns=columns)
     df = df.drop_duplicates()
     df = df.sort_values('KS pval',ascending=False)
-    df.to_csv(f'post_process_real.csv')
+    df.to_csv(f'{base_dir}.csv')
     print(df.to_latex(escape=True))
+
+if __name__ == '__main__':
+    generate_csv_file('job_dir')
+    generate_csv_file('job_dir_real')
