@@ -6,7 +6,6 @@ from scipy.stats import kstest
 from matplotlib import pyplot as plt
 import matplotlib as mpl
 from kgformula.utils import x_q_class
-from post_process import calc_ess
 mpl.use('Agg')
 def generate_sensible_variables(d_Z,b_Z,const=0):
     if d_Z==1:
@@ -18,6 +17,8 @@ def generate_sensible_variables(d_Z,b_Z,const=0):
         variables[0:bucket_size]= [a for i in range(0,bucket_size)]
         variables[bucket_size:2*bucket_size]=[a/10. for i in range(bucket_size,2*bucket_size)]
     return [const] + variables
+def calc_ess(w):
+    return (w.sum()**2)/(w**2).sum()
 
 
 if __name__ == '__main__': #This is incorrectly generated...

@@ -18,8 +18,8 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
         os.makedirs(directory)
     counter = 0
     for n in n_list:
-        for beta_XZ in [0.25,0.0, 0.5]:
-            for d_X,d_Y,d_Z,theta,phi in zip([1,3,3],[1,3,3],[1,3,50], [2.0,2.0,2.0],[2.0,2.0,8.0]):
+        for d_X, d_Y, d_Z, theta, phi in zip([1, 3, 3], [1, 3, 3], [1, 3, 50], [2.0, 8.0, 64.0], [2.0, 2.0, 2.0]):
+            for beta_XZ in [0.25,0.0, 0.5]:
                 for q in [1.0,0.5,0.25]:
                     for by in [0.1,0.25,0.5,0.0]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'

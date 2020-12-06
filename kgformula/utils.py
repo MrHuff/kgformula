@@ -13,6 +13,7 @@ import matplotlib.tri as mtri
 import time
 from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
 import matplotlib as mpl
+import os
 mpl.use('Agg')
 def EFF_calc(w):
     return w.sum()**2/(w**2).sum()
@@ -326,6 +327,10 @@ class simulation_object():
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
         mse_loss = torch.nn.MSELoss()
+
+        if os.path.exists(f'./{data_dir}/{job_dir}/df{suffix}.csv'):
+            return
+
         for j in range(runs):
             p_value_list = []
             reference_metric_list = []
