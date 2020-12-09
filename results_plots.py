@@ -8,10 +8,12 @@ import shutil
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-def make_collage(directory,ld_str,nrow,ncol):
+def make_collage(directory,ld_str,nrow,ncol,est=False):
     fig, ax= plt.subplots(nrows=nrow,ncols=ncol,figsize=(20,20))
 
     for i,n in enumerate([1000, 5000, 10000]):
+        if est:
+            n=n//2
         for j,d_Z in enumerate([1, 3, 50]):
             try:
                 load_str = f"{directory}{ld_str}_n={n}_dz={d_Z}.png"
@@ -23,6 +25,21 @@ def make_collage(directory,ld_str,nrow,ncol):
     plt.tight_layout()
     fig.savefig(f"{directory}collage_{ld_str}.png")
 
+def make_collage_power(directory,ld_str,nrow,ncol,p_lims):
+    for p_lim in p_lims:
+        fig, ax= plt.subplots(nrows=nrow,ncols=ncol,figsize=(20,20))
+        for i,beta_xy in enumerate([0.1,0.25,0.5]):
+            for j,d_Z in enumerate([1, 3, 50]):
+                try:
+                    load_str = f"{directory}{ld_str}_{d_Z}_{beta_xy}_{p_lim}.png"
+                    img = mpimg.imread(load_str)
+                    ax[i,j].imshow(img)
+                    ax[i, j].axis('off')
+                except Exception as e:
+                    print(e)
+        plt.tight_layout()
+        fig.savefig(f"{directory}collage_{ld_str}_{p_lim}.png")
+        plt.clf()
 def scatter_plot_KS_null_vs_corr(df_name,directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -43,7 +60,7 @@ def scatter_plot_KS_null_vs_corr(df_name,directory):
                 plt.suptitle(f"est_weights: dz={d_Z} n={n//2}")
                 plt.xlabel('corr')
                 plt.ylabel('KS stat')
-                plt.savefig(f"{directory}corr_vs_KS_n={n}_dz={d_Z}.png")
+                plt.savefig(f"{directory}corr_vs_KS_n={n//2}_dz={d_Z}.png")
                 plt.clf()
             except Exception as e:
                 print(e)
@@ -114,12 +131,51 @@ def scatter_plots_EFF_KSpval_null(df_name,directory,est=False):
                 print("prolly doesn't exist, yet!")
                 plt.clf()
 
+def power_plots(df_name,directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    else:
+        shutil.rmtree(directory)
+        os.makedirs(directory)
+    df = pd.read_csv(df_name, index_col=0)
+    for d_Z in [1, 3, 50]:
+        df_sub = df[df['d_Z'] == d_Z]
+
+        for beta_xy in [0.1,0.25,0.5]:
+            df_sub_2 = df_sub[df_sub['beta_xy'] == beta_xy]
+            for p_lim in ['p_a=0.001', 'p_a=0.01', 'p_a=0.05', 'p_a=0.1']:
+                try:
+                    alpha = float(p_lim.strip('p_a='))
+                    y = df_sub_2[p_lim]
+                    x = df_sub_2['n']
+                    c = df_sub_2['$/beta_{xz}$'].values
+                    scatter = plt.scatter(x, y, c=c)
+                    plt.hlines(alpha, 0, 10000)
+                    plt.suptitle(f"power: dz={d_Z} beta_xy={beta_xy} alpha={p_lim}")
+                    legend1 = plt.legend(*scatter.legend_elements(),
+                                         loc="lower right", title="beta_xz")
+                    plt.xlabel('n')
+                    plt.ylabel('power')
+                    plt.savefig(f"{directory}n_vs_power_{d_Z}_{beta_xy}_{p_lim}.png")
+                    plt.clf()
+                except Exception as e:
+                    print(e)
+                    print("prolly doesn't exist, yet!")
+                    plt.clf()
+
 if __name__ == '__main__':
+    power_plots('job_dir_real.csv','true_weights_power/')
+    power_plots('job_dir.csv','est_weights_power/')
+    make_collage_power('true_weights_power/','n_vs_power',3,3,['p_a=0.001', 'p_a=0.01', 'p_a=0.05', 'p_a=0.1'])
+    make_collage_power('est_weights_power/','n_vs_power',3,3,['p_a=0.001', 'p_a=0.01', 'p_a=0.05', 'p_a=0.1'])
     scatter_plots_EFF_KS_null('job_dir_real.csv','true_weights/')
     scatter_plots_EFF_KSpval_null('job_dir_real.csv','true_weights/')
     scatter_plots_EFF_KS_null('job_dir.csv','estimated_weights/',True)
+    scatter_plots_EFF_KSpval_null('job_dir.csv','estimated_weights/',True)
     scatter_plot_KS_null_vs_corr('job_dir.csv','corr_vs_KS_null/')
     make_collage('true_weights/','ESS_vs_KS',3,3)
     make_collage('true_weights/','ESS_vs_KSpval',3,3)
-    make_collage('corr_vs_KS_null/','corr_vs_KS',3,3)
+    make_collage('estimated_weights/','ESS_vs_KS',3,3,True)
+    make_collage('estimated_weights/','ESS_vs_KSpval',3,3,True)
+    make_collage('corr_vs_KS_null/','corr_vs_KS',3,3,True)
 
