@@ -347,6 +347,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     if beta_xz.dim()<2:
         beta_xz = beta_xz.unsqueeze(-1)
     _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence (n x (1+d)) matmul (1+d x 1)
+
     # Look at X[:,0] - _x_mu[:,0]. Run KS test on that quantity for distribution with correct variance.
     # repeat for each "column". i.e. X[:,i] - _x_mu[:,i].
     # Think each of X and something to regress on Z. Think of the target distribtion. on what you expect post rejection sampling.
@@ -354,7 +355,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     if fam_x[1] == 4:
         mu = expit(_x_mu)
         d = Beta(concentration1=theta * mu, concentration0=theta * (1 - mu))
-    elif fam_x[1] == 1:
+    elif fam_x[1] == 1: #Signal to noise ratio
         mu = _x_mu
         d = Normal(loc=mu, scale=theta) #ks -test uses this target distribution. KS-test on  0 centered d with scale phi...
         #might wanna consider d_X d's for more beta_XZ's
@@ -375,7 +376,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     wts = wts.exp()
     p_z = p_z.exp()
     if fam_x[0] == 1 and fam_x[1] == 1:
-        max_ratio_points = mu * theta * phi / (theta * phi - theta)
+        max_ratio_points = mu  * phi / ( phi - 1.)
         normalization = (d_X*d.log_prob(max_ratio_points) - d_X*qden(max_ratio_points)).exp()
     else:
         print("Warning: No analytical solution exist for maximum density ratio using defautl sample max")

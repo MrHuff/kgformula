@@ -176,9 +176,9 @@ class density_estimator():
                                  ).to(self.x.device)
             self.train_MI_TRE(dataset)
         elif type == 'random_uniform':
-            self.w = torch.rand(*(self.x.shape[0],1)).cuda(self.device)
+            self.w = torch.rand(*(self.x.shape[0],1)).squeeze().cuda(self.device)
         elif type == 'ones':
-            self.w = torch.ones(*(self.x.shape[0],1)).cuda(self.device)
+            self.w = torch.ones(*(self.x.shape[0],1)).squeeze().cuda(self.device)
 
     def create_classification_data(self):
         self.kappa = self.est_params['kappa']

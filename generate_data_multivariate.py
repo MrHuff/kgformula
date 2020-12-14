@@ -24,11 +24,19 @@ def calc_ess(w):
 if __name__ == '__main__': #This is incorrectly generated...
     seeds = 100
     yz = 0.5
-    for d_X,d_Y,d_Z, theta,phi in zip( [3,3],[3,3],[3,50],[8.0,64.0],[2.0,2.0]): #50,3
-        for b_z in [0.5,0.25,0.0]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
+    # for d_X,d_Y,d_Z, theta,phi in zip( [3,3,3],[3,3,3],[3,15,50],[4.0,8.0,16.0],[2.0,2.0,2.0]): #50,3
+    for d_X,d_Y,d_Z, theta,phi in zip( [3],[3],[3],[3.0],[2.0]): #50,3
+        for b_z in [0.5]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z= (d_Z**2)*b_z
             beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
+            s_var = sum([el**2 for el in beta_xz])
+            snr = s_var/theta**2
+            print(snr)
             #Try different beta configs, i.e.
+            # Smaller theta, but not too small. Acceptable SNR...
+            # Somewhere in between for d_Z
+            # High SNR for X to Z makes it harder
+            # "perfect" balance between X and Z make it just hard enough so TRE and NCE_Q can get the job done.
             for n in [10000]:
                 for beta_xy in [[0,0.0],[0,0.5],[0,0.25],[0,0.1]]:
                     data_dir = f"data_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z / (d_Z ** 2), 3)}_theta={theta}_phi={round(phi, 2)}"
@@ -58,7 +66,7 @@ if __name__ == '__main__': #This is incorrectly generated...
                             plt.savefig(f'./{data_dir}/w.png')
                             plt.clf()
                             ess_list = []
-                            for q in [1.0,0.5,0.25]:
+                            for q in [1.0,0.75,0.5]:
                                 X_class = x_q_class(qdist=2, q_fac=q, X=X)
                                 w = X_class.calc_w_q(inv_w)
                                 ess = calc_ess(w)
