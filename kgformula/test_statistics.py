@@ -175,9 +175,9 @@ class density_estimator():
                                  m = self.est_params['m']
                                  ).to(self.x.device)
             self.train_MI_TRE(dataset)
-        elif type == 'random_uniform':
+        elif self.type == 'random_uniform':
             self.w = torch.rand(*(self.x.shape[0],1)).squeeze().cuda(self.device)
-        elif type == 'ones':
+        elif self.type == 'ones':
             self.w = torch.ones(*(self.x.shape[0],1)).squeeze().cuda(self.device)
 
     def create_classification_data(self):
@@ -318,6 +318,12 @@ class density_estimator():
         return
 
     def model_eval(self,X,Z,X_q_test):
+        if self.type in ['ones','random_uniform']:
+            self.X_q_test = X_q_test
+            if self.X_q_test.dim() == 1:
+                self.X_q_test = self.X_q_test.unsqueeze(-1)
+            return self.w
+
         weights = torch.load(self.tmp_path+'best_run.pt')
         best_epoch = weights['epoch']
         print(f'loading best epoch {best_epoch}')

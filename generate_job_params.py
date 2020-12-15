@@ -18,15 +18,17 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
         os.makedirs(directory)
     counter = 0
     for n in n_list:
-        for d_X, d_Y, d_Z, theta, phi in zip([3, 3, 3], [3, 3, 3], [3, 15, 50], [3.0, 8.0, 16.0],
-                                             [ 2.0, 2.0, 2.0]):  # 50,3
+        for d_X, d_Y, d_Z, theta, phi in zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],
+                                             [2.0, 2.0, 2.0, 2.0]):  # 50,3
             for beta_XZ in [0.5]:
                 for q in [1.0,0.75,0.5]:
                     for by in [0.1,0.25,0.5,0.0]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
                         ba = 0
-                        # if d_X==1 and by==0.0:
-                        #     by = 0
+                        if d_X==1:
+                            ba = 0.0
+                            if by==0.0:
+                                by=0
                         # if d_X==3:
                         #     ba=0
                         beta_xy = [ba, by]
@@ -36,7 +38,8 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                         val_rate = 0.1
                         h_str =data_dir
                         if estimate:
-                            models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
+                            # models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
+                            models_to_run = zip(['random_uniform','ones'],[1,1])
                         else:
                             models_to_run = zip(['real_weights'],[1])
                         for mode in ['Q']:
@@ -81,5 +84,5 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                 counter+=1
 
 if __name__ == '__main__':
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='job_dir_harder_3/')
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='job_dir_harder_real_3/')
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='job_ablation/')
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='job_dir_harder_real_3/')
