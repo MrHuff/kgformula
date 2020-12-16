@@ -170,8 +170,8 @@ def generate_plots(csv,fold_name,nrow,ncol):
 
 
 if __name__ == '__main__':
-    generate_plots('job_dir_harder_real_3.csv',"harder_true_weights_3",3,3)
-    generate_plots('job_dir_harder_3.csv',"harder_est_weights_3",3,3)
+    # generate_plots('job_dir_harder_real_3.csv',"harder_true_weights_3",3,3)
+    generate_plots('job_ablation.csv',"ablation",3,3)
     # power_plots('job_dir_real.csv','true_weights_power/')
     # power_plots('job_dir.csv','est_weights_power/')
     # make_collage_power('true_weights_power/','n_vs_power',3,3,['p_a=0.001', 'p_a=0.01', 'p_a=0.05', 'p_a=0.1'])

@@ -148,5 +148,5 @@ if __name__ == '__main__':
     # generate_csv_file('job_dir')
     # generate_csv_file('job_dir_real')
     # generate_csv_file('job_dir_harder_real')
-    generate_csv_file('job_dir_harder_real_3')
-    generate_csv_file('job_dir_harder_3')
+    # generate_csv_file('job_dir_harder_real_3')
+    generate_csv_file('job_ablation')

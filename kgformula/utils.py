@@ -147,7 +147,7 @@ def get_density_plot(w,X,Z,ax,title=''):
     plt.clf()
 
 def get_w_estimate_and_plot(X,Z,est_params,estimator,device):
-    d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator,  device=device)
+    d = density_estimator(x=X, z=Z, cuda=True, est_params=est_params, type=estimator,  device=device,secret_indx=1337,x_q=X)
     return d
 
 def load_csv(path, d_Z,device):

@@ -39,7 +39,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                         h_str =data_dir
                         if estimate:
                             # models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
-                            models_to_run = zip(['random_uniform','ones'],[1,1])
+                            models_to_run = zip(['rulsif'],[1,1])
                         else:
                             models_to_run = zip(['real_weights'],[1])
                         for mode in ['Q']:
@@ -84,5 +84,5 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                 counter+=1
 
 if __name__ == '__main__':
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='job_ablation/')
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='job_rulsif/')
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='job_dir_harder_real_3/')

@@ -5,6 +5,7 @@ import numpy as np
 from torch.utils.data import Dataset
 from math import log
 from torch.distributions import *
+from gpytorch.kernels import Kernel,RBFKernel
 
 class Swish(torch.autograd.Function):
     @staticmethod
@@ -296,6 +297,47 @@ class dataset_MI_TRE(Dataset):
         data_out = [torch.cat([self.X_pom, self.Z_pom], dim=1)]
         data_out.append(torch.cat([ self.X_joint, self.Z_joint],dim=1))
         return data_out
+
+class dataset_rulsif(Dataset):
+    def __init__(self,X,X_q,Z):
+        self.x_joint,self.x_pom = torch.chunk(X,2)
+        self.z_joint,self.z_pom = torch.chunk(Z,2)
+        self.x_q_joint,self.x_q_pom = torch.chunk(X_q,2)
+        self.joint = torch.cat([self.x_joint,self.z_joint],dim=1)
+        self.pom_xz = torch.cat([self.x_pom[torch.randperm(self.x_pom.shape[0]),:],self.z_pom],dim=1)
+        self.pom_x_q_z = torch.cat([self.x_q_pom[torch.randperm(self.x_q_pom.shape[0]),:],self.z_pom],dim=1)
+
+    def get_data(self):
+        return self.pom_xz,self.joint,self.pom_x_q_z
+
+class rulsif(torch.nn.Module):
+    def __init__(self,joint,pom,lambda_reg=1e-3,alpha=0.1):
+        super(rulsif, self).__init__()
+        self.joint  = joint
+        self.alpha=alpha
+        self.centers = pom
+        self.nx = joint.shape[0]
+        self.ny = pom.shape[0]
+        ls = torch.median(torch.cdist(pom,pom))
+        self.ker = RBFKernel()
+        self.ker.lengthscale = ls
+        self.register_buffer('diag',torch.eye(self.nx)*lambda_reg)
+
+    def calc_theta(self):
+        with torch.no_grad():
+            phi_x = self.ker(self.centers,self.centers).evaluate()
+            phi_y = self.ker(self.joint,self.centers).evaluate()
+            H = self.alpha * (phi_x.t()@phi_x / self.nx) + (1 - self.alpha) * (phi_y.t() @phi_y / self.ny)
+            h = phi_x.mean(dim=0,keepdim=True).t()
+            self.theta,_ = torch.solve(h,H+self.diag)
+            self.theta[self.theta<0]=0
+
+    def get_w(self,X, Z,X_q_test):
+        data = torch.cat([X,Z],dim=1)
+        with torch.no_grad():
+            alpha_density_ratio = self.ker(data, self.centers)@self.theta
+        return alpha_density_ratio
+
 
 
 class dataset_MI_TRE_Q(Dataset):

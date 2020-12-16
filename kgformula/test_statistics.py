@@ -175,6 +175,9 @@ class density_estimator():
                                  m = self.est_params['m']
                                  ).to(self.x.device)
             self.train_MI_TRE(dataset)
+        elif self.type=='rulsif':
+            self.train_rulsif(dataset)
+
         elif self.type == 'random_uniform':
             self.w = torch.rand(*(self.x.shape[0],1)).squeeze().cuda(self.device)
         elif self.type == 'ones':
@@ -217,28 +220,8 @@ class density_estimator():
                                             bs=self.est_params['bs_ratio'],
                                             val_rate=self.est_params['val_rate'],)
 
-
-    def retrain(self,x,z):
-        self.x = x
-        self.z = z
-        if self.type == 'linear_classifier':
-            dataset = self.create_classification_data()
-            self.w = self.train_classifier(dataset)
-        elif self.type == 'NCE':
-            dataset = self.create_classification_data()
-            self.w = self.train_classifier(dataset)
-        elif self.type == 'NCE_Q':
-            dataset = self.create_classification_data()
-            self.w = self.train_classifier(dataset)
-        elif self.type == 'TRE_Q':
-            dataset = self.create_classification_data()
-            self.w = self.train_TRE_Q(dataset)
-        elif self.type=='real_TRE':
-            dataset = self.create_classification_data()
-            self.w = self.train_MI_TRE(dataset)
-        elif self.type=='real_TRE_Q':
-            dataset = self.create_classification_data()
-            self.w = self.train_MI_TRE(dataset)
+        elif self.type=='rulsif':
+            return dataset_rulsif(self.x,self.x_q,self.z,)
 
     def calc_loss(self,loss_func,pt,pf,target):
         if loss_func.__class__.__name__=='standard_bce':
@@ -252,6 +235,11 @@ class density_estimator():
         pred_T = self.model(dat_T)
         pred_F = self.model(dat_F)
         return pred_T,pred_F
+
+    def train_rulsif(self,dataset):
+        pom,joint,pom_q = dataset.get_data()
+        self.model = rulsif(pom=pom,joint=joint).to(self.device)
+        self.model.calc_theta()
 
 
     def train_classifier(self,dataset):
@@ -317,41 +305,51 @@ class density_estimator():
                 break
         return
 
+    def load_best_model(self):
+        weights = torch.load(self.tmp_path + 'best_run.pt')
+        best_epoch = weights['epoch']
+        print(f'loading best epoch {best_epoch}')
+        self.model.load_state_dict(weights['state_dict'])
+        self.model.eval()
+
     def model_eval(self,X,Z,X_q_test):
         if self.type in ['ones','random_uniform']:
             self.X_q_test = X_q_test
             if self.X_q_test.dim() == 1:
                 self.X_q_test = self.X_q_test.unsqueeze(-1)
             return self.w
-
-        weights = torch.load(self.tmp_path+'best_run.pt')
-        best_epoch = weights['epoch']
-        print(f'loading best epoch {best_epoch}')
-        self.model.load_state_dict(weights['state_dict'])
-        self.model.eval()
         n = X.shape[0]
         self.X_q_test = X_q_test
         if self.X_q_test.dim()==1:
             self.X_q_test = self.X_q_test.unsqueeze(-1)
         with torch.no_grad():
             if self.type == 'NCE':
+                self.load_best_model()
                 w = self.model.get_w(X, Z,[])
             elif self.type=='NCE_Q':
+                self.load_best_model()
                 w = self.model.get_w(X, Z,[])
             elif self.type == 'TRE_Q':
+                self.load_best_model()
                 w = self.model.get_w(X, Z, self.X_q_test)
             elif self.type == 'real_TRE':
+                self.load_best_model()
                 w = self.model.get_w(X, Z, self.X_q_test)
             elif self.type == 'real_TRE_Q':
+                self.load_best_model()
                 w = self.model.get_w(X, Z, self.X_q_test)
-            _w = w.cpu().squeeze().numpy()
-            idx_HSIC = np.random.choice(np.arange(n),n,p=_w / _w.sum())
-            p_val = hsic_test(X[idx_HSIC, :], Z[idx_HSIC, :], self.est_params['n_sample'])
-            print(f'HSIC_pval : {p_val}')
-            self.hsic_pval = p_val
-            if p_val < self.est_params['criteria_limit']:
-                self.failed = True
-                print('failed')
+            elif self.type == 'rulsif':
+                w = self.model.get_w(X, Z, self.X_q_test)
+
+
+        _w = w.cpu().squeeze().numpy()
+        idx_HSIC = np.random.choice(np.arange(n),n,p=_w / _w.sum())
+        p_val = hsic_test(X[idx_HSIC, :], Z[idx_HSIC, :], self.est_params['n_sample'])
+        print(f'HSIC_pval : {p_val}')
+        self.hsic_pval = p_val
+        if p_val < self.est_params['criteria_limit']:
+            self.failed = True
+            print('failed')
         return w
 
     def return_weights(self,X,Z,X_Q):
