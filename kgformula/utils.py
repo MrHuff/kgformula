@@ -322,7 +322,7 @@ class simulation_object():
         ks_data = []
         R2_errors = []
         hsic_pval_list = []
-        estimator_list = ['NCE', 'TRE_Q','NCE_Q', 'real_TRE_Q']
+        estimator_list = ['NCE', 'TRE_Q','NCE_Q', 'real_TRE_Q','rulsif']
         suffix = f'_qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')

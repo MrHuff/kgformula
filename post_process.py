@@ -4,6 +4,9 @@ from kgformula.utils import x_q_class
 import os
 from generate_job_params import *
 import ast
+from generate_data_multivariate import generate_sensible_variables,calc_snr
+from pylab import *
+rc('text', usetex=True)
 
 def reject_outliers(data, m = 2.):
     d = np.abs(data - np.median(data))
@@ -57,9 +60,29 @@ def get_w_plot(data_path,est,w_est_path,args,pre_path,suffix):
     eff_est = calc_ess(w_est)
     return eff_est,c
 
-def get_hist(ref_vals,name,pre_path,suffix):
+def get_hist(ref_vals,name,pre_path,suffix,args,snr,ess,bxy,ks_val):
     try:
+        n = args['n']
+        ess = round(ess,2)
+        snr = round(snr,3)
+        ks_val = round(ks_val,3)
+        if bxy==0:
+            title = f'n: {n} ESS: {ess} SNR: {snr} KS-pval: {ks_val}'
+        else:
+            title = f'n: {n} ESS: {ess} SNR: {snr}'
+
+        if args['estimator']=='real_TRE_Q':
+            estimator = 'TRE-Q'
+        elif  args['estimator']=='NCE_Q':
+            estimator  ='NCE-Q'
+        else:
+            estimator = args['estimator'].replace('_',' ')
+
+        xlabl =  r'Estimator: {est} $\quad \beta_{XY}={bxy}$'.format(est=estimator,bxy=bxy,XY='{XY}')
         plt.hist(ref_vals, 25)
+        plt.suptitle(title)
+        plt.xlabel(xlabl)
+        # plt.show()
         plt.savefig(pre_path+f'{name}_{suffix}.jpg')
         plt.clf()
     except Exception as e:
@@ -98,55 +121,89 @@ def data_dir_extract(data_dir):
 def calc_ess(w):
     return (w.sum()**2)/(w**2).sum()
 
+def calculate_one_row(j,base_dir):
+    levels = [1e-3, 1e-2, 0.05, 1e-1]
+    theta_dict = {1: 2.0, 3: 3.0, 15: 8.0, 50: 16.0}
+    job_params = load_obj(j, folder=f'{base_dir}/')
+    p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate = return_filenames(job_params)
+    pre_path = f'./{data_dir}/{job_dir}/'
+    dat_param = data_dir_extract(data_dir)
+    bxz = dat_param[-1]
+    d_Z = dat_param[3]
+    b_z = (d_Z ** 2) * bxz
+    b_z = generate_sensible_variables(d_Z, b_z, 0)
+    snr_xz = calc_snr(b_z, theta_dict[d_Z])
+    bxy = dat_param[0][1]
+    row = [job_params['n'], bxz, job_params['q_factor'], job_params['qdist'], job_params['est_params']['n_sample'],
+           job_params['estimator'], d_Z, bxy, snr_xz]
+
+    try:
+        eff_est, corr_coeff = get_w_plot(data_path=data_dir, est=estimate, w_est_path=w_file, args=job_params,
+                                         pre_path=pre_path, suffix=suffix)
+        row.append(eff_est.item())
+        row.append(corr_coeff)
+        pval_dist = torch.load(p_val_file).numpy()
+        stat, pval = kstest(pval_dist, 'uniform')
+        ks_test = pd.DataFrame([[stat, pval]], columns=['ks-stat', 'ks-pval'])
+        get_hist(pval_dist, name='pvalhsit_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
+                 ess=eff_est.item(), bxy=bxy, ks_val=pval)
+        row.append(pval)
+        row.append(stat)
+        custom_metric = pval_dist.mean() - 0.5
+        row.append(custom_metric)
+
+        ref_vals = torch.load(ref_val).numpy()
+        get_hist(ref_vals, name='rvalhsit_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
+                 ess=eff_est.item(), bxy=bxy, ks_val=pval)
+        h_0 = dat_param[0][1] == 0
+        results_size = []
+        for alpha in levels:
+            power = get_power(alpha, pval_dist)
+            results_size.append(power)
+        row = row + results_size
+        print('success')
+        return row
+    except Exception as e:
+        print(e)
+
+
 def generate_csv_file(base_dir):
     jobs = os.listdir(base_dir)
     jobs.sort()
     df_data = []
-    levels = [1e-3, 1e-2, 0.05, 1e-1]
-
     for j in jobs:
-        job_params = load_obj(j, folder=f'{base_dir}/')
-        p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate =  return_filenames(job_params)
-        pre_path = f'./{data_dir}/{job_dir}/'
-        dat_param = data_dir_extract(data_dir)
-        row = [job_params['n'],dat_param[-1],job_params['q_factor'],job_params['qdist'],job_params['est_params']['n_sample'],job_params['estimator'],dat_param[3],dat_param[0][1]]
-
-        try:
-            eff_est,corr_coeff = get_w_plot(data_path=data_dir,est=estimate,w_est_path=w_file,args=job_params,pre_path=pre_path,suffix=suffix)
-            row.append(eff_est.item())
-            row.append(corr_coeff)
-            pval_dist = torch.load(p_val_file).numpy()
-            stat, pval = kstest(pval_dist, 'uniform')
-            ks_test = pd.DataFrame([[stat,pval]],columns=['ks-stat','ks-pval'])
-            get_hist(pval_dist,name='pvalhsit_',pre_path=pre_path,suffix=suffix)
-            row.append(pval)
-            row.append(stat)
-            custom_metric = pval_dist.mean()-0.5
-            row.append(custom_metric)
-
-            ref_vals = torch.load(ref_val).numpy()
-            get_hist(ref_vals,name='rvalhsit_',pre_path=pre_path,suffix=suffix)
-            h_0 = dat_param[0][1] == 0
-            str_mode ='size' if h_0 else 'power'
-            results_size = []
-            for alpha in levels:
-                power = get_power(alpha,pval_dist)
-                results_size.append(power)
-            row = row + results_size
-            df_data.append(row)
-            print('success')
-        except Exception as e:
-            print(e)
-    columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy' ,'EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
+        row = calculate_one_row(j,base_dir)
+        df_data.append(row)
+    levels = [1e-3, 1e-2, 0.05, 1e-1]
+    columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy','snr_xz','EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
     df = pd.DataFrame(df_data,columns=columns)
     df = df.drop_duplicates()
     df = df.sort_values('KS pval',ascending=False)
     df.to_csv(f'{base_dir}.csv')
     print(df.to_latex(escape=True))
 
+def multi_run_wrapper(args):
+   return calculate_one_row(*args)
+
+def generate_csv_file_parfor(base_dir):
+    import multiprocessing as mp
+    pool = mp.Pool(mp.cpu_count())
+    jobs = os.listdir(base_dir)
+    jobs.sort()
+    df_data = pool.map(multi_run_wrapper, [(row,base_dir) for row in jobs])
+    # df_data = [pool.apply(calculate_one_row, args=(row, base_dir)) for row in jobs]
+    pool.close()
+    levels = [1e-3, 1e-2, 0.05, 1e-1]
+    columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy','snr_xz','EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
+    df = pd.DataFrame(df_data,columns=columns)
+    df = df.drop_duplicates()
+    df = df.sort_values('KS pval',ascending=False)
+    df.to_csv(f'{base_dir}.csv')
+
 if __name__ == '__main__':
-    # generate_csv_file('job_dir')
-    # generate_csv_file('job_dir_real')
-    # generate_csv_file('job_dir_harder_real')
-    # generate_csv_file('job_dir_harder_real_3')
-    generate_csv_file('job_ablation')
+    generate_csv_file_parfor('job_dir_real')
+    generate_csv_file('job_dir_harder_real')
+    generate_csv_file('job_dir_harder_real_2')
+    generate_csv_file('job_dir_harder_real_3')
+    # generate_csv_file('job_dir_harder_3')
+    # generate_csv_file('job_rulsif')

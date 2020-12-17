@@ -20,6 +20,11 @@ def generate_sensible_variables(d_Z,b_Z,const=0):
 def calc_ess(w):
     return (w.sum()**2)/(w**2).sum()
 
+def calc_snr(beta_xz,theta):
+    s_var = sum([el ** 2 for el in beta_xz])
+    snr = s_var / theta ** 2
+    print(snr)
+    return snr
 
 if __name__ == '__main__': #This is incorrectly generated...
     seeds = 100
@@ -29,9 +34,7 @@ if __name__ == '__main__': #This is incorrectly generated...
         for b_z in [0.5]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z= (d_Z**2)*b_z
             beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
-            s_var = sum([el**2 for el in beta_xz])
-            snr = s_var/theta**2
-            print(snr)
+            snr = calc_snr(beta_xz,theta)
             #Try different beta configs, i.e.
             # Smaller theta, but not too small. Acceptable SNR...
             # Somewhere in between for d_Z
