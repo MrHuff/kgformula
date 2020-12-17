@@ -41,7 +41,7 @@ def calibration_and_power_plots(directory,csv_file,beta_XZ,est,beta_xy): #Should
             c = df_sub_2['$c_q$'].values
             scatter = plt.scatter(x, y, c=c,alpha=0.25)
             plt.hlines(0.05, 0, 10000)
-            plt.suptitle(r"Estimator: {est} $\quad d_Z$={dz} $\quad\beta_{XY}={bxy}$".format(dz=d_Z,est=estimator,XY={'XY'},bxy=beta_xy))
+            plt.suptitle(r"Estimator: {est} $\quad d_Z$={dz} $\quad\beta_{XY}={bxy}$".format(dz=d_Z,est=estimator,XY='{XY}',bxy=beta_xy))
             legend1 = plt.legend(*scatter.legend_elements(),title=r'$c_q$')
             plt.xlabel('n')
             plt.ylabel(ylab)
@@ -54,8 +54,8 @@ def calibration_and_power_plots(directory,csv_file,beta_XZ,est,beta_xy): #Should
 
 
 if __name__ == '__main__':
-    configs = ['real_weights','NCE_Q','NCE_Q','rulsif']
-    l_a = ['job_rulsif.csv','job_dir_harder_real.csv','job_dir_harder_real_2.csv','job_dir_harder_real_3.csv','job_dir_harder_2.csv','job_dir_harder_3.csv']
+    configs = ['real_weights','NCE_Q','real_TRE_Q','rulsif']
+    l_a = ['job_rulsif.csv','job_dir_harder_real.csv','job_dir_real.csv','job_dir.csv','job_dir_harder.csv','job_dir_harder_real_2.csv','job_dir_harder_real_3.csv','job_dir_harder_2.csv','job_dir_harder_3.csv']
     for file in l_a:
         dir = file.split('.')[0]+'_plots'
         if not os.path.exists(dir):

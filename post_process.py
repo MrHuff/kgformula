@@ -125,19 +125,19 @@ def calculate_one_row(j,base_dir):
     levels = [1e-3, 1e-2, 0.05, 1e-1]
     theta_dict = {1: 2.0, 3: 3.0, 15: 8.0, 50: 16.0}
     job_params = load_obj(j, folder=f'{base_dir}/')
-    p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate = return_filenames(job_params)
-    pre_path = f'./{data_dir}/{job_dir}/'
-    dat_param = data_dir_extract(data_dir)
-    bxz = dat_param[-1]
-    d_Z = dat_param[3]
-    b_z = (d_Z ** 2) * bxz
-    b_z = generate_sensible_variables(d_Z, b_z, 0)
-    snr_xz = calc_snr(b_z, theta_dict[d_Z])
-    bxy = dat_param[0][1]
-    row = [job_params['n'], bxz, job_params['q_factor'], job_params['qdist'], job_params['est_params']['n_sample'],
-           job_params['estimator'], d_Z, bxy, snr_xz]
-
     try:
+        p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate = return_filenames(job_params)
+        pre_path = f'./{data_dir}/{job_dir}/'
+        dat_param = data_dir_extract(data_dir)
+        bxz = dat_param[-1]
+        d_Z = dat_param[3]
+        b_z = (d_Z ** 2) * bxz
+        b_z = generate_sensible_variables(d_Z, b_z, 0)
+        snr_xz = calc_snr(b_z, theta_dict[d_Z])
+        bxy = dat_param[0][1]
+        row = [job_params['n'], bxz, job_params['q_factor'], job_params['qdist'], job_params['est_params']['n_sample'],
+               job_params['estimator'], d_Z, bxy, snr_xz]
+
         eff_est, corr_coeff = get_w_plot(data_path=data_dir, est=estimate, w_est_path=w_file, args=job_params,
                                          pre_path=pre_path, suffix=suffix)
         row.append(eff_est.item())
@@ -191,6 +191,7 @@ def generate_csv_file_parfor(base_dir):
     jobs = os.listdir(base_dir)
     jobs.sort()
     df_data = pool.map(multi_run_wrapper, [(row,base_dir) for row in jobs])
+    df_data = list(filter(None, df_data))
     # df_data = [pool.apply(calculate_one_row, args=(row, base_dir)) for row in jobs]
     pool.close()
     levels = [1e-3, 1e-2, 0.05, 1e-1]
@@ -201,9 +202,11 @@ def generate_csv_file_parfor(base_dir):
     df.to_csv(f'{base_dir}.csv')
 
 if __name__ == '__main__':
+    # generate_csv_file_parfor('job_dir_real')
+    # generate_csv_file('job_dir_harder_real')
+    # generate_csv_file('job_dir_harder_real_2')
+    # generate_csv_file('job_dir_harder_real_3')
+    # generate_csv_file_parfor('job_dir_harder')
+    # generate_csv_file_parfor('job_dir')
     generate_csv_file_parfor('job_dir_real')
-    generate_csv_file('job_dir_harder_real')
-    generate_csv_file('job_dir_harder_real_2')
-    generate_csv_file('job_dir_harder_real_3')
-    # generate_csv_file('job_dir_harder_3')
     # generate_csv_file('job_rulsif')
