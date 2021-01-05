@@ -303,6 +303,46 @@ class simulation_object():
         self.args=args
         self.cuda = self.args['cuda']
         self.device = self.args['device']
+        self.validation_chunks = 10
+        self.validation_over_samp = 10
+
+    def validity_sanity_check(self,X_test,Y_test,Z_test,density_est):
+        x_chunk = torch.chunk(X_test,self.validation_chunks)
+        y_chunk = torch.chunk(Y_test,self.validation_chunks)
+        z_chunk = torch.chunk(Z_test,self.validation_chunks)
+        p_values = []
+        for x,y,z in zip(x_chunk,y_chunk,z_chunk):
+            x_keep,y_keep,z_keep,w_keep = self.validity_bootstrap_and_rejection_sampling(x,y,z,density_est)
+            x_q_c = x_q_class(qdist=self.qdist, q_fac=self.q_fac, X=x_keep)
+            x_q_keep = x_q_c.sample(x_keep.shape[0])
+            p,ref_val = self.perm_Q_test(x_keep,y_keep,x_q_keep,w_keep,i=np.random.randint(0,1000))
+            p_values.append(p)
+
+
+    def perm_Q_test(self,X,Y,X_q,w,i):
+        c = Q_weighted_HSIC(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i)
+        reference_metric = c.calculate_weighted_statistic().cpu().item()
+        list_of_metrics = []
+        for i in range(self.bootstrap_runs):
+            list_of_metrics.append(c.permutation_calculate_weighted_statistic().cpu().item())
+        array = torch.tensor(
+            list_of_metrics).float()  # seem to be extremely sensitive to lengthscale, i.e. could be sign flipper
+        p = calculate_pval(array, reference_metric)  # comparison is fucking weird
+        return p,reference_metric
+    def validity_bootstrap_and_rejection_sampling(self,x,y,z,density_est):
+        self.base_n = y.shape[0]
+        index_list = list(range(self.base_n))
+        bootstrap_samples = torch.tensor(np.random.choice(index_list,size=(self.base_n*self.validation_over_samp),replace=True)).long()
+        bootstrap_y,bootstrap_z = y[bootstrap_samples,:],z[bootstrap_samples,:]
+        bootstrap_x = x.repeat_interleave(self.validation_over_samp)
+        with torch.no_grad():
+            w = density_est.return_weights(bootstrap_x, bootstrap_z, [])
+        w_rej = 1./w
+        w_rej = w_rej/w_rej.max()
+        r = torch.rand_like(w)
+        keep = r<=w_rej
+        x_keep,y_keep,z_keep,w_keep = bootstrap_x[keep,:],bootstrap_y[keep,:],bootstrap_z[keep,:],w[keep,:]
+        return x_keep,y_keep,z_keep,w_keep
 
     def run(self):
         estimate = self.args['estimate']
@@ -310,9 +350,9 @@ class simulation_object():
         data_dir = self.args['data_dir']
         seeds_a = self.args['seeds_a']
         seeds_b = self.args['seeds_b']
-        q_fac = self.args['q_factor']
-        qdist = self.args['qdist']
-        bootstrap_runs  = self.args['bootstrap_runs']
+        self.q_fac = self.args['q_factor']
+        self.qdist = self.args['qdist']
+        self.bootstrap_runs  = self.args['bootstrap_runs']
         est_params = self.args['est_params']
         estimator = self.args['estimator']
         runs = self.args['runs']
@@ -323,7 +363,7 @@ class simulation_object():
         R2_errors = []
         hsic_pval_list = []
         estimator_list = ['NCE', 'TRE_Q','NCE_Q', 'real_TRE_Q','rulsif']
-        suffix = f'_qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
+        suffix = f'_qf={self.q_fac}_qd={self.qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
         mse_loss = torch.nn.MSELoss()
@@ -341,7 +381,7 @@ class simulation_object():
                     X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt')
 
                 X, Y, Z, _w = X[:required_n,:],Y[:required_n,:],Z[:required_n,:],_w[:required_n]
-                Xq_class = x_q_class(qdist=qdist,q_fac=q_fac,X=X)
+                Xq_class = x_q_class(qdist=self.qdist,q_fac=self.q_fac,X=X)
                 X_q = Xq_class.sample(n=X.shape[0])
                 w_q = Xq_class.calc_w_q(_w)
                 if split_data:
@@ -373,27 +413,16 @@ class simulation_object():
                     if i == 0:
                         torch.save(w,f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
                 else:
-                    if mode=='Q':
-                        w = w_q
-                    elif mode=='new':
-                        w = _w
-                    elif mode=='regular':
-                        w = _w
-                if mode=='Q':
-                    c = Q_weighted_HSIC(X=X_test, Y=Y_test, X_q=X_q_test, w=w, cuda=self.cuda, device=self.device,perm='Y',seed=i)
-                reference_metric = c.calculate_weighted_statistic().cpu().item()
-                list_of_metrics = []
-                for i in range(bootstrap_runs):
-                    list_of_metrics.append(c.permutation_calculate_weighted_statistic().cpu().item())
-                array = torch.tensor(list_of_metrics).float() #seem to be extremely sensitive to lengthscale, i.e. could be sign flipper
-                p = calculate_pval(array, reference_metric) #comparison is fucking weird
+                    w = w_q
+
+                p,reference_metric = self.perm_Q_test(X_test,Y_test,X_q_test,w,i)
                 p_value_list.append(p)
                 reference_metric_list.append(reference_metric)
                 if estimate:
-                    del c,d,X,Y,Z,_w,w,X_q
+                    del d,X,Y,Z,_w,w,X_q
 
                 else:
-                    del c,X,Y,Z,_w,w,X_q
+                    del X,Y,Z,_w,w,X_q
 
             p_value_array = torch.tensor(p_value_list)
             torch.save(p_value_array,

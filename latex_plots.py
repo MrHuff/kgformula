@@ -39,7 +39,7 @@ def calibration_and_power_plots(directory,csv_file,beta_XZ,est,beta_xy): #Should
 
             x = df_sub_2['n']
             c = df_sub_2['$c_q$'].values
-            scatter = plt.scatter(x, y, c=c,alpha=0.25)
+            scatter = plt.scatter(x, y, c=c,alpha=0.5,marker='*',cmap='Set1')
             plt.hlines(0.05, 0, 10000)
             plt.suptitle(r"Estimator: {est} $\quad d_Z$={dz} $\quad\beta_{XY}={bxy}$".format(dz=d_Z,est=estimator,XY='{XY}',bxy=beta_xy))
             legend1 = plt.legend(*scatter.legend_elements(),title=r'$c_q$')
