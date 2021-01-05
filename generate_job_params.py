@@ -23,7 +23,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                 #                              [2.0, 2.0, 2.0, 2.0]):  # 50,3
             for beta_XZ in [0.5]:
                 for q in [0.75]:
-                    for by in [0.1,0.25,0.5,0.0]: #Robin suggest: [0.0, 0.1,0.25,0.5]
+                    for by in [0.5,0.0]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
                         ba = 0
                         if d_X==1:
@@ -46,7 +46,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                         for mode in ['Q']:
                             for width in net_width:
                                 for layers in net_layers:
-                                    job_dir = f'layers={layers}_width={width}'
+                                    job_dir = f'test_validity_layers={layers}_width={width}'
                                     for h in [h_str]:
                                         for model,kappa in models_to_run:#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
                                             for br in [250]:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
@@ -64,12 +64,12 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                     'q_factor':q,
                                                     'qdist': 2,
                                                     'n':n,
-                                                    'est_params': {'lr': 1e-6, #use really small LR for TRE
+                                                    'est_params': {'lr': 1e-5, #use really small LR for TRE
                                                                    'max_its': 5000,
                                                                    'width': width,
                                                                    'layers':layers,
                                                                    'mixed': False,
-                                                                   'bs_ratio': 0.05,
+                                                                   'bs_ratio': 0.01,
                                                                    'val_rate': val_rate,
                                                                    'n_sample': 250,
                                                                    'criteria_limit': 0.05,
@@ -85,5 +85,5 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                 counter+=1
 
 if __name__ == '__main__':
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='job_univariate/')
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='job_univariate_real/')
+    generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='job_univariate_test_validate/')
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='job_univariate_real/')

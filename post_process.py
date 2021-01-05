@@ -144,7 +144,6 @@ def calculate_one_row(j,base_dir):
         row.append(corr_coeff)
         pval_dist = torch.load(p_val_file).numpy()
         stat, pval = kstest(pval_dist, 'uniform')
-        ks_test = pd.DataFrame([[stat, pval]], columns=['ks-stat', 'ks-pval'])
         get_hist(pval_dist, name='pvalhsit_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
                  ess=eff_est.item(), bxy=bxy, ks_val=pval)
         row.append(pval)

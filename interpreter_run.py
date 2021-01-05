@@ -1,8 +1,4 @@
 from kgformula.utils import simulation_object
-import GPUtil
-import torch.multiprocessing as mp
-import math
-import os
 import argparse
 from generate_job_params import *
 parser = argparse.ArgumentParser()

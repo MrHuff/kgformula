@@ -1,6 +1,5 @@
 import argparse
 from matplotlib import pyplot as plt
-from scipy.stats import kstest
 import tqdm
 import pandas as pd
 import torch
@@ -8,6 +7,7 @@ from kgformula.test_statistics import *
 from kgformula.fixed_do_samplers import simulate_xyz_univariate,apply_qdist
 import os
 import numpy as np
+from scipy.stats import kstest
 from matplotlib.colors import ListedColormap
 import matplotlib.tri as mtri
 import time
@@ -317,8 +317,7 @@ class simulation_object():
             x_q_keep = x_q_c.sample(x_keep.shape[0])
             p,ref_val = self.perm_Q_test(x_keep,y_keep,x_q_keep,w_keep,i=np.random.randint(0,1000))
             p_values.append(p)
-
-
+        return p_values
     def perm_Q_test(self,X,Y,X_q,w,i):
         c = Q_weighted_HSIC(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i)
         reference_metric = c.calculate_weighted_statistic().cpu().item()
@@ -334,14 +333,14 @@ class simulation_object():
         index_list = list(range(self.base_n))
         bootstrap_samples = torch.tensor(np.random.choice(index_list,size=(self.base_n*self.validation_over_samp),replace=True)).long()
         bootstrap_y,bootstrap_z = y[bootstrap_samples,:],z[bootstrap_samples,:]
-        bootstrap_x = x.repeat_interleave(self.validation_over_samp)
+        bootstrap_x = x.repeat_interleave(self.validation_over_samp).unsqueeze(-1)
         with torch.no_grad():
-            w = density_est.return_weights(bootstrap_x, bootstrap_z, [])
+            w = density_est.return_weights(bootstrap_x, bootstrap_z, bootstrap_x)
         w_rej = 1./w
         w_rej = w_rej/w_rej.max()
         r = torch.rand_like(w)
         keep = r<=w_rej
-        x_keep,y_keep,z_keep,w_keep = bootstrap_x[keep,:],bootstrap_y[keep,:],bootstrap_z[keep,:],w[keep,:]
+        x_keep,y_keep,z_keep,w_keep = bootstrap_x[keep,:],bootstrap_y[keep,:],bootstrap_z[keep,:],w[keep]
         return x_keep,y_keep,z_keep,w_keep
 
     def run(self):
@@ -363,7 +362,7 @@ class simulation_object():
         R2_errors = []
         hsic_pval_list = []
         estimator_list = ['NCE', 'TRE_Q','NCE_Q', 'real_TRE_Q','rulsif']
-        suffix = f'_qf={self.q_fac}_qd={self.qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
+        suffix = f'_qf={self.q_fac}_qd={self.qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={self.bootstrap_runs}_n={required_n}'
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
         mse_loss = torch.nn.MSELoss()
@@ -414,13 +413,15 @@ class simulation_object():
                         torch.save(w,f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
                 else:
                     w = w_q
-
                 p,reference_metric = self.perm_Q_test(X_test,Y_test,X_q_test,w,i)
                 p_value_list.append(p)
                 reference_metric_list.append(reference_metric)
-                if estimate:
-                    del d,X,Y,Z,_w,w,X_q
 
+                if estimate:
+                    if i == 0:
+                        p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d)
+                        stat, pval =kstest(p_values_h_0,'uniform')
+                    del d,X,Y,Z,_w,w,X_q
                 else:
                     del X,Y,Z,_w,w,X_q
 
