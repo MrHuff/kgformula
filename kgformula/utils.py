@@ -373,6 +373,8 @@ class simulation_object():
         for j in range(runs):
             p_value_list = []
             reference_metric_list = []
+            validity_p_list = []
+            validity_stat_list = []
             for i in tqdm.trange(seeds_a,seeds_b):
                 if self.cuda:
                     X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
@@ -403,6 +405,10 @@ class simulation_object():
                     d = density_estimator(x=X_train, z=Z_train,x_q=X_q_train, cuda=self.cuda,
                                           est_params=est_params, type=estimator, device=self.device,secret_indx=self.args['unique_job_idx'])
                     w = d.return_weights(X_test,Z_test,X_q_test)
+                    p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d)
+                    stat, pval =kstest(p_values_h_0,'uniform')
+                    validity_p_list.append(pval)
+                    validity_stat_list.append(stat)
                     if estimator in estimator_list:
                         with torch.no_grad():
                             l = mse_loss(_w, w) / _w.var()
@@ -418,9 +424,6 @@ class simulation_object():
                 reference_metric_list.append(reference_metric)
 
                 if estimate:
-                    if i == 0:
-                        p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d)
-                        stat, pval =kstest(p_values_h_0,'uniform')
                     del d,X,Y,Z,_w,w,X_q
                 else:
                     del X,Y,Z,_w,w,X_q
@@ -435,8 +438,14 @@ class simulation_object():
             print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
             ks_data.append([ks_stat, p_val_ks_test])
             if estimator in estimator_list and estimate:
+                validity_p_value_array = torch.tensor(validity_p_list)
+                validity_value_array = torch.tensor(validity_stat_list)
                 hsic_pval_list = torch.tensor(hsic_pval_list).float()
                 r2_tensor = torch.tensor(R2_errors).float()
+                torch.save(validity_p_value_array,
+                           f'./{data_dir}/{job_dir}/validity_p_value_array{suffix}.pt')
+                torch.save(validity_value_array,
+                           f'./{data_dir}/{job_dir}/validity_value_array{suffix}.pt')
                 torch.save(hsic_pval_list,
                            f'./{data_dir}/{job_dir}/hsic_pval_array{suffix}.pt')
                 torch.save(r2_tensor,
