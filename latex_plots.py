@@ -9,7 +9,14 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from pylab import *
 rc('text', usetex=True)
+import scipy.stats as st
 
+def calc_error_bars(power_val,alpha,num_samples):
+    z = st.norm.ppf(1.-alpha/2.)
+    up = power_val+z*(power_val*(1-power_val)/num_samples)**0.5
+    down = power_val-z*(power_val*(1-power_val)/num_samples)**0.5
+    z_vec = np.ones_like(power_val)*z*(power_val*(1-power_val)/num_samples)**0.5
+    return up,down,z_vec
 
 def calibration_and_power_plots(directory,csv_file,beta_XZ,est,beta_xy): #Should loop include EFF, KS-val, SNR in title, loop over d_x,n, fix_beta_XZ
     df = pd.read_csv(csv_file)
@@ -40,6 +47,8 @@ def calibration_and_power_plots(directory,csv_file,beta_XZ,est,beta_xy): #Should
             x = df_sub_2['n']
             c = df_sub_2['$c_q$'].values
             scatter = plt.scatter(x, y, c=c,alpha=0.5,marker='*',cmap='Set1')
+            a,b,e = calc_error_bars(y,alpha=0.05,num_samples=100)
+            errorbar = plt.errorbar(x, y, yerr=e, ls='none')
             plt.hlines(0.05, 0, 10000)
             plt.suptitle(r"Estimator: {est} $\quad d_Z$={dz} $\quad\beta_{XY}={bxy}$".format(dz=d_Z,est=estimator,XY='{XY}',bxy=beta_xy))
             legend1 = plt.legend(*scatter.legend_elements(),title=r'$c_q$')
@@ -76,6 +85,9 @@ def calibration_and_power_plots_2(directory,csv_file,beta_XZ,est,n): #Should loo
             x = df_sub_2['beta_xy']
             c = df_sub_2['$c_q$'].values
             scatter = plt.scatter(x, y, c=c,alpha=0.5,marker='*',cmap='Set1')
+            a,b,e = calc_error_bars(y,alpha=0.05,num_samples=100)
+            errorbar = plt.errorbar(x, y, yerr=e, ls='none')
+
             plt.hlines(0.05, 0, 0.5)
             plt.suptitle(r"Estimator: {est} $\quad d_Z$={dz} $\quad n={n}$".format(dz=d_Z,est=estimator,n=n))
             legend1 = plt.legend(*scatter.legend_elements(),title=r'$c_q$')
@@ -87,8 +99,6 @@ def calibration_and_power_plots_2(directory,csv_file,beta_XZ,est,n): #Should loo
         except Exception as e:
             print(e)
             print("prolly doesn't exist, yet!")
-
-
 
 if __name__ == '__main__':
     configs = ['real_weights','NCE_Q','real_TRE_Q','rulsif']
