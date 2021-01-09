@@ -108,8 +108,9 @@ def return_filenames(args):
     p_val_file = f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt'
     ref_val = f'./{data_dir}/{job_dir}/ref_val_array{suffix}.pt'
     w_file = f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt'
-
-    return p_val_file,ref_val,w_file,data_dir,job_dir,suffix,estimate
+    validity_pval = f'./{data_dir}/{job_dir}/validity_p_value_array{suffix}.pt'
+    validity_vals = f'./{data_dir}/{job_dir}/validity_value_array{suffix}.pt'
+    return p_val_file,ref_val,w_file,data_dir,job_dir,suffix,estimate,validity_pval,validity_vals
 
 def data_dir_extract(data_dir):
     str_list = data_dir.split('/')[1].split('_')
@@ -126,7 +127,7 @@ def calculate_one_row(j,base_dir):
     theta_dict = {1: 2.0, 3: 3.0, 15: 8.0, 50: 16.0}
     job_params = load_obj(j, folder=f'{base_dir}/')
     try:
-        p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate = return_filenames(job_params)
+        p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate,validity_pval_filename,validity_val_filename = return_filenames(job_params)
         pre_path = f'./{data_dir}/{job_dir}/'
         dat_param = data_dir_extract(data_dir)
         bxz = dat_param[-1]
@@ -160,6 +161,17 @@ def calculate_one_row(j,base_dir):
             power = get_power(alpha, pval_dist)
             results_size.append(power)
         row = row + results_size
+        try:
+            validity_pval = torch.load(validity_pval_filename).numpy()
+            get_hist(validity_pval, name='validity_pvals_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
+                     ess=eff_est.item(), bxy=bxy, ks_val=pval)
+            validity_val = torch.load(validity_val_filename).numpy()
+            get_hist(validity_val, name='validity_val_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
+                 ess=eff_est.item(), bxy=bxy, ks_val=pval)
+        except Exception as e:
+            print(e)
+            print('dont have validity step')
+
         print('success')
         return row
     except Exception as e:
@@ -207,5 +219,5 @@ if __name__ == '__main__':
     # generate_csv_file('job_dir_harder_real_3')
     # generate_csv_file_parfor('job_dir_harder')
     # generate_csv_file_parfor('job_dir')
-    generate_csv_file_parfor('job_dir_real')
+    generate_csv_file_parfor('job_univariate_test_validate')
     # generate_csv_file('job_rulsif')
