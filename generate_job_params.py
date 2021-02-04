@@ -18,11 +18,12 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
         os.makedirs(directory)
     counter = 0
     for n in n_list:
-        for d_X, d_Y, d_Z, theta, phi in zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],[2.0, 2.0, 2.0, 2.0]):  # 50,3
+        for d_X, d_Y, d_Z, theta, phi in zip([3, 3, 3], [3, 3, 3], [3, 15, 50], [3.0, 8.0, 16.0],[2.0, 2.0, 2.0]):
+                # zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],[2.0, 2.0, 2.0, 2.0]):  # 50,3
                 # zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],
                 #                              [2.0, 2.0, 2.0, 2.0]):  # 50,3
             for beta_XZ in [0.5]:
-                for q in [0.75]:
+                for q in [0.5,0.75,1.0]:
                     for by in [0.5,0.0]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
                         ba = 0
@@ -85,5 +86,5 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                 counter+=1
 
 if __name__ == '__main__':
-    generate_job_params(n_list=[10000,5000,1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='job_test_validate/')
+    generate_job_params(n_list=[10000,5000,1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='debug_job/')
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='job_univariate_real/')
