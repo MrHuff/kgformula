@@ -219,7 +219,7 @@ class ArchimedeanCopula(Copula):
 	def __str__(self):
 		return "Archimedean Copula ({0}) :".format(self.family) + "\n*\tParameter : {:1.6f}".format(self.parameter)
 		
-	def generator(self, x):
+	def generator_(self, x):
 		return self.generator(x, self.parameter)
 		
 	def inverse_generator(self, x):

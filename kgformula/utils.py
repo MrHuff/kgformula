@@ -4,7 +4,7 @@ import tqdm
 import pandas as pd
 import torch
 from kgformula.test_statistics import *
-from kgformula.fixed_do_samplers import simulate_xyz_univariate,apply_qdist
+from kgformula.fixed_do_samplers import apply_qdist
 import os
 import numpy as np
 from scipy.stats import kstest
@@ -175,31 +175,6 @@ def ecdf(data):
     y = np.arange(1, n+1) / n
     return(x,y)
 
-def generate_data(y_a,y_b,z_a,z_b,cor,n,seeds,theta=4,phi=2.0):
-    beta = {'y':[y_a,y_b],'z':[z_a,z_b]}
-    data_dir = f"data_{seeds}/beta_xy={beta['y']}_d_X={1}_d_Y={1}_d_Z={1}_n={n}_yz={cor}_beta_XZ={z_b}_theta={theta}_phi={round(phi, 2)}"
-    if not os.path.exists(f'./{data_dir}/'):
-        os.makedirs(f'./{data_dir}/')
-    for i in range(seeds):
-        X, Y, Z, w,pden = simulate_xyz_univariate(n=n, beta=beta, cor=cor, fam=1, oversamp=10, seed=i,theta=theta,phi=phi)
-        with torch.no_grad():
-            if i==0:
-                sig_xxz = theta
-                e_xz = torch.cat([torch.ones_like(Z), Z],dim=1) @ torch.tensor(beta['z']) #XZ dependence
-                sample_X = (X-e_xz.unsqueeze(-1)).squeeze().numpy()#*sig_xxz
-                stat,pval=kstest(sample_X,'norm',(0,sig_xxz))
-                print(sig_xxz)
-                print(f'KS-stat: {stat}, pval: {pval}')
-                p_val = hsic_test(X, Z, 100)
-                sanity_pval = hsic_sanity_check_w(w, X, Z, 100)
-                print(f'HSIC X Z: {p_val}')
-                print(f'sanity_check_w : {sanity_pval}')
-                plt.hist(w.numpy(),bins=250)
-                plt.savefig(f'./{data_dir}/w.png')
-                plt.clf()
-
-        torch.save((X,Y,Z,w),f'./{data_dir}/data_seed={i}.pt')
-
 def torch_to_csv(path,filename):
     X,Y,Z,X_q,w,w_q,pden,qden= torch.load(path+filename)
 
@@ -333,7 +308,9 @@ class simulation_object():
         index_list = list(range(self.base_n))
         bootstrap_samples = torch.tensor(np.random.choice(index_list,size=(self.base_n*self.validation_over_samp),replace=True)).long()
         bootstrap_y,bootstrap_z = y[bootstrap_samples,:],z[bootstrap_samples,:]
-        bootstrap_x = x.repeat_interleave(self.validation_over_samp).unsqueeze(-1)
+        bootstrap_x = x.repeat_interleave(self.validation_over_samp,dim=0)
+        if bootstrap_x.dim()<2:
+            bootstrap_x = bootstrap_x.unsqueeze(-1)
         with torch.no_grad():
             w = density_est.return_weights(bootstrap_x, bootstrap_z, bootstrap_x)
         w_rej = 1./w
@@ -375,6 +352,7 @@ class simulation_object():
             reference_metric_list = []
             validity_p_list = []
             validity_stat_list = []
+            actual_pvalues_validity = []
             for i in tqdm.trange(seeds_a,seeds_b):
                 if self.cuda:
                     X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
@@ -406,6 +384,7 @@ class simulation_object():
                                           est_params=est_params, type=estimator, device=self.device,secret_indx=self.args['unique_job_idx'])
                     w = d.return_weights(X_test,Z_test,X_q_test)
                     p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d)
+                    actual_pvalues_validity.append(torch.tensor(p_values_h_0))
                     stat, pval =kstest(p_values_h_0,'uniform')
                     validity_p_list.append(pval)
                     validity_stat_list.append(stat)
@@ -442,6 +421,9 @@ class simulation_object():
                 validity_value_array = torch.tensor(validity_stat_list)
                 hsic_pval_list = torch.tensor(hsic_pval_list).float()
                 r2_tensor = torch.tensor(R2_errors).float()
+                actual_pvalues_validity = torch.cat(actual_pvalues_validity).float()
+                torch.save(actual_pvalues_validity,
+                           f'./{data_dir}/{job_dir}/actual_validity_p_value_array{suffix}.pt')
                 torch.save(validity_p_value_array,
                            f'./{data_dir}/{job_dir}/validity_p_value_array{suffix}.pt')
                 torch.save(validity_value_array,

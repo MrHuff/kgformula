@@ -36,17 +36,18 @@ def simulate(copula, n):
 			X.append(U)
 	elif type(copula).__name__ == "ArchimedeanCopula":
 		U = np.random.rand(n, d)
-		
+		inverse_ref = []
 		# LaplaceâStieltjes invert transform
-		LSinv = { 'clayton' : lambda theta: np.random.gamma(shape=1./theta), 
-				'gumbel' : lambda theta: stats.levy_stable.rvs(1./theta, 1., 0, math.cos(math.pi / (2 * theta))**theta), 
-				'frank' : lambda theta: stats.logser.rvs(1. - math.exp(-theta)), 
-				'amh' : lambda theta: stats.geom.rvs(theta)}
+		LSinv = { 'clayton' : lambda theta: np.random.gamma(shape=1./theta),
+				  'gumbel' : lambda theta: stats.levy_stable.rvs(1./theta, 1., 0, math.cos(math.pi / (2 * theta))**theta),
+				  'frank' : lambda theta: stats.logser.rvs(1. - math.exp(-theta)),
+				  'amh' : lambda theta: stats.geom.rvs(theta)}
 
-		for i in range(n):
-			V = LSinv[copula.getFamily()](copula.get_parameter())
-			X_i = [ copula.inverse_generator(-np.log(u) / V) for u in U[i, :] ]
-			X.append(X_i)
+		# for i in range(n):
+		func =LSinv[copula.getFamily()]
+		V = np.array([func(t) for t in copula.get_parameter()])
+		X = copula.inverse_generator(-np.log(U) / V)
+		invs= np.exp(-V*copula.generator_(X))
 	elif type(copula).__name__ == "StudentCopula":
 		nu = copula.get_df()
 		Sigma = copula.get_corr()
@@ -58,4 +59,4 @@ def simulate(copula, n):
 			X_i = [ student.cdf(u, nu) for u in U ]
 			X.append(X_i)
 
-	return X
+	return X,invs

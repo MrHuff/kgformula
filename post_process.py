@@ -219,5 +219,5 @@ if __name__ == '__main__':
     # generate_csv_file('job_dir_harder_real_3')
     # generate_csv_file_parfor('job_dir_harder')
     # generate_csv_file_parfor('job_dir')
-    generate_csv_file_parfor('job_univariate_test_validate')
+    generate_csv_file('job_test_validate')
     # generate_csv_file('job_rulsif')
