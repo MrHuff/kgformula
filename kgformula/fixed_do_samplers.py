@@ -32,7 +32,7 @@ def sim_X(n,dist,theta,d_X=1,phi=1.5):
     elif dist== 4:
         d = Beta(concentration0=theta,concentration1=theta)
     elif dist== 3:
-        d = Gamma(concentration=1,rate=1/theta) #this is an exponential lol
+        d = Gamma(concentration=0.3,rate=1./torch.exp(torch.tensor(phi))) #log-Expectation is phi=1.0
     else:
         raise Exception("X distribution must be normal (1), beta (4) or gamma (3)")
     return {'data':d.sample((n,d_X)),'density':d.log_prob}
@@ -138,10 +138,10 @@ def sim_multivariate_UV(dat, fam, par, total_d):
         copula.set_parameter(theta=cors[:,0].numpy().reshape(-1,1))
         samples,invs = simulate(copula, N)
         # tmp = copula.cdf(np.array(samples))
-        for dim in range(total_d):
-            plt.hist(np.array(invs)[:,dim],bins=20)
-            plt.savefig(f"test_{dim}.png")
-            plt.clf()
+        # for dim in range(total_d):
+        #     plt.hist(np.array(invs)[:,dim],bins=20)
+        #     plt.savefig(f"test_{dim}.png")
+        #     plt.clf()
         tmp = torch.tensor(samples).float()
     dat = torch.cat([dat,tmp],dim=1)
     return dat
@@ -213,8 +213,8 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
         d = Normal(loc=mu, scale=theta) #ks -test uses this target distribution. KS-test on  0 centered d with scale phi...
         #might wanna consider d_X d's for more beta_XZ's
     elif fam_x[1] == 3:  # Change
-        mu = torch.exp(_x_mu) #Poisson link func?
-        d = Gamma(rate=1 / (mu * theta), concentration=1 / theta) #Scale everything with 1/mu so that it looks like iid samples from some gamma distribution. Then KS-test on 1/theta
+        mu = torch.exp(_x_mu+theta) #Poisson link func? theta=phi
+        d = Gamma(rate=0.5 , concentration=1./mu) #Scale everything with 1/mu so that it looks like iid samples from some gamma distribution. Then KS-test on 1/theta
     else:
         raise Exception("fam_x must be 1, 3 or 4")
     wts = torch.zeros(*(X.shape[0],1))
@@ -222,6 +222,13 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     p_z  = torch.zeros(*(X.shape[0],1))
     for i in range(d_X):
         _x = X[:,i].unsqueeze(-1)
+        d_samp = d.sample((1,1))
+        plt.hist(X[:,i].squeeze().numpy(),50,color='blue',alpha=0.5)
+        plt.hist(d_samp.squeeze().numpy(),50,color='red',alpha=0.5)
+        plt.savefig(f'density_sanity_check_{i}.png')
+        plt.clf()
+        ###sanity check mass
+
         p_cond_z = d.log_prob(_x)
         p_z += p_cond_z
         _prob = p_cond_z- qden(_x)

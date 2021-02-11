@@ -110,7 +110,9 @@ def return_filenames(args):
     w_file = f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt'
     validity_pval = f'./{data_dir}/{job_dir}/validity_p_value_array{suffix}.pt'
     validity_vals = f'./{data_dir}/{job_dir}/validity_value_array{suffix}.pt'
-    return p_val_file,ref_val,w_file,data_dir,job_dir,suffix,estimate,validity_pval,validity_vals
+    actual_validity_pvals = f'./{data_dir}/{job_dir}/actual_validity_p_value_array{suffix}.pt'
+
+    return p_val_file,ref_val,w_file,data_dir,job_dir,suffix,estimate,validity_pval,validity_vals,actual_validity_pvals
 
 def data_dir_extract(data_dir):
     str_list = data_dir.split('/')[1].split('_')
@@ -127,7 +129,7 @@ def calculate_one_row(j,base_dir):
     theta_dict = {1: 2.0, 3: 3.0, 15: 8.0, 50: 16.0}
     job_params = load_obj(j, folder=f'{base_dir}/')
     try:
-        p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate,validity_pval_filename,validity_val_filename = return_filenames(job_params)
+        p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate,validity_pval_filename,validity_val_filename,actual_validity_fname = return_filenames(job_params)
         pre_path = f'./{data_dir}/{job_dir}/'
         dat_param = data_dir_extract(data_dir)
         bxz = dat_param[-1]
@@ -168,6 +170,10 @@ def calculate_one_row(j,base_dir):
             validity_val = torch.load(validity_val_filename).numpy()
             get_hist(validity_val, name='validity_val_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
                  ess=eff_est.item(), bxy=bxy, ks_val=pval)
+            actual_validity_pvals = torch.load(actual_validity_fname).numpy().squeeze()
+            get_hist(actual_validity_pvals, name='actual_validity_val_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
+                 ess=eff_est.item(), bxy=bxy, ks_val=pval)
+
         except Exception as e:
             print(e)
             print('dont have validity step')
@@ -184,7 +190,8 @@ def generate_csv_file(base_dir):
     df_data = []
     for j in jobs:
         row = calculate_one_row(j,base_dir)
-        df_data.append(row)
+        if isinstance(row,list):
+            df_data.append(row)
     levels = [1e-3, 1e-2, 0.05, 1e-1]
     columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy','snr_xz','EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
     df = pd.DataFrame(df_data,columns=columns)
@@ -219,5 +226,5 @@ if __name__ == '__main__':
     # generate_csv_file('job_dir_harder_real_3')
     # generate_csv_file_parfor('job_dir_harder')
     # generate_csv_file_parfor('job_dir')
-    generate_csv_file('job_test_validate')
+    generate_csv_file('debug_job')
     # generate_csv_file('job_rulsif')
