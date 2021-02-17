@@ -267,9 +267,32 @@ class x_q_class():
     def calc_w_q(self,inv_wts):
         if self.qdist!=1:
             self.q = Normal(self.X.mean(dim=0).squeeze(), self.q_fac * self.theta)
+            # sample = self.q.sample(torch.Size([self.X.shape[0]]))
+            # plt.hist(sample.numpy(), bins=50, alpha=0.5, color='b')
+            # plt.hist(self.X.numpy(), bins=50, alpha=0.5, color='r')
+            # plt.savefig('RIP.png')
+            # plt.clf()
         q_dens = self.q.log_prob(self.X).sum(dim=1)
         q_dens = q_dens.exp()
         w_q = inv_wts * q_dens.squeeze()
+        # plt.hist(w_q.numpy(), bins=50, alpha=0.5, color='b')
+        # plt.savefig('RIP_2.png')
+        return w_q
+
+    def calc_w_q_sanity_exp(self, inv_wts):
+        if self.qdist != 1:
+            self.q = Gamma(concentration=1./self.X.mean(dim=0).squeeze(),rate=1./self.q_fac)
+            # sample = self.q.sample(torch.Size([self.X.shape[0]]))
+            # plt.hist(sample.numpy(),bins=50,alpha=0.5,color='b')
+            # plt.hist(self.X.numpy(),bins=50,alpha=0.5,color='r')
+            # plt.savefig('RIP_exp.png')
+            # plt.clf()
+        q_dens = self.q.log_prob(self.X).sum(dim=1)
+        q_dens = q_dens.exp()
+        w_q = inv_wts * q_dens.squeeze()
+        # plt.hist(w_q.numpy(), bins=50, alpha=0.5, color='b')
+        # plt.savefig('RIP_2_exp.png')
+        # plt.clf()
         return w_q
 
 
@@ -335,6 +358,7 @@ class simulation_object():
         mode = self.args['mode']
         split_data = self.args['split']
         required_n = self.args['n']
+        exp_sanity = self.args['sanity_exp']
         ks_data = []
         R2_errors = []
         hsic_pval_list = []
@@ -362,7 +386,10 @@ class simulation_object():
                 X, Y, Z, _w = X[:required_n,:],Y[:required_n,:],Z[:required_n,:],_w[:required_n]
                 Xq_class = x_q_class(qdist=self.qdist,q_fac=self.q_fac,X=X)
                 X_q = Xq_class.sample(n=X.shape[0])
-                w_q = Xq_class.calc_w_q(_w)
+                if exp_sanity:
+                    w_q = Xq_class.calc_w_q_sanity_exp(_w)
+                else:
+                    w_q = Xq_class.calc_w_q(_w)
                 if split_data:
                     n_half = X.shape[0]//2
                     X_train,X_test = split(X,n_half)

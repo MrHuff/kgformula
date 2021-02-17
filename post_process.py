@@ -171,7 +171,7 @@ def calculate_one_row(j,base_dir):
             get_hist(validity_val, name='validity_val_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
                  ess=eff_est.item(), bxy=bxy, ks_val=pval)
             actual_validity_pvals = torch.load(actual_validity_fname).numpy().squeeze()
-            get_hist(actual_validity_pvals, name='actual_validity_val_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
+            get_hist(actual_validity_pvals, name='actual_validity_pval_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
                  ess=eff_est.item(), bxy=bxy, ks_val=pval)
 
         except Exception as e:
@@ -182,7 +182,6 @@ def calculate_one_row(j,base_dir):
         return row
     except Exception as e:
         print(e)
-
 
 def generate_csv_file(base_dir):
     jobs = os.listdir(base_dir)
@@ -220,11 +219,5 @@ def generate_csv_file_parfor(base_dir):
     df.to_csv(f'{base_dir}.csv')
 
 if __name__ == '__main__':
-    # generate_csv_file_parfor('job_dir_real')
-    # generate_csv_file('job_dir_harder_real')
-    # generate_csv_file('job_dir_harder_real_2')
-    # generate_csv_file('job_dir_harder_real_3')
-    # generate_csv_file_parfor('job_dir_harder')
-    # generate_csv_file_parfor('job_dir')
-    generate_csv_file('debug_job')
-    # generate_csv_file('job_rulsif')
+    generate_csv_file('exp_jobs_true_weights_sanity')
+    generate_csv_file('exp_jobs_true_weights_q_new')

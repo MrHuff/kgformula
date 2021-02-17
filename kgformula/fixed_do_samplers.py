@@ -222,11 +222,11 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     p_z  = torch.zeros(*(X.shape[0],1))
     for i in range(d_X):
         _x = X[:,i].unsqueeze(-1)
-        d_samp = d.sample((1,1))
-        plt.hist(X[:,i].squeeze().numpy(),50,color='blue',alpha=0.5)
-        plt.hist(d_samp.squeeze().numpy(),50,color='red',alpha=0.5)
-        plt.savefig(f'density_sanity_check_{i}.png')
-        plt.clf()
+        # d_samp = d.sample((1,1))
+        # plt.hist(X[:,i].squeeze().numpy(),50,color='blue',alpha=0.5)
+        # plt.hist(d_samp.squeeze().numpy(),50,color='red',alpha=0.5)
+        # plt.savefig(f'density_sanity_check_{i}.png')
+        # plt.clf()
         ###sanity check mass
 
         p_cond_z = d.log_prob(_x)

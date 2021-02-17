@@ -10,7 +10,7 @@ def load_obj(name,folder):
     with open(f'{folder}' + name, 'rb') as f:
         return pickle.load(f)
 
-def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/'):
+def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',exp=False):
     if not os.path.exists(directory):
         os.makedirs(directory)
     else:
@@ -18,25 +18,27 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
         os.makedirs(directory)
     counter = 0
     for n in n_list:
-        for d_X, d_Y, d_Z, theta, phi in zip([3, 3, 3], [3, 3, 3], [3, 15, 50], [3.0, 8.0, 16.0],[2.0, 2.0, 2.0]):
+        # for d_X, d_Y, d_Z, theta, phi in zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [1.,1.,1.,1.],[1.,1.,1.,1.]):
+        for d_X, d_Y, d_Z, theta, phi in zip([1], [1], [1], [1.],[1.]):
                 # zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],[2.0, 2.0, 2.0, 2.0]):  # 50,3
                 # zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],
                 #                              [2.0, 2.0, 2.0, 2.0]):  # 50,3
-            for beta_XZ in [0.5]:
-                for q in [0.5,0.75,1.0]:
+            for beta_XZ in [0.0,0.1]:
+                # for q in [1e-2,0.05,0.1,0.25]:
+                for q in [0.5,0.25]:
                     for by in [0.5,0.0]: #Robin suggest: [0.0, 0.1,0.25,0.5]
-                        h_0_test = f'univariate_{seed_max}_seeds/univariate_test'
-                        ba = 0
-                        if d_X==1:
-                            ba = 0.0
-                            if by==0.0:
-                                by=0
-                        # if d_X==3:
-                        #     ba=0
-                        beta_xy = [ba, by]
-                        data_dir = f"data_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
-                        # mv_str = f'q=1.0_mv_100/beta_xy=[0, {by}]_d_X=3_d_Y=3_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}/'
-                        # uni_str = f'univariate_100_seeds/Q=1.0_gt=H_{h_int}_y_a=0.0_y_b={by}_z_a=0.0_z_b={beta_XZ}_cor=0.5_n=10000_seeds=100_{theta}_{phi}/'
+                        if exp:
+                            ba = 0
+                            beta_xy = [ba, by]
+                            data_dir = f"exponential_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
+                        else:
+                            ba = 0
+                            if d_X == 1:
+                                ba = 0.0
+                                if by == 0.0:
+                                    by = 0
+                            beta_xy = [ba, by]
+                            data_dir = f"data_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
                         val_rate = 0.1
                         h_str =data_dir
                         if estimate:
@@ -47,7 +49,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                         for mode in ['Q']:
                             for width in net_width:
                                 for layers in net_layers:
-                                    job_dir = f'test_validity_layers={layers}_width={width}'
+                                    job_dir = f'{directory}_layers={layers}_width={width}'
                                     for h in [h_str]:
                                         for model,kappa in models_to_run:#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
                                             for br in [250]:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
@@ -65,7 +67,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                     'q_factor':q,
                                                     'qdist': 2,
                                                     'n':n,
-                                                    'est_params': {'lr': 1e-5, #use really small LR for TRE
+                                                    'est_params': {'lr': 1e-6, #use really small LR for TRE
                                                                    'max_its': 5000,
                                                                    'width': width,
                                                                    'layers':layers,
@@ -81,10 +83,13 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                     'estimator': model, #ones, 'NCE'
                                                     'runs': runs,
                                                     'cuda': True,
+                                                    'sanity_exp': True,
                                                 }
-                                                save_obj(args,f'job_{counter}',directory)
+                                                save_obj(args,f'job_{counter}',directory+'/')
                                                 counter+=1
 
 if __name__ == '__main__':
-    generate_job_params(n_list=[10000,5000,1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='debug_job/')
+    # generate_job_params(n_list=[10000,5000,1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_true_weights_sanity',exp=True)
+    generate_job_params(n_list=[5000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_true_weights_sanity',exp=True)
+    # generate_job_params(n_list=[10000,5000,1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='exp_jobs_estimate',exp=True)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='job_univariate_real/')

@@ -1,19 +1,28 @@
+import torch
 
-from kgformula.post_process_plots import *
-from kgformula.utils import x_q_class
-import os
-from generate_job_params import *
-import ast
-from generate_data_multivariate import generate_sensible_variables,calc_snr
-from pylab import *
-rc('text', usetex=True)
-
+from kgformula.utils import *
+seeds=100
+beta_xy=[0,0.0]
+d_X=1
+d_Y=1
+d_Z=1
+n=5000
+yz=0.5
+b_z=0.1
+b_z = (d_Z ** 2) * b_z
+theta=1.0
+phi=1.0
 if __name__ == '__main__':
-    test = np.random.rand(1000)
-    title = "test"
-    estimator='real weights'
-    xlabl = r'Estimator: {est}$\quad \beta_{XY}={bxy}$'.format(est=str(estimator), bxy=1.0, XY='{XY}')
-    plt.hist(test,25)
-    plt.suptitle(title)
-    plt.xlabel(xlabl)
-    plt.savefig('test.png')
+    data_dir = f"exponential_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z / (d_Z ** 2), 3)}_theta={theta}_phi={round(phi, 2)}"
+    X,Y,Z,p_XZ = torch.load(data_dir+'/data_seed=0.pt')
+    xq_class = x_q_class(qdist=2,q_fac=0.5,X=X) #Ok seems that support should be ok  now???
+    xq_class.calc_w_q_sanity_exp(p_XZ)
+    xq_class.calc_w_q(p_XZ)
+
+
+
+
+    # load some data
+    # plot histograms
+    # try to construct a q distribution that's sensible
+    #
