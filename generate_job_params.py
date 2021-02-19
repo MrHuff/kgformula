@@ -19,16 +19,16 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
     counter = 0
     for n in n_list:
         # for d_X, d_Y, d_Z, theta, phi in zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [1.,1.,1.,1.],[1.,1.,1.,1.]):
-        for d_X, d_Y, d_Z, theta, phi in zip([1], [1], [1], [0.75],[1.25]):
+        for d_X, d_Y, d_Z, theta, phi in zip([1], [1], [1], [0.1],[0.9]):
                 # zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],[2.0, 2.0, 2.0, 2.0]):  # 50,3
                 # zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],
                 #                              [2.0, 2.0, 2.0, 2.0]):  # 50,3
-            for beta_XZ in [0.0,0.1]:
+            for beta_XZ in [0.5]:
                 # for q in [1e-2,0.05,0.1,0.25]:
                 for q in [0.5]:
                     for by in [0.0,0.1]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         if exp:
-                            ba = 0.1
+                            ba = 0.25
                             beta_xy = [ba, by]
                             data_dir = f"exponential_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
                         else:
@@ -92,6 +92,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
 if __name__ == '__main__':
     # generate_job_params(n_list=[10000,5000,1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_true_weights_sanity',exp=True)
     # generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_hsic',exp=True,job_type='kc')
-    generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_hsic',exp=True,job_type='hsic')
+    generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_hsic_2',exp=True,job_type='hsic')
+    generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_test_2',exp=True,job_type='kc')
     # generate_job_params(n_list=[10000,5000,1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='exp_jobs_estimate',exp=True)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='job_univariate_real/')
