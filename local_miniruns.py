@@ -1,18 +1,23 @@
-from kgformula.utils import simulation_object
+from kgformula.utils import simulation_object,simulation_object_hsic
 from generate_job_params import *
-
+import os
 def run_jobs(args):
-    j = simulation_object(args)
+    if args['job_type']=='kc':
+        j = simulation_object(args)
+    elif args['job_type']=='hsic':
+        j = simulation_object_hsic(args)
     j.run()
     del j
+
 
 if __name__ == '__main__':
     input = {
         'idx':0,
         'ngpu':1,
-        'job_folder': 'exp_jobs_true_weights_sanity'
+        'job_folder': 'exp_jobs_hsic'
     }
-    for i in range(8):
+    listjob = os.listdir(input['job_folder'])
+    for i in range(len(listjob)):
         input['idx']=i
         idx = input['idx']
         ngpu = input['ngpu']

@@ -10,7 +10,7 @@ def load_obj(name,folder):
     with open(f'{folder}' + name, 'rb') as f:
         return pickle.load(f)
 
-def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',exp=False):
+def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',exp=False,job_type='kc'):
     if not os.path.exists(directory):
         os.makedirs(directory)
     else:
@@ -19,18 +19,18 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
     counter = 0
     for n in n_list:
         # for d_X, d_Y, d_Z, theta, phi in zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [1.,1.,1.,1.],[1.,1.,1.,1.]):
-        for d_X, d_Y, d_Z, theta, phi in zip([1], [1], [1], [1.],[1.]):
+        for d_X, d_Y, d_Z, theta, phi in zip([1], [1], [1], [0.75],[1.25]):
                 # zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],[2.0, 2.0, 2.0, 2.0]):  # 50,3
                 # zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],
                 #                              [2.0, 2.0, 2.0, 2.0]):  # 50,3
             for beta_XZ in [0.0,0.1]:
                 # for q in [1e-2,0.05,0.1,0.25]:
-                for q in [0.5,0.25]:
-                    for by in [0.5,0.0]: #Robin suggest: [0.0, 0.1,0.25,0.5]
+                for q in [0.5]:
+                    for by in [0.0,0.1]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         if exp:
-                            ba = 0
+                            ba = 0.1
                             beta_xy = [ba, by]
-                            data_dir = f"exponential_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
+                            data_dir = f"exponential_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
                         else:
                             ba = 0
                             if d_X == 1:
@@ -38,7 +38,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                 if by == 0.0:
                                     by = 0
                             beta_xy = [ba, by]
-                            data_dir = f"data_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
+                            data_dir = f"data_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz=0.5_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
                         val_rate = 0.1
                         h_str =data_dir
                         if estimate:
@@ -54,6 +54,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                         for model,kappa in models_to_run:#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
                                             for br in [250]:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                                                 args = {
+                                                    'job_type':job_type,
                                                     'device': -1,
                                                     'job_dir':job_dir,
                                                     'data_dir': h,
@@ -83,13 +84,14 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                     'estimator': model, #ones, 'NCE'
                                                     'runs': runs,
                                                     'cuda': True,
-                                                    'sanity_exp': True,
+                                                    'sanity_exp': False,
                                                 }
                                                 save_obj(args,f'job_{counter}',directory+'/')
                                                 counter+=1
 
 if __name__ == '__main__':
     # generate_job_params(n_list=[10000,5000,1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_true_weights_sanity',exp=True)
-    generate_job_params(n_list=[5000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_true_weights_sanity',exp=True)
+    # generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_hsic',exp=True,job_type='kc')
+    generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_hsic',exp=True,job_type='hsic')
     # generate_job_params(n_list=[10000,5000,1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='exp_jobs_estimate',exp=True)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='job_univariate_real/')
