@@ -2,19 +2,21 @@ import argparse
 from matplotlib import pyplot as plt
 import tqdm
 import pandas as pd
-import torch
 from kgformula.test_statistics import *
-from kgformula.fixed_do_samplers import apply_qdist
-import os
 import numpy as np
 from scipy.stats import kstest
-from matplotlib.colors import ListedColormap
 import matplotlib.tri as mtri
-import time
 from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
 import matplotlib as mpl
 import os
+print(os.environ)
+
+from rpy2.robjects.packages import importr
+from rpy2.robjects import numpy2ri
+numpy2ri.activate()
 mpl.use('Agg')
+
+
 def EFF_calc(w):
     return w.sum()**2/(w**2).sum()
 
@@ -435,6 +437,7 @@ class simulation_object():
             else:
                 w = w_q
             p,reference_metric = self.perm_Q_test(X_test,Y_test,X_q_test,w,i)
+            print(f'seed {i} pval={p}')
             p_value_list.append(p)
             reference_metric_list.append(reference_metric)
 
@@ -449,6 +452,9 @@ class simulation_object():
         ref_metric_array = torch.tensor(reference_metric_list)
         torch.save(ref_metric_array,
                    f'./{data_dir}/{job_dir}/ref_val_array{suffix}.pt')
+        plt.hist(p_value_array.numpy(),bins=40)
+        plt.savefig(f'./{data_dir}/{job_dir}/pval_hist{suffix}.png')
+        plt.clf()
         ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
         print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
         ks_data.append([ks_stat, p_val_ks_test])
@@ -491,8 +497,6 @@ class simulation_object_hsic():
         data_dir = self.args['data_dir']
         seeds_a = self.args['seeds_a']
         seeds_b = self.args['seeds_b']
-        self.q_fac = self.args['q_factor']
-        self.qdist = self.args['qdist']
         self.bootstrap_runs = self.args['bootstrap_runs']
         required_n = self.args['n']
         suffix = f'_hsic_s={seeds_a}_{seeds_b}_br={self.bootstrap_runs}_n={required_n}'
@@ -514,6 +518,55 @@ class simulation_object_hsic():
         torch.save(p_value_array,
                    f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt')
         ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
+        plt.hist(p_value_array.numpy(),bins=40)
+        plt.savefig(f'./{data_dir}/{job_dir}/pval_hist{suffix}.png')
+        plt.clf()
+        print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
+        ks_data.append([ks_stat, p_val_ks_test])
+        df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
+        df.to_csv(f'./{data_dir}/{job_dir}/df{suffix}.csv')
+        s = df.describe()
+        s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
+        return
+
+class simulation_object_GCM():
+    def __init__(self,args):
+        self.args=args
+        self.device = self.args['device']
+
+    def run_GCM_R(self,X,Y,Z):
+
+        gcm = importr("GeneralisedCovarianceMeasure")
+        output = gcm.gcm_test(X,Y,Z)
+        d = {key: output.rx2(key)[0] for key in output.names}
+        return d['p.value']
+
+    def run(self):
+        job_dir = self.args['job_dir']
+        data_dir = self.args['data_dir']
+        seeds_a = self.args['seeds_a']
+        seeds_b = self.args['seeds_b']
+        required_n = self.args['n']
+        suffix = f'_gcm_s={seeds_a}_{seeds_b}_n={required_n}'
+        if not os.path.exists(f'./{data_dir}/{job_dir}'):
+            os.makedirs(f'./{data_dir}/{job_dir}')
+        if os.path.exists(f'./{data_dir}/{job_dir}/df{suffix}.csv'):
+            return
+        p_value_list = []
+        ks_data = []
+        for i in tqdm.trange(seeds_a,seeds_b):
+            X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+            # X ,Y,Z = array.array(X.numpy().tolist()),array.array(Y.numpy().tolist()),array.array(Z.numpy().tolist())
+            X ,Y,Z = X.numpy(),Y.numpy(),Z.numpy()
+            p_val = self.run_GCM_R(X,Y,Z)
+            p_value_list.append(p_val)
+        p_value_array = torch.tensor(p_value_list)
+        torch.save(p_value_array,
+                   f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt')
+        ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
+        plt.hist(p_value_array.numpy(),bins=40)
+        plt.savefig(f'./{data_dir}/{job_dir}/pval_hist{suffix}.png')
+        plt.clf()
         print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
         ks_data.append([ks_stat, p_val_ks_test])
         df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])

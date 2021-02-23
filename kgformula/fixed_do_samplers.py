@@ -31,49 +31,48 @@ def sim_X(n,dist,theta,d_X=1,phi=1.5):
         d = Beta(concentration0=theta,concentration1=theta)
     elif dist== 3:
         d = Gamma(concentration=theta*phi,rate=1./torch.exp(torch.tensor(1.))) #log-Expectation is phi=1.0
+
     else:
         raise Exception("X distribution must be normal (1), beta (4) or gamma (3)")
     return {'data':d.sample((n,d_X)),'density':d.log_prob}
 
-def rnormCopula(N,cov):
-
-    if cov.dim()==3:
-        pass
+def sim_inv_cdf_X(X,dist,theta,phi=1.5):
+    if dist==1:
+        d = Normal(loc=0,scale=theta*phi)
+        X = d.icdf(X)
+    elif dist== 4:
+        d = Beta(concentration0=theta,concentration1=theta)
+        X = d.icdf(X)
+    elif dist== 3:
+        d = Gamma(concentration=theta*phi,rate=1./torch.exp(torch.tensor(1.))) #log-Expectation is phi=1.0
+        X = torch.from_numpy(gamma.ppf(X.numpy(),a=theta*phi,scale=np.exp(1.0))).float()
     else:
+        raise Exception("X distribution must be normal (1), beta (4) or gamma (3)")
+    return {'data':X,'density':d.log_prob}
+
+def rnormCopula(N,cov):
+    if cov.dim()==2:
         m = cov.shape[0]
         mean = torch.zeros(*(N,m))
         L = torch.cholesky(cov)
         samples = mean +  torch.randn_like(mean)@L.t()
-        # for i in range(samples.shape[1]):
-        #     plt.hist(norm.cdf(samples[:,i].numpy()),100)
-        #     plt.show()
-        #     plt.clf()
-        #     print(samples[:,i].std())
-    return torch.from_numpy(norm.cdf(samples.numpy())).float() #Dude make it uniform...
 
-def rnormCopula2(n=100,mean = torch.zeros(*(2,1)),cov=torch.eye(2),df=1):
-    if cov.shape == torch.Size([2,2]):
-        l = torch.cholesky(cov)
-        M = mean.t() #nx2
-        M = M.repeat(n,1)
-        samples = M + torch.randn(*(n,2))@l.t()
-        # plt.hist(samples[:, 0].numpy(),bins=100)
-        # plt.show()
-        # plt.clf()
-        # print("Y std", torch.std(samples[:, 0]))
-        # plt.hist(samples[:, 1].numpy(),bins=100)
-        # plt.show()
-        # plt.clf()
-        # print("Z std", torch.std(samples[:, 1]))
-        # Y = samples[:, 0]
-        # Z = samples[:,1]
-        # print("cor",np.corrcoef(Y.numpy(),Z.numpy()))
-    else:
-        M = mean.t()
-        M = M.repeat(n,1)
-        v = torch.randn(n)
-        samples = M + torch.stack([v,v*cov[:,0]+torch.randn(n)*cov[:,1]],dim=1)
-    return torch.from_numpy(norm.cdf(samples.numpy())).float()
+    elif cov.dim()==3:
+        m = cov[0].shape[0]
+        mean = torch.zeros(*(N,m))
+        noise = torch.randn_like(mean).unsqueeze(1)
+        if torch.cuda.is_available():
+            mean = torch.zeros(*(N, m)).cuda()
+            noise = noise.cuda()
+            cov=cov.cuda()
+        L = torch.cholesky(cov,upper=True)
+        samples = torch.bmm(noise, L).squeeze() + mean
+        samples = samples.cpu().numpy()
+    # for i in range(samples.shape[1]):
+    #     plt.hist(norm.cdf(samples[:,i]),40)
+    #     plt.savefig(f'copula_sanity_{i}.png')
+    #     plt.clf()
+    return torch.from_numpy(norm.cdf(samples)).float() #Dude make it uniform...
 
 def expit(x):
     return torch.exp(x)/(1+torch.exp(x))
@@ -88,70 +87,68 @@ def apply_qdist(inv_wts,q_factor,theta,X):
     X_q  = d.sample((X.shape[0],X.shape[1]))
     return X_q,w_q
 
-def sample_naive_multivariate(n,d_X,d_Z,d_Y,beta_xz,beta_xy,seed):
-    torch.manual_seed(seed)
-    Z = torch.randn(n,d_Z)
-    X = beta_xz*Z[:,0:d_X]+(1+beta_xz)*torch.randn(n,d_X)
-    Y = beta_xy*X[:,0:d_Y]**3+0.1*torch.randn(n,d_Y)+beta_xy/3*Z[:,0:d_Y]**3
-    w = torch.ones(n,1)
-    return X,Y,Z,w
 
-def sim_multivariate_UV(dat, fam, par, total_d):
-    if not fam in [1,3,4,5,6]:
-        raise Exception("family not supported")
+def sim_UVW(N,total_d,cor):
+    triang_cov = torch.tensor(cor)
+    s = torch.eye(total_d)
+    sigma = s
+    sigma[torch.triu(torch.ones_like(sigma),diagonal=1)==1] = triang_cov
+    sigma[torch.tril(torch.ones_like(sigma),diagonal=-1)==1] = triang_cov
+    tmp = rnormCopula(N,sigma)
+    return tmp
 
+def sim_multivariate_UV(dat, mv_type, par, total_d,ref_dim):
     N = dat.shape[0]
-    pars = torch.cat([torch.ones(*(dat.shape[0],1)),dat],dim=1)@par #Don't understand this part.  I think this is a Nx1 matrix?
-    if fam in [1,2]:
-        cors = 2*expit(pars)-1
-    elif fam in [3]:
-        cors = torch.exp(pars)-1
-    elif fam in [4,6]:
-        cors = torch.exp(pars)+1
-    elif fam in [5]:
-        cors = pars
+    pars = torch.cat([torch.ones(*(dat.shape[0],1)),dat],dim=1)@par# (N*(x_d+1)@ ((x_d+1)*ref_dim) )  Make depedency on X to copula between Y. Should be N x triangular size.
+    pars = pars.unsqueeze(-1).repeat(1,int(ref_dim))
+    cors = torch.sigmoid(pars)-1e-3
+    s = torch.eye(total_d)
+    if mv_type==1:
+        sigma = s
+        sigma[torch.triu(torch.ones_like(sigma),diagonal=1)==1] = cors[0,:]
+        sigma[torch.tril(torch.ones_like(sigma),diagonal=-1)==1] = cors[0,:]
+        tmp = rnormCopula(N,sigma)
     else:
-        cors = 0
-    if fam in [1]:
-        if all(pars[0,:]==pars[-1,:]):
-            sigma = torch.eye(total_d)
-            sigma[torch.triu(torch.ones_like(sigma),diagonal=1)==1] = cors[0,:]
-            sigma[torch.tril(torch.ones_like(sigma),diagonal=-1)==1] = cors[0,:]
-            tmp = rnormCopula(N,sigma)
-        else:
-            sigma = torch.eye(total_d).unsqueeze(-1).repeat(1, 1, pars.shape[0])
-            tmp = rnormCopula(N,sigma)
+        sigma = torch.eye(total_d).unsqueeze(0).repeat(cors.shape[0],1,1)
+        sigma[:, torch.triu(torch.ones_like(s), diagonal=1) == 1] = cors
+        sigma[:, torch.tril(torch.ones_like(s), diagonal=-1) == 1] = cors
+        tmp = rnormCopula(N,sigma)
 
-    elif fam in [3,4,5,6]: #Use copula for Y to be exponential.
-        pass
     dat = torch.cat([dat,tmp],dim=1)
     return dat
 
-def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,fam_x=[1,1],phi=1,theta=1,d_Y=1,d_X=1,fam_y=1,copula_fam=1):
+def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z=1,fam_x=[1,1],phi=1,theta=1,d_Y=1,d_X=1,fam_y=1):
     # torch.manual_seed(seed)
     # np.random.seed(seed)
     if oversamp < 1:
         warnings.warn("Oversampling rate must be at least 1... changing")
         oversamp = 1
-
-    ref_dim = nCr(d_Z+d_Y,2)
-    if type(yz) is not list:  # cor controls x xz relation!
-        cor = torch.tensor([yz]+[0]*d_X).unsqueeze(-1)
-    else:
-        cor = torch.tensor(yz).unsqueeze(-1)
-    cor = torch.cat([cor for i in range(ref_dim)],dim=1)
     N = round(oversamp*n)
-    tmp = sim_X(N,fam_x[0],theta,d_X=d_X,phi=phi) #nxd_X
-    dat = tmp['data']
-    qden = tmp['density']
-    dat = sim_multivariate_UV(dat,copula_fam,cor,d_Z+d_Y)
+    if len(yz)==((d_X+d_Z+d_Y)**2-(d_X+d_Z+d_Y))/2:
+        dat = sim_UVW(N,d_X+d_Z+d_Y,yz)
+        x_tmp = sim_inv_cdf_X(X=dat[:,0:d_X],dist=fam_x[0],theta=theta,phi=phi)
+        X = x_tmp['data']
+        qden = x_tmp['density']
+    else:
+        cor = torch.tensor([yz[0]] + [yz[1]] * d_X)
+        if yz[1]==0.0: #no dependency on x in cupola
+            mv_type=1
+            ref_dim = 1
+        else:
+            mv_type=2
+            ref_dim = ((d_Z+d_Y)**2-(d_Z+d_Y))/2
+        tmp = sim_X(n=N,dist=fam_x[0],theta=theta,d_X=d_X,phi=phi) #nxd_X
+        dat = tmp['data']
+        qden = tmp['density']
+        dat = sim_multivariate_UV(dat,mv_type,cor,d_Z+d_Y,ref_dim)
+        X = dat[:, 0:d_X]
+    Y = dat[:, d_X:(d_X + d_Y), ]
+    Z = dat[:, (d_X + d_Y):(d_X + d_Y + d_Z)]
+    plt.hist(X.numpy(),bins=40)
+    plt.savefig('marg_x_viz.png')
+    plt.clf()
     a = beta_xy[0]
     b = beta_xy[1]  # Controls X y dependence
-
-    X = dat[:,0:d_X]
-    Y = dat[:,d_X:(d_X+d_Y),]
-    Z = dat[:,(d_X+d_Y):(d_X+d_Y+d_Z)]
-
     if fam_y==1:
         if torch.is_tensor(b):
             p = Normal(loc=a+X@b,scale=1) #Consider square matrix valued b.
@@ -159,16 +156,14 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
             p = Normal(loc=a+X*b,scale=1) #Consider square matrix valued b.
     elif fam_y==2:
         if torch.is_tensor(b):
-            p = Exponential(rate=-torch.log(a + X @ b))  # Consider square matrix valued b.
+            p = Exponential(rate=torch.exp( (a + X @ b)))  #Incorrect expectation? Consider square matrix valued b.
         else:
-            p = Exponential(rate=-torch.log(a + X * b))  # Consider square matrix valued b.
+            p = Exponential(rate=torch.exp( (a + X * b)))  # Consider square matrix valued b.
     Y = p.icdf(Y) # Change this to exponential...
 
     if fam_z == 1:
         q = Normal(loc=0, scale=1) #This is still OK
         Z = q.icdf(Z)
-    elif fam_z == 2:
-        Z = torch.from_numpy(t.ppf(Z.numpy(), df=par2))
     elif fam_z == 3:
         q = Exponential(rate=1) #Bug in code you are not sampling exponentials!!!!!
         Z = q.icdf(Z)
@@ -231,21 +226,19 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz,seed,par2=1,fam_z=1,f
     X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
     return X,Y,Z,inv_wts
 
-def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=1,phi=2,theta=2,fam_x=[1,1],fam_z=1,fam_y=1,copula_fam=1):
+def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=1,phi=2,theta=2,fam_x=[1,1],fam_z=1,fam_y=1):
     """
     beta_xz has dim (d_Z+1) list
     beta_xy has dim 2 list
     """
     torch.manual_seed(seed)
     np.random.seed(seed)
-    X,Y,Z,w = sim_multivariate_XYZ(oversamp,
-                                   d_Z,
-                                   n,
-                                   beta_xy,
-                                   beta_xz,
-                                   yz,
-                                   seed,
-                                   par2=1,
+    X,Y,Z,w = sim_multivariate_XYZ(oversamp=oversamp,
+                                   d_Z=d_Z,
+                                   n=n,
+                                   beta_xy=beta_xy,
+                                   beta_xz=beta_xz,
+                                   yz=yz,
                                    fam_z=fam_z,
                                    fam_x=fam_x,
                                    phi=phi,
@@ -253,18 +246,16 @@ def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=
                                    d_X=d_X,
                                    d_Y=d_Y,
                                    fam_y=fam_y,
-                                   copula_fam=copula_fam)
+                                   )
     while X.shape[0]<n:
         print(f'Undersampled: {X.shape[0]}')
         oversamp = oversamp*1.01
-        X_new,Y_new,Z_new, w_new= sim_multivariate_XYZ(oversamp,
-                                                       d_Z,
-                                                       n,
-                                                       beta_xy,
-                                                       beta_xz,
-                                                       yz,
-                                                       seed,
-                                                       par2=1,
+        X_new,Y_new,Z_new, w_new= sim_multivariate_XYZ(oversamp=oversamp,
+                                                       d_Z=d_Z,
+                                                       n=n,
+                                                       beta_xy=beta_xy,
+                                                       beta_xz=beta_xz,
+                                                       yz=yz,
                                                        fam_z=fam_z,
                                                        fam_x=fam_x,
                                                        phi=phi,
@@ -272,7 +263,7 @@ def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=
                                                        d_X=d_X,
                                                        d_Y=d_Y,
                                                        fam_y=fam_y,
-                                                       copula_fam=copula_fam)
+                                                       )
         X = torch.cat([X,X_new],dim=0)
         Y = torch.cat([Y,Y_new],dim=0)
         Z = torch.cat([Z,Z_new],dim=0)

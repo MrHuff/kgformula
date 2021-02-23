@@ -41,4 +41,4 @@ if __name__ == '__main__':
     # load some data
     # plot histograms
     # try to construct a q distribution that's sensible
-    #
+    #p(x|z) *p(y|x,z) = p(y,x|z)
