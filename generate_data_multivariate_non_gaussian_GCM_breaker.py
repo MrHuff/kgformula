@@ -1,5 +1,14 @@
 from generate_data_multivariate import *
 from kgformula.utils import *
+import seaborn as sns
+import sklearn
+
+
+#TODO's fix the sanity checks to be general
+#TODO VALIDATE THAT THE DO NULL IS TRUE
+#TODO make sure estimators work in 1-d for HSIC and GCM breakers
+#TODO write up
+
 def sanity_check_marginal_z(Z):
     q = Exponential(rate=1)  # Bug in code you are not sampling exponentials!!!!!
     cdf_z = q.cdf(Z)
@@ -30,14 +39,30 @@ def sanity_check_marginal_y(X,Y,beta_xy):
     plt.clf()
     print(f'pval Y-marginal:{pval}')
 
+def conditional_dependence_plot_1d(X,Y,Z):
+    discretizer = sklearn.preprocessing.KBinsDiscretizer(n_bins=100,strategy='uniform',encode='ordinal')
+    test = discretizer.fit_transform(Z.numpy())
+    mask = test==50
+    x_subset = X[mask]
+    y_subset = Y[mask]
+    plt.scatter(x_subset.numpy(),y_subset.numpy())
+    plt.savefig('conditional_plot.png')
+
+def pairs_plot(X,Y,Z):
+    data = torch.cat([X,Y,Z],dim=1).numpy()
+    df = pd.DataFrame(data,columns=['X','Y','Z'])
+    plot= sns.pairplot(df)
+    plot.savefig('pairs_plot_1d.png')
+    plt.clf()
+
 if __name__ == '__main__':
-    seeds = 100
-    yz = [0.5,0.0,0.5] #GCM breaker
-    xy_const = 2.5 #GCM breaker
+    seeds = 1
+    yz = [0,2.0] #GCM breaker - coplua
+    xy_const = 0.0 #GCM breaker
     # for d_X,d_Y,d_Z, theta,phi in zip( [1],[1],[1],[1.0],[1.0]): #GCM BREAKER
     # for b_z in [0.0]:  #GCM BREAKER
 
-    for d_X,d_Y,d_Z, theta,phi in zip( [1],[1],[1],[1.0],[1.0]): #GCM BREAKER
+    for d_X,d_Y,d_Z, theta,phi in zip( [1],[1],[1],[1.0],[2.0]): #GCM BREAKER
         for b_z in [0.0]:  # ,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z = (d_Z ** 2) * b_z
             beta_xz = generate_sensible_variables(d_Z, b_z, const=0)  # What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
@@ -48,55 +73,58 @@ if __name__ == '__main__':
             # "perfect" balance between X and Z make it just hard enough so TRE and NCE_Q can get the job done.
             # for n in [1000,5000,10000]:
 
-            for n in [1000]:
-                for beta_xy in [[xy_const, 0.0],[xy_const, 0.5]]:
+            for n in [10000]:
+                for beta_xy in [[xy_const, 0.0]]:
                     data_dir = f"exp_gcm_break_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z / (d_Z ** 2), 3)}_theta={theta}_phi={round(phi, 2)}"
                     if not os.path.exists(f'./{data_dir}/'):
                         os.makedirs(f'./{data_dir}/')
                     for i in range(seeds):
-                        if not os.path.exists(f'./{data_dir}/data_seed={i}.pt'):
-                            X, Y, Z, inv_w = simulate_xyz_multivariate(n, oversamp=5, d_Z=d_Z, beta_xz=beta_xz,
-                                                                       beta_xy=beta_xy, seed=i, yz=yz, d_X=d_X, d_Y=d_Y,
-                                                                       phi=phi, theta=theta,fam_x=[3,3],fam_z=3,fam_y=2)
-                            beta_xz = torch.Tensor(beta_xz)
-                            if i == 0: #No way to sanity check...
-                                if d_X==1:
-                                    sanity_check_marginal_z(Z)
-                                    sanity_check_marginal_y(X, Y, beta_xy)
+                        # if not os.path.exists(f'./{data_dir}/data_seed={i}.pt'):
+                        X, Y, Z, inv_w = simulate_xyz_multivariate(n, oversamp=5, d_Z=d_Z, beta_xz=beta_xz,
+                                                                   beta_xy=beta_xy, seed=i, yz=yz, d_X=d_X, d_Y=d_Y,
+                                                                   phi=phi, theta=theta,fam_x=[1,1],fam_z=1,fam_y=1)
+                        beta_xz = torch.Tensor(beta_xz)
+                        if i == 0: #No way to sanity check...
 
-                                _x_mu = torch.cat([torch.ones(*(X.shape[0], 1)), Z],
-                                                 dim=1) @ beta_xz  # XZ dependence
-                                mu = torch.exp(_x_mu+theta)
-                                for d in range(d_X):
 
-                                    plt.hist(X[:,d].squeeze().numpy(),bins=100)
-                                    plt.savefig('test_X.png')
-                                    plt.clf()
-                                    test_d = torch.distributions.Gamma(rate= 1.0, concentration=theta)
-                                    sample = test_d.sample([n])
-                                    test = X[:,d].squeeze()/mu
-                                    plt.hist(test.squeeze().numpy(),bins=100,color='b',alpha=0.25)
-                                    plt.hist(sample.squeeze().numpy(), bins=100,color='r',alpha=0.25)
-                                    plt.savefig('test_vs_dist.png')
-                                    plt.clf()
-                                    stat, pval = kstest(test.squeeze().numpy(), sample.squeeze().numpy())
-                                    print(f'KS gamma test pval {pval}')
-                                p_val = hsic_test(X[0:1000, :], Z[0:1000, :], 250)
-                                X_class = x_q_class(qdist=2, q_fac=1.0, X=X)
-                                w = X_class.calc_w_q(inv_w)
-                                sanity_pval = hsic_sanity_check_w(w[0:1000], X[0:1000, :], Z[0:1000, :], 250)
-                                print(f'HSIC X Z: {p_val}')
-                                print(f'sanity_check_w : {sanity_pval}')
-                                plt.hist(w, bins=250)
-                                plt.savefig(f'./{data_dir}/w.png')
+                            if d_X==1:
+                                sanity_check_marginal_z(Z)
+                                sanity_check_marginal_y(X, Y, beta_xy)
+                                pairs_plot(X,Y,Z)
+                                conditional_dependence_plot_1d(X,Y,Z)
+                            _x_mu = torch.cat([torch.ones(*(X.shape[0], 1)), Z],
+                                             dim=1) @ beta_xz  # XZ dependence
+                            mu = torch.exp(_x_mu+theta)
+                            for d in range(d_X):
+
+                                plt.hist(X[:,d].squeeze().numpy(),bins=100)
+                                plt.savefig('test_X.png')
                                 plt.clf()
-                                ess_list = []
-                                for q in [1.0, 0.75, 0.5]:
-                                    X_class = x_q_class(qdist=2, q_fac=q, X=X)
-                                    w = X_class.calc_w_q(inv_w)
-                                    ess = calc_ess(w)
-                                    ess_list.append(ess.item())
-                                max_ess = max(ess_list)
-                                print('max_ess: ', max_ess)
-                            torch.save((X, Y, Z, inv_w), f'./{data_dir}/data_seed={i}.pt')
+                                test_d = torch.distributions.Gamma(rate= 1.0, concentration=theta)
+                                sample = test_d.sample([n])
+                                test = X[:,d].squeeze()/mu
+                                plt.hist(test.squeeze().numpy(),bins=100,color='b',alpha=0.25)
+                                plt.hist(sample.squeeze().numpy(), bins=100,color='r',alpha=0.25)
+                                plt.savefig('test_vs_dist.png')
+                                plt.clf()
+                                stat, pval = kstest(test.squeeze().numpy(), sample.squeeze().numpy())
+                                print(f'KS gamma test pval {pval}')
+                            p_val = hsic_test(X[0:1000, :], Z[0:1000, :], 250)
+                            X_class = x_q_class(qdist=2, q_fac=1.0, X=X)
+                            w = X_class.calc_w_q(inv_w)
+                            sanity_pval = hsic_sanity_check_w(w[0:1000], X[0:1000, :], Z[0:1000, :], 250)
+                            print(f'HSIC X Z: {p_val}')
+                            print(f'sanity_check_w : {sanity_pval}')
+                            plt.hist(w, bins=250)
+                            plt.savefig(f'./{data_dir}/w.png')
+                            plt.clf()
+                            ess_list = []
+                            for q in [1.0, 0.75, 0.5]:
+                                X_class = x_q_class(qdist=2, q_fac=q, X=X)
+                                w = X_class.calc_w_q(inv_w)
+                                ess = calc_ess(w)
+                                ess_list.append(ess.item())
+                            max_ess = max(ess_list)
+                            print('max_ess: ', max_ess)
+                        torch.save((X, Y, Z, inv_w), f'./{data_dir}/data_seed={i}.pt')
 

@@ -10,13 +10,13 @@ def load_obj(name,folder):
     with open(f'{folder}' + name, 'rb') as f:
         return pickle.load(f)
 N=100
-BXY_const = 0.25
-BXY = 0.5
-yz=[0.5,0.0,]
-b_z = [0.5]
-dirname ='exp_hsic_break_100'
-PHI=[0.9]
-THETA=[0.1]
+BXY_const = 0.0
+BXY = 0.0
+yz=[-1.0,0.5]
+b_z = [0.0]
+dirname ='exp_gcm_break_100'
+PHI=[2.0]
+THETA=[1.0]
 DX=[1]
 DY = [1]
 DZ = [1]
@@ -37,14 +37,17 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
             for beta_XZ in b_z:
                 # for q in [1e-2,0.05,0.1,0.25]:
                 for q in [0.5]:
-                    for by in [0.0,BXY]: #Robin suggest: [0.0, 0.1,0.25,0.5]
+                    # for by in [0.0,BXY]: #Robin suggest: [0.0, 0.1,0.25,0.5]
+                    for by in [0.0]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         ba = BXY_const
                         beta_xy = [ba, by]
                         data_dir = f"{dirname}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
                         val_rate = 0.1
                         h_str =data_dir
                         if estimate:
-                            models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
+                            # models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
+                            models_to_run = zip(['real_TRE_Q'],[1])
+                            # models_to_run = zip(['NCE_Q'],[10])
                             # models_to_run = zip(['rulsif'],[1,1])
                         else:
                             models_to_run = zip(['real_weights'],[1])
@@ -69,8 +72,8 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                 'q_factor':q,
                                                 'qdist': 2,
                                                 'n':n,
-                                                'est_params': {'lr': 1e-6, #use really small LR for TRE
-                                                               'max_its': 5000,
+                                                'est_params': {'lr': 1e-3, #use really small LR for TRE
+                                                               'max_its': 10,
                                                                'width': width,
                                                                'layers':layers,
                                                                'mixed': False,
@@ -78,7 +81,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                                'val_rate': val_rate,
                                                                'n_sample': 250,
                                                                'criteria_limit': 0.05,
-                                                               'kill_counter': 10,
+                                                               'kill_counter': 2,
                                                                 'kappa':kappa,
                                                                'm': 4
                                                                },
@@ -182,5 +185,5 @@ if __name__ == '__main__':
     # generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_test_2',exp=True,job_type='kc')
     generate_job_params_GCM(n_list=[1000],seed_max=N,directory='exp_jobs_gcm',dirname=dirname)
     generate_job_params_HSIC(n_list=[1000],seed_max=N,directory='exp_jobs_hsic',dirname=dirname)
-    generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=N,estimate=False,directory='exp_jobs_kc',dirname=dirname)
-    generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=N,estimate=True,directory='exp_jobs_kc_est',dirname=dirname)
+    # generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=N,estimate=False,directory='exp_jobs_kc',dirname=dirname)
+    # generate_job_params(n_list=[1000],net_layers=[1],net_width=[64],runs=1,seed_max=N,estimate=True,directory='debug_gcm_NCE_Q',dirname=dirname)

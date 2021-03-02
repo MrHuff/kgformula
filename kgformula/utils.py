@@ -326,7 +326,7 @@ class simulation_object():
             x_keep,y_keep,z_keep,w_keep = self.validity_bootstrap_and_rejection_sampling(x,y,z,density_est)
             x_q_c = x_q_class(qdist=self.qdist, q_fac=self.q_fac, X=x_keep)
             x_q_keep = x_q_c.sample(x_keep.shape[0])
-            p,ref_val = self.perm_Q_test(x_keep,y_keep,x_q_keep,w_keep,i=np.random.randint(0,1000))
+            p,ref_val,_ = self.perm_Q_test(x_keep,y_keep,x_q_keep,w_keep,i=np.random.randint(0,1000))
             p_values.append(p)
         return p_values
     def perm_Q_test(self,X,Y,X_q,w,i):
@@ -338,7 +338,7 @@ class simulation_object():
         array = torch.tensor(
             list_of_metrics).float()  # seem to be extremely sensitive to lengthscale, i.e. could be sign flipper
         p = calculate_pval(array, reference_metric)  # comparison is fucking weird
-        return p,reference_metric
+        return p,reference_metric,array
     def validity_bootstrap_and_rejection_sampling(self,x,y,z,density_est):
         self.base_n = y.shape[0]
         index_list = list(range(self.base_n))
@@ -436,7 +436,10 @@ class simulation_object():
                     torch.save(w,f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
             else:
                 w = w_q
-            p,reference_metric = self.perm_Q_test(X_test,Y_test,X_q_test,w,i)
+            p,reference_metric,_arr = self.perm_Q_test(X_test,Y_test,X_q_test,w,i)
+            plt.hist(w.numpy(),color='b',alpha=0.1)
+            plt.hist(_w.numpy(),color='r',alpha=0.1)
+            plt.savefig()
             print(f'seed {i} pval={p}')
             p_value_list.append(p)
             reference_metric_list.append(reference_metric)

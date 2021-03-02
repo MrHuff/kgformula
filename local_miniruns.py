@@ -16,7 +16,7 @@ if __name__ == '__main__':
     input = {
         'idx':0,
         'ngpu':1,
-        'job_folder': 'exp_jobs_hsic'
+        'job_folder': 'exp_jobs_gcm'
     }
     listjob = os.listdir(input['job_folder'])
     for i in range(len(listjob)):

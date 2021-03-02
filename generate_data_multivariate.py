@@ -26,7 +26,7 @@ def calc_snr(beta_xz,theta):
     print(snr)
     return snr
 
-if __name__ == '__main__': #This is incorrectly generated...
+if __name__ == '__main__':
     seeds = 100
     yz = 0.5
     # for d_X,d_Y,d_Z, theta,phi in zip( [1,3,3,3],[1,3,3,3],[1,3,15,50],[2.0,4.0,8.0,16.0],[2.0,2.0,2.0,2.0]): #50,3

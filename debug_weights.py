@@ -1,45 +1,40 @@
-from kgformula.utils import *
-import GPUtil
+from kgformula.utils import simulation_object,simulation_object_hsic,simulation_object_GCM
+from generate_job_params import *
+import os
+def run_jobs(args):
+    if args['job_type']=='kc':
+        j = simulation_object(args)
+    elif args['job_type']=='hsic':
+        j = simulation_object_hsic(args)
+    elif args['job_type']=='gcm':
+        j = simulation_object_GCM(args)
+    j.run()
+    del j
 
 
 if __name__ == '__main__':
-    width = 16
-    layers = 2
-    val_rate = 0.05
-    n=5000
+    input = {
+        'idx':0,
+        'ngpu':1,
+        'job_folder': 'debug_gcm_NCE_Q'
+    }
+    listjob = os.listdir(input['job_folder'])
     i=0
-    estimator = 'TRE_Q' #NCE_Q, #TRE_Q
-    q=0.8
-    beta_xz = 0.5
-    data_dir =f'univariate_100_seeds/Q={q}_gt=H_0_y_a=0.0_y_b=0.0_z_a=0.0_z_b={beta_xz}_cor=0.5_n=10000_seeds=100_2.0_2.0/'
-    # est_params= {'lr': 1e-4,
-    #                'max_its': 5000,
-    #                'width': width,
-    #                'layers': layers,
-    #                'mixed': False,
-    #                'bs_ratio': 0.01,
-    #                'val_rate': val_rate,
-    #                'n_sample': 250,
-    #                'criteria_limit': 0.05,
-    #                'kill_counter': 10,
-    #                'kappa': 1,
-    #                'm': n,
-    #                 'qdist':1,
-    #                 'qdist_param':{'q_fac':0.8}
-    #                }
-    # device = GPUtil.getAvailable(order='memory', limit=8)[0]
-    # torch.cuda.set_device(device)
-    # X, Y, Z, X_q, _w, w_q = torch.load(f'./{data_dir}/data_seed={i}.pt', map_location=f'cuda:{device}')
-    # X_train,X_test = split(X,n)
-    # Z_train,Z_test = split(Z,n)
-    # d = density_estimator(x=X_train, z=Z_train, cuda=True,
-    #                       est_params=est_params, type=estimator, device=device)
-    # w = d.return_weights(X_test, Z_test)
-    # plt.hist(w.cpu().numpy(),bins=50)
-    # plt.savefig(f'debug_est_{estimator}.png')
-    # plt.clf()
-    # plt.hist(w_q.cpu().numpy(),bins=50)
-    # plt.savefig(f'debug_true_{estimator}.png')
-    # plt.clf()
-    #
-    #
+    input['idx']=i
+    idx = input['idx']
+    ngpu = input['ngpu']
+    fold = input['job_folder']
+    jobs = os.listdir(fold)
+    jobs.sort()
+    print(jobs[idx])
+    job_params = load_obj(jobs[idx],folder=f'{fold}/')
+    job_params['device'] = 0
+    job_params['unique_job_idx'] = idx%ngpu
+    data_dir = job_params['data_dir']
+    rm_dif = data_dir+'/'+job_params['job_dir']
+    if os.path.exists(rm_dif):
+        shutil.rmtree(rm_dif)
+        os.makedirs(rm_dif)
+    run_jobs(args=job_params)
+
+
