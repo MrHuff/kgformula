@@ -437,9 +437,9 @@ class simulation_object():
             else:
                 w = w_q
             p,reference_metric,_arr = self.perm_Q_test(X_test,Y_test,X_q_test,w,i)
-            plt.hist(w.numpy(),color='b',alpha=0.1)
-            plt.hist(_w.numpy(),color='r',alpha=0.1)
-            plt.savefig()
+            # plt.hist(w.cpu().numpy(),color='b',alpha=0.1)
+            # plt.hist(_w.cpu().numpy(),color='r',alpha=0.1)
+            # plt.savefig()
             print(f'seed {i} pval={p}')
             p_value_list.append(p)
             reference_metric_list.append(reference_metric)
@@ -514,7 +514,7 @@ class simulation_object_hsic():
                 X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
             else:
                 X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt')
-
+            X, Y, Z, _w = X[:required_n,:],Y[:required_n,:],Z[:required_n,:],_w[:required_n]
             p_val = hsic_test(X,Y,n_sample=self.bootstrap_runs)
             p_value_list.append(p_val)
         p_value_array = torch.tensor(p_value_list)
@@ -559,6 +559,7 @@ class simulation_object_GCM():
         ks_data = []
         for i in tqdm.trange(seeds_a,seeds_b):
             X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+            X, Y, Z, _w = X[:required_n,:],Y[:required_n,:],Z[:required_n,:],_w[:required_n]
             # X ,Y,Z = array.array(X.numpy().tolist()),array.array(Y.numpy().tolist()),array.array(Z.numpy().tolist())
             X ,Y,Z = X.numpy(),Y.numpy(),Z.numpy()
             p_val = self.run_GCM_R(X,Y,Z)

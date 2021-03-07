@@ -154,7 +154,7 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z=1,fam
             p = Normal(loc=a+X@b,scale=1) #Consider square matrix valued b.
         else:
             p = Normal(loc=a+X*b,scale=1) #Consider square matrix valued b.
-    elif fam_y==2:
+    elif fam_y==3:
         if torch.is_tensor(b):
             p = Exponential(rate=torch.exp( (a + X @ b)))  #Incorrect expectation? Consider square matrix valued b.
         else:
@@ -196,11 +196,12 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z=1,fam
     p_z  = torch.zeros(*(X.shape[0],1))
     for i in range(d_X):
         _x = X[:,i].unsqueeze(-1)
-        d_samp = d.sample((1,1))
-        plt.hist(X[:,i].squeeze().numpy(),50,color='blue',alpha=0.5)
-        plt.hist(d_samp.squeeze().numpy(),50,color='red',alpha=0.5)
-        plt.savefig(f'density_sanity_check_{i}.png')
-        plt.clf()
+
+        # d_samp = d.sample((1,1))
+        # plt.hist(X[:,i].squeeze().numpy(),50,color='blue',alpha=0.5)
+        # plt.hist(d_samp.squeeze().numpy(),50,color='red',alpha=0.5)
+        # plt.savefig(f'density_sanity_check_{i}.png')
+        # plt.clf()
 
         p_cond_z = d.log_prob(_x)
         p_z += p_cond_z
