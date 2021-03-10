@@ -5,6 +5,7 @@ import pandas as pd
 from kgformula.test_statistics import *
 import numpy as np
 from scipy.stats import kstest
+import scipy as sp
 import matplotlib.tri as mtri
 from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
 import matplotlib as mpl
@@ -531,6 +532,60 @@ class simulation_object_hsic():
         s = df.describe()
         s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
         return
+
+class simulation_object_linear_regression():
+    def __init__(self,args):
+        self.args=args
+        self.device = self.args['device']
+
+    def run_linear_regression(self,X,Y,Z):
+        dfm = X.shape[1]+Z.shape[1]
+        dfe = X.shape[0]-dfm-1
+        ones  = torch.ones_like(X)
+        data = torch.cat([X,Z,ones],dim=1)
+        ols_sol,_ = torch.solve(data.t()@Y,data.t()@data)
+        SSE = torch.sum((Y - data@ols_sol)**2)
+        SST = torch.sum((Y - Y.mean())**2)
+        SSM  = SST - SSE
+        F = (SSM/dfm)/(SSE/dfe)
+        pval = 1.-sp.stats.f.cdf(F.cpu().numpy(),dfm,dfe)
+        return pval
+
+    def run(self):
+        job_dir = self.args['job_dir']
+        data_dir = self.args['data_dir']
+        seeds_a = self.args['seeds_a']
+        seeds_b = self.args['seeds_b']
+        required_n = self.args['n']
+        suffix = f'_linear_reg={seeds_a}_{seeds_b}_n={required_n}'
+        if not os.path.exists(f'./{data_dir}/{job_dir}'):
+            os.makedirs(f'./{data_dir}/{job_dir}')
+        if os.path.exists(f'./{data_dir}/{job_dir}/df{suffix}.csv'):
+            return
+        p_value_list = []
+        ks_data = []
+        for i in tqdm.trange(seeds_a,seeds_b):
+            X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+            X, Y, Z, _w = X[:required_n,:],Y[:required_n,:],Z[:required_n,:],_w[:required_n]
+            # X ,Y,Z = array.array(X.numpy().tolist()),array.array(Y.numpy().tolist()),array.array(Z.numpy().tolist())
+            X ,Y,Z = X.numpy(),Y.numpy(),Z.numpy()
+            p_val = self.run_linear_regression(X,Y,Z)
+            p_value_list.append(p_val)
+        p_value_array = torch.tensor(p_value_list)
+        torch.save(p_value_array,
+                   f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt')
+        ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
+        plt.hist(p_value_array.numpy(),bins=40)
+        plt.savefig(f'./{data_dir}/{job_dir}/pval_hist{suffix}.png')
+        plt.clf()
+        print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
+        ks_data.append([ks_stat, p_val_ks_test])
+        df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
+        df.to_csv(f'./{data_dir}/{job_dir}/df{suffix}.csv')
+        s = df.describe()
+        s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
+        return
+
 
 class simulation_object_GCM():
     def __init__(self,args):

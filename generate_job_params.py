@@ -9,29 +9,29 @@ def save_obj(obj, name ,folder):
 def load_obj(name,folder):
     with open(f'{folder}' + name, 'rb') as f:
         return pickle.load(f)
-N=100
-BXY_const = 0.0
-BXY = 0.5
-yz=[-0.5,4.0]
-b_z = [0.0]
-dirname ='exp_gcm_break_100'
-PHI=[2.0]
-THETA=[1.0]
-DX=[1]
-DY = [1]
-DZ = [1]
-
 # N=100
 # BXY_const = 0.0
 # BXY = 0.5
-# yz=[0.5,0.0]
-# b_z = [0.5]
-# dirname ='exp_hsic_break_100'
-# PHI=[0.9]
-# THETA=[0.1]
+# yz=[-0.5,4.0]
+# b_z = [0.0]
+# dirname ='exp_gcm_break_100'
+# PHI=[2.0]
+# THETA=[1.0]
 # DX=[1]
 # DY = [1]
 # DZ = [1]
+
+N=100
+BXY_const = 0.0
+BXY = 0.5
+yz=[0.5,0.0]
+b_z = [0.5]
+dirname ='exp_hsic_break_100'
+PHI=[0.9]
+THETA=[0.1]
+DX=[1]
+DY = [1]
+DZ = [1]
 
 
 def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc',dirname=''):
@@ -49,7 +49,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                 #                              [2.0, 2.0, 2.0, 2.0]):  # 50,3
             for beta_XZ in b_z:
                 # for q in [1e-2,0.05,0.1,0.25]:
-                for q in [0.5]:
+                for q in [0.5,0.75,1.0]:
                     # for by in [0.0,BXY]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                     for by in [0.0,BXY]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         ba = BXY_const
