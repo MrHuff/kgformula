@@ -1,10 +1,17 @@
+import os
+import GPUtil
+try:
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    # Get the first available GPU
+    DEVICE_ID_LIST = GPUtil.getAvailable(order='memory', limit=1)
+    DEVICE_ID = DEVICE_ID_LIST[0] # grab first element from list
+    # Set CUDA_VISIBLE_DEVICES to mask out all other GPUs than the first available device id
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(DEVICE_ID)
+except:
+    print('no gpu rip')
 from kgformula.utils import simulation_object,simulation_object_hsic,simulation_object_GCM,simulation_object_linear_regression
 from generate_job_params import *
-import os
-#TODO understand why a well trained estimator gives wrong weights and undertrained estimator gives right power...
-#TODO WEIRDEST BUG EVER HOW THE FUCK DOES CHANGING THE LEARNING RATE AFFECT INITIALIZATION?!?!?!?! No its completely random
-# P-value calculation, can we assume its symmetric?! Or this assumption incorrect?! Do a tail adjustment/classifier, i.e. rule based on tail direction.
-#We observed this twice already!
+
 
 #Is it overfitting?
 def run_jobs(args):
@@ -21,9 +28,9 @@ def run_jobs(args):
 
 if __name__ == '__main__':
     input = {
-        'idx':5,
+        'idx':1,
         'ngpu':1,
-        'job_folder': 'exp_jobs_kc_est'
+        'job_folder': 'exp_jobs_kc_est_test'
     }
     listjob = os.listdir(input['job_folder'])
     idx = input['idx']
@@ -36,7 +43,8 @@ if __name__ == '__main__':
     job_params['device'] = 0
     job_params['unique_job_idx'] = idx%ngpu
     print(job_params)
-    job_params['est_params']['lr'] = 1e-3
-    job_params['est_params']['max_its'] = 10
-    job_params['est_params']['kappa'] = 100
+    # job_params['est_params']['lr'] = 1e-3
+    # job_params['est_params']['max_its'] = 10
+    # job_params['est_params']['kappa'] = 10
+    # job_params['bootstrap_runs'] = 500
     run_jobs(args=job_params)

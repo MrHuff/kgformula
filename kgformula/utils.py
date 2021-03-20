@@ -221,9 +221,18 @@ def reject_outliers(data, m = 2.):
     s = d/mdev if mdev else 0.
     return data[s<m]
 
-def calculate_pval(bootstrapped_list, test_statistic):
+def calculate_pval_right_tail(bootstrapped_list, test_statistic):
     pval = 1-1/(bootstrapped_list.shape[0]+1) *(1 + (bootstrapped_list<=test_statistic).sum())
     return pval.item()
+
+def calculate_pval_left_tail(bootstrapped_list, test_statistic):
+    pval = 1/(bootstrapped_list.shape[0]+1) *(1 + (bootstrapped_list<=test_statistic).sum())
+    return pval.item()
+def calculate_pval_symmetric(bootstrapped_list, test_statistic):
+    pval_right = 1-1/(bootstrapped_list.shape[0]+1) *(1 + (bootstrapped_list<=test_statistic).sum())
+    pval_left = 1-pval_right
+    pval = 2*min([pval_left.item(),pval_right.item()])
+    return pval
 
 def get_median_and_std(data):
     with torch.no_grad():
@@ -341,7 +350,7 @@ class simulation_object():
             list_of_metrics.append(c.permutation_calculate_weighted_statistic().cpu().item())
         array = torch.tensor(
             list_of_metrics).float()  # seem to be extremely sensitive to lengthscale, i.e. could be sign flipper
-        p = calculate_pval(array, reference_metric)  # comparison is fucking weird
+        p = calculate_pval_symmetric(array, reference_metric)  # comparison is fucking weird
         return p,reference_metric,array
     def validity_bootstrap_and_rejection_sampling(self,x,y,z,density_est):
         self.base_n = y.shape[0]
@@ -424,20 +433,17 @@ class simulation_object():
                 d = density_estimator(x=X_train, z=Z_train,x_q=X_q_train, cuda=self.cuda,
                                       est_params=est_params, type=estimator, device=self.device,secret_indx=self.args['unique_job_idx'])
                 w = d.return_weights(X_test,Z_test,X_q_test)
-
-                # w = 1/w
-
                 save_w = w.cpu().numpy()
                 if i%10==0:
                     print('est median: ', np.median(save_w))
                     print('est std: ', np.std(save_w))
                     plt.hist(save_w,bins=100)
-                    plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}.png')
+                    plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_{suffix}.png')
                     plt.clf()
                     print('ref median: ', np.median(_w.cpu().numpy()))
                     print('ref std: ', np.std(_w.cpu().numpy()))
                     plt.hist(self.reject_outliers(_w.cpu().numpy()),bins=100)
-                    plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_ref.png')
+                    plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_ref_{suffix}.png')
                     plt.clf()
                 p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d)
                 print(p_values_h_0)
@@ -458,7 +464,7 @@ class simulation_object():
             if i==0:
                 n,_,_ = plt.hist(_arr, bins=100)
                 plt.vlines([reference_metric], ymin=0, ymax=n.max(), label='reference value',color='magenta')
-                plt.savefig(f'./{data_dir}/{job_dir}/_arr_{i}.png')
+                plt.savefig(f'./{data_dir}/{job_dir}/_arr_{i}_{suffix}.png')
                 plt.clf()
 
             print(f'seed {i} pval={p}')
@@ -495,11 +501,6 @@ class simulation_object():
                        f'./{data_dir}/{job_dir}/validity_value_array{suffix}.pt')
             torch.save(r2_tensor,
                        f'./{data_dir}/{job_dir}/r2_array{suffix}.pt')
-            df_data = torch.stack([hsic_pval_list,r2_tensor],dim=1).numpy()
-            df_perf = pd.DataFrame(df_data,columns=['hsic_pval','r2'])
-            df_perf.to_csv(f'./{data_dir}/{job_dir}/perf{suffix}.csv')
-            s_perf = df_perf.describe()
-            s_perf.to_csv(f'./{data_dir}/{job_dir}/psum{suffix}.csv')
 
         df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
         df.to_csv(f'./{data_dir}/{job_dir}/df{suffix}.csv')

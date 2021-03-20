@@ -301,7 +301,7 @@ class density_estimator():
         for i in range(self.est_params['max_its']):
             print(f'epoch {i+1}')
             self.train_loop()
-            if self.validation_loop(i):
+            if self.validation_loop(i+1):
                 break
 
     def load_best_model(self):
