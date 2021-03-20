@@ -1,4 +1,4 @@
-from kgformula.utils import simulation_object,simulation_object_hsic,simulation_object_GCM
+from kgformula.utils import simulation_object,simulation_object_hsic,simulation_object_GCM,simulation_object_linear_regression
 from generate_job_params import *
 import os
 
@@ -9,15 +9,17 @@ def run_jobs(args):
         j = simulation_object_hsic(args)
     elif args['job_type']=='gcm':
         j = simulation_object_GCM(args)
+    elif args['job_type']=='regression':
+        j = simulation_object_linear_regression(args)
     j.run()
     del j
 
 
 if __name__ == '__main__':
     input = {
-        'idx':0,
+        'idx':5,
         'ngpu':1,
-        'job_folder': 'exp_jobs_hsic'
+        'job_folder': 'exp_jobs_kc_est'
     }
     listjob = os.listdir(input['job_folder'])
     for i in range(len(listjob)):

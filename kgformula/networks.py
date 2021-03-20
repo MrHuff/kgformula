@@ -23,6 +23,27 @@ class Swish(torch.autograd.Function):
 class CustomSwish(nn.Module):
     def forward(self, input_tensor):
         return Swish.apply(input_tensor)
+
+
+class input_block(torch.nn.Module):
+    def __init__(self, input, output):
+        super(input_block, self).__init__()
+
+        self.f = nn.Sequential(nn.Linear(input, output),
+                               torch.nn.Tanh(),
+                               )
+    def forward(self, x):
+        return self.f(x)
+
+class output_block(torch.nn.Module):
+    def __init__(self, input, output):
+        super(output_block, self).__init__()
+
+        self.f = nn.Sequential(nn.Linear(input, output)
+                               )
+    def forward(self, x):
+        return self.f(x)
+
 class _res_block(torch.nn.Module):
     def __init__(self,input,output):
         super(_res_block, self).__init__()
@@ -31,59 +52,17 @@ class _res_block(torch.nn.Module):
                                 torch.nn.Tanh(),
                                )
     def forward(self,x):
-        return self.f(x)
+        return self.f(x)+x
 
-class MLP_shared(torch.nn.Module): #try new architecture...
-    def __init__(self,input_dim,latent_size,depth_main,outputs,depth_task):
-        super(MLP_shared, self).__init__()
-        self.main = MLP(input_dim,latent_size,depth_main,latent_size)
-        self.tasks = nn.ModuleList()
-        for d in outputs:
-            self.tasks.append(MLP(latent_size,latent_size,depth_task,d))
-
-    def forward(self,x,bridge_indicator):
-        l =self.main(x)
-        output = []
-        for i,m in enumerate(self.tasks):
-            s = l[(bridge_indicator==i) | (bridge_indicator==i+1) ,:]
-            output.append(m(s))
-        return output
-
-    def predict(self,x):
-        l = self.main(x)
-        output = []
-        for i, m in enumerate(self.tasks):
-            output.append(m(l))
-        return output
-
-
-class MLP_pq(torch.nn.Module):
-    def __init__(self,d_p,d_q,f=12,k=2,o=1):
-        super(MLP_pq, self).__init__()
-        self.model_p = MLP(d_p,f,k,o)
-        self.model_q = MLP(d_q,f,k,o)
-
-    def forward(self, input_p, input_q):
-        return self.model_p(input_p), self.model_q(input_q)
-
-    def forward_p(self, input_p):
-        return self.model_p(input_p)
-
-    def forward_q(self, input_q):
-        return self.model_q(input_q)
-
-    def get_w(self,x_p,z_p,x_q):
-        p,q = self.forward(torch.cat([x_p,z_p],dim=1),x_q)
-        return torch.exp(-(p+q))
 
 class MLP(torch.nn.Module):
     def __init__(self,d,f=12,k=2,o=1):
         super(MLP, self).__init__()
         self.model = nn.ModuleList()
-        self.model.append(_res_block(d, f))
+        self.model.append(input_block(d, f))
         for i in range(k):
             self.model.append(_res_block(f, f))
-        self.model.append(_res_block(f, o))
+        self.model.append(output_block(f, o))
     def pass_through(self,x):
         # X,Z = x.unbind(dim=1)
         for l in self.model:

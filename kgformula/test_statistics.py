@@ -129,7 +129,6 @@ def get_i_not_j_indices(n):
 
 class density_estimator():
     def __init__(self, x, z,x_q, est_params=None, cuda=False, device=0, type='linear',secret_indx=0):
-        self.failed = False
         self.x = x
         self.z = z
         self.cuda = cuda
@@ -139,6 +138,8 @@ class density_estimator():
         self.type = type
         self.kernel_base = gpytorch.kernels.Kernel()
         self.tmp_path = f'./tmp_folder_{secret_indx}/'
+        if os.path.exists(f'./tmp_folder_{secret_indx}/best_run.pt'):
+            os.remove(f'./tmp_folder_{secret_indx}/best_run.pt')
         self.x_q = x_q
         if self.x_q.dim()==1:
             self.x_q = self.x_q.unsqueeze(-1)
@@ -295,8 +296,10 @@ class density_estimator():
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.opt,factor=0.5, patience=1)
         self.counter = 0
         self.best = np.inf
+        torch.save({'state_dict': self.model.state_dict(),
+                    'epoch': 0}, self.tmp_path + 'best_run.pt')
         for i in range(self.est_params['max_its']):
-            print(f'epoch {i}')
+            print(f'epoch {i+1}')
             self.train_loop()
             if self.validation_loop(i):
                 break
@@ -306,7 +309,6 @@ class density_estimator():
         best_epoch = weights['epoch']
         print(f'loading best epoch {best_epoch}')
         self.model.load_state_dict(weights['state_dict'])
-        self.model.eval()
 
     def model_eval(self,X,Z,X_q_test):
         if self.type in ['ones','random_uniform']:
@@ -319,37 +321,17 @@ class density_estimator():
         if self.X_q_test.dim()==1:
             self.X_q_test = self.X_q_test.unsqueeze(-1)
         with torch.no_grad():
-            if self.type == 'NCE':
+            if self.type == 'rulsif':
+                w = self.model.get_w(X, Z, self.X_q_test)
+            else:
                 self.load_best_model()
                 w = self.model.get_w(X, Z,[])
-            elif self.type=='NCE_Q':
-                self.load_best_model()
-                w = self.model.get_w(X, Z,[])
-            # elif self.type == 'TRE_Q':
-            #     self.load_best_model()
-            #     w = self.model.get_w(X, Z, self.X_q_test)
-            elif self.type == 'real_TRE':
-                self.load_best_model()
-                w = self.model.get_w(X, Z, self.X_q_test)
-            elif self.type == 'real_TRE_Q':
-                self.load_best_model()
-                w = self.model.get_w(X, Z, self.X_q_test)
-            elif self.type == 'rulsif':
-                w = self.model.get_w(X, Z, self.X_q_test)
-
         _w = w.cpu().squeeze().numpy()
-        idx_HSIC = np.random.choice(np.arange(n),n,p=_w / _w.sum())
-        p_val = hsic_test(X[idx_HSIC, :], Z[idx_HSIC, :], self.est_params['n_sample'])
-        print(f'HSIC_pval : {p_val}')
-        self.hsic_pval = p_val
-        if p_val < self.est_params['criteria_limit']:
-            self.failed = True
-            print('failed')
         return w
 
     def return_weights(self,X,Z,X_Q):
         self.w = self.model_eval(X,Z,X_Q)
-        return self.w.squeeze()
+        return self.w.squeeze()/self.kappa
 
     def get_median_ls_XY(self,X,Y):
         with torch.no_grad():

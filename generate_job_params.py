@@ -13,6 +13,7 @@ def load_obj(name,folder):
 # BXY_const = 0.0
 # BXY = 0.5
 # yz=[-0.5,4.0]
+# yz=[-0.5,1.0]
 # b_z = [0.0]
 # dirname ='exp_gcm_break_100'
 # PHI=[2.0]
@@ -20,15 +21,19 @@ def load_obj(name,folder):
 # DX=[1]
 # DY = [1]
 # DZ = [1]
-
+#
 N=100
 BXY_const = 0.0
 BXY = 0.5
 yz=[0.5,0.0]
-b_z = [0.5]
+b_z = [0.01]
+# b_z = [0.5]
 dirname ='exp_hsic_break_100'
-PHI=[0.9]
-THETA=[0.1]
+# PHI=[0.9] #breaker
+# THETA=[0.1] #breaker
+PHI=[0.5]
+THETA=[5.0]
+
 DX=[1]
 DY = [1]
 DZ = [1]
@@ -49,9 +54,9 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                 #                              [2.0, 2.0, 2.0, 2.0]):  # 50,3
             for beta_XZ in b_z:
                 # for q in [1e-2,0.05,0.1,0.25]:
-                for q in [0.5,0.75,1.0]:
+                for q in [0.25]:
                     # for by in [0.0,BXY]: #Robin suggest: [0.0, 0.1,0.25,0.5]
-                    for by in [0.0,BXY]: #Robin suggest: [0.0, 0.1,0.25,0.5]
+                    for by in [0.5]: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         ba = BXY_const
                         beta_xy = [ba, by]
                         data_dir = f"{dirname}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz={yz}_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
@@ -85,8 +90,8 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                 'q_factor':q,
                                                 'qdist': 2,
                                                 'n':n,
-                                                'est_params': {'lr': 1e-3, #use really small LR for TRE
-                                                               'max_its': 10,
+                                                'est_params': {'lr': 1e-5, #use really small LR for TRE. Ok what the fuck is going on...
+                                                               'max_its': 0,
                                                                'width': width,
                                                                'layers':layers,
                                                                'mixed': False,
@@ -198,6 +203,7 @@ if __name__ == '__main__':
     generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='exp_jobs_kc_est',job_type='kc',dirname=dirname)
     generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_kc',job_type='kc',dirname=dirname)
     generate_job_params_GCM(n_list=[1000,5000,10000],seed_max=N,directory='exp_jobs_gcm',dirname=dirname)
+    generate_job_params_GCM(n_list=[1000,5000,10000],seed_max=N,directory='exp_jobs_regression',dirname=dirname,job_type='regression')
     generate_job_params_HSIC(n_list=[1000,5000,10000],seed_max=N,directory='exp_jobs_hsic',dirname=dirname)
     # generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=N,estimate=False,directory='exp_jobs_kc',dirname=dirname)
     # generate_job_params(n_list=[1000],net_layers=[1],net_width=[64],runs=1,seed_max=N,estimate=True,directory='debug_gcm_NCE_Q',dirname=dirname)

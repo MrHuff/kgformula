@@ -317,6 +317,9 @@ class simulation_object():
         self.device = self.args['device']
         self.validation_chunks = 10
         self.validation_over_samp = 10
+    @staticmethod
+    def reject_outliers(data, m=2):
+        return data[abs(data - np.mean(data)) < m * np.std(data)]
 
     def validity_sanity_check(self,X_test,Y_test,Z_test,density_est):
         x_chunk = torch.chunk(X_test,self.validation_chunks)
@@ -383,7 +386,6 @@ class simulation_object():
 
         if os.path.exists(f'./{data_dir}/{job_dir}/df{suffix}.csv'):
             return
-
         p_value_list = []
         reference_metric_list = []
         validity_p_list = []
@@ -422,7 +424,23 @@ class simulation_object():
                 d = density_estimator(x=X_train, z=Z_train,x_q=X_q_train, cuda=self.cuda,
                                       est_params=est_params, type=estimator, device=self.device,secret_indx=self.args['unique_job_idx'])
                 w = d.return_weights(X_test,Z_test,X_q_test)
+
+                # w = 1/w
+
+                save_w = w.cpu().numpy()
+                if i%10==0:
+                    print('est median: ', np.median(save_w))
+                    print('est std: ', np.std(save_w))
+                    plt.hist(save_w,bins=100)
+                    plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}.png')
+                    plt.clf()
+                    print('ref median: ', np.median(_w.cpu().numpy()))
+                    print('ref std: ', np.std(_w.cpu().numpy()))
+                    plt.hist(self.reject_outliers(_w.cpu().numpy()),bins=100)
+                    plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_ref.png')
+                    plt.clf()
                 p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d)
+                print(p_values_h_0)
                 actual_pvalues_validity.append(torch.tensor(p_values_h_0))
                 stat, pval =kstest(p_values_h_0,'uniform')
                 validity_p_list.append(pval)
@@ -431,16 +449,18 @@ class simulation_object():
                     with torch.no_grad():
                         l = mse_loss(_w, w) / _w.var()
                     R2_errors.append(1-l.item())
-                    hsic_pval_list.append(d.hsic_pval)
                 X_q_test = d.X_q_test
                 if i == 0:
                     torch.save(w,f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
             else:
                 w = w_q
             p,reference_metric,_arr = self.perm_Q_test(X_test,Y_test,X_q_test,w,i)
-            # plt.hist(w.cpu().numpy(),color='b',alpha=0.1)
-            # plt.hist(_w.cpu().numpy(),color='r',alpha=0.1)
-            # plt.savefig()
+            if i==0:
+                n,_,_ = plt.hist(_arr, bins=100)
+                plt.vlines([reference_metric], ymin=0, ymax=n.max(), label='reference value',color='magenta')
+                plt.savefig(f'./{data_dir}/{job_dir}/_arr_{i}.png')
+                plt.clf()
+
             print(f'seed {i} pval={p}')
             p_value_list.append(p)
             reference_metric_list.append(reference_metric)
@@ -465,7 +485,6 @@ class simulation_object():
         if estimator in estimator_list and estimate:
             validity_p_value_array = torch.tensor(validity_p_list)
             validity_value_array = torch.tensor(validity_stat_list)
-            hsic_pval_list = torch.tensor(hsic_pval_list).float()
             r2_tensor = torch.tensor(R2_errors).float()
             actual_pvalues_validity = torch.cat(actual_pvalues_validity).float()
             torch.save(actual_pvalues_validity,
@@ -474,8 +493,6 @@ class simulation_object():
                        f'./{data_dir}/{job_dir}/validity_p_value_array{suffix}.pt')
             torch.save(validity_value_array,
                        f'./{data_dir}/{job_dir}/validity_value_array{suffix}.pt')
-            torch.save(hsic_pval_list,
-                       f'./{data_dir}/{job_dir}/hsic_pval_array{suffix}.pt')
             torch.save(r2_tensor,
                        f'./{data_dir}/{job_dir}/r2_array{suffix}.pt')
             df_data = torch.stack([hsic_pval_list,r2_tensor],dim=1).numpy()
@@ -567,8 +584,6 @@ class simulation_object_linear_regression():
         for i in tqdm.trange(seeds_a,seeds_b):
             X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt')
             X, Y, Z, _w = X[:required_n,:],Y[:required_n,:],Z[:required_n,:],_w[:required_n]
-            # X ,Y,Z = array.array(X.numpy().tolist()),array.array(Y.numpy().tolist()),array.array(Z.numpy().tolist())
-            X ,Y,Z = X.numpy(),Y.numpy(),Z.numpy()
             p_val = self.run_linear_regression(X,Y,Z)
             p_value_list.append(p_val)
         p_value_array = torch.tensor(p_value_list)
