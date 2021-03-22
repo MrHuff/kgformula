@@ -62,26 +62,27 @@ def get_w_plot(data_path,est,w_est_path,args,pre_path,suffix):
 
 def get_hist(ref_vals,name,pre_path,suffix,args,snr,ess,bxy,ks_val):
     try:
-        n = args['n']
-        ess = round(ess,2)
-        snr = round(snr,3)
-        ks_val = round(ks_val,3)
-        if bxy==0:
-            title = f'n: {n} ESS: {ess} SNR: {snr} KS-pval: {ks_val}'
-        else:
-            title = f'n: {n} ESS: {ess} SNR: {snr}'
-
-        if args['estimator']=='real_TRE_Q':
-            estimator = 'TRE-Q'
-        elif  args['estimator']=='NCE_Q':
-            estimator  ='NCE-Q'
-        else:
-            estimator = args['estimator'].replace('_',' ')
-
-        xlabl =  r'Estimator: {est} $\quad \beta_{XY}={bxy}$'.format(est=estimator,bxy=bxy,XY='{XY}')
+        # n = args['n']
+        # ess = round(ess,2)
+        # snr = round(snr,3)
+        # ks_val = round(ks_val,3)
+        # if bxy==0:
+        #     title = f'n: {n} ESS: {ess} SNR: {snr} KS-pval: {ks_val}'
+        # else:
+        #     title = f'n: {n} ESS: {ess} SNR: {snr}'
+        #
+        # if args['estimator']=='real_TRE_Q':
+        #     estimator = 'TRE-Q'
+        # elif  args['estimator']=='NCE_Q':
+        #     estimator  ='NCE-Q'
+        # else:
+        #     estimator = args['estimator'].replace('_',' ')
+        #
+        # # xlabl =  r'Estimator: {est} $\quad \beta_{XY}={bxy}$'.format(est=estimator,bxy=bxy,XY='{XY}')
         plt.hist(ref_vals, 25)
-        plt.suptitle(title)
-        plt.xlabel(xlabl)
+        # plt.suptitle(title)
+        plt.xlabel('p-values')
+        plt.ylabel('Frequency')
         # plt.show()
         plt.savefig(pre_path+f'{name}_{suffix}.jpg')
         plt.clf()
@@ -97,9 +98,7 @@ def return_filenames(args):
     q_fac =  args['q_factor']
     qdist =  args['qdist']
     bootstrap_runs =  args['bootstrap_runs']
-    est_params =  args['est_params']
     estimator =  args['estimator']
-    runs =  args['runs']
     mode =  args['mode']
     split_data =  args['split']
     required_n =  args['n']
@@ -125,7 +124,7 @@ def calc_ess(w):
     return (w.sum()**2)/(w**2).sum()
 
 def calculate_one_row(j,base_dir):
-    levels = [1e-3, 1e-2, 0.05, 1e-1]
+    levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
     theta_dict = {1: 2.0, 3: 3.0, 15: 8.0, 50: 16.0}
     job_params = load_obj(j, folder=f'{base_dir}/')
     try:
@@ -191,7 +190,7 @@ def generate_csv_file(base_dir):
         row = calculate_one_row(j,base_dir)
         if isinstance(row,list):
             df_data.append(row)
-    levels = [1e-3, 1e-2, 0.05, 1e-1]
+    levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
     columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy','snr_xz','EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
     df = pd.DataFrame(df_data,columns=columns)
     df = df.drop_duplicates()
@@ -211,7 +210,7 @@ def generate_csv_file_parfor(base_dir):
     df_data = list(filter(None, df_data))
     # df_data = [pool.apply(calculate_one_row, args=(row, base_dir)) for row in jobs]
     pool.close()
-    levels = [1e-3, 1e-2, 0.05, 1e-1]
+    levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
     columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy','snr_xz','EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
     df = pd.DataFrame(df_data,columns=columns)
     df = df.drop_duplicates()
@@ -219,5 +218,6 @@ def generate_csv_file_parfor(base_dir):
     df.to_csv(f'{base_dir}.csv')
 
 if __name__ == '__main__':
-    generate_csv_file('exp_jobs_true_weights_sanity')
-    generate_csv_file('exp_jobs_true_weights_q_new')
+    # generate_csv_file_parfor('base_jobs_kc_est')
+    generate_csv_file_parfor('base_jobs_kc')
+    generate_csv_file_parfor('base_jobs_kc_est_rulsif')

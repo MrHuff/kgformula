@@ -23,22 +23,19 @@ def load_obj(name,folder):
 # DZ = [1]
 #
 N=100
-BXY_const = 0.0
-BXY = 0.5
+BXY_const = 0
 yz=[0.5,0.0]
-b_z = [0.01]
-# b_z = [0.5]
-dirname ='exp_hsic_break_100'
-# PHI=[0.9] #breaker
-# THETA=[0.1] #breaker
-PHI=[0.5]
-THETA=[5.0]
-
-DX=[1]
-DY = [1]
-DZ = [1]
-
-
+b_z = [0.5]
+dirname ='do_null_100'
+PHI=[2.0,2.0,2.0,2.0]
+THETA=[2.0,4.0,8.0,16.0]
+# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
+# BXY_list = [0.0,0.5]
+DX= [1,3,3,3]
+DY =  [1,3,3,3]
+DZ = [1,3,15,50]
+Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+BR = [500]
 def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc',dirname=''):
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -47,26 +44,20 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
         os.makedirs(directory)
     counter = 0
     for n in n_list:
-        # for d_X, d_Y, d_Z, theta, phi in zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [1.,1.,1.,1.],[1.,1.,1.,1.]):
         for d_X, d_Y, d_Z, theta, phi in zip(DX, DY, DZ, THETA,PHI):
-                # zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],[2.0, 2.0, 2.0, 2.0]):  # 50,3
-                # zip([1,3, 3, 3], [1,3, 3, 3], [1,3, 15, 50], [2.0,3.0, 8.0, 16.0],
-                #                              [2.0, 2.0, 2.0, 2.0]):  # 50,3
             for beta_XZ in b_z:
-                # for q in [1e-2,0.05,0.1,0.25]:
-                for q in [0.25]:
-                    # for by in [0.0,BXY]: #Robin suggest: [0.0, 0.1,0.25,0.5]
-                    for by in [0.0,BXY]: #Robin suggest: [0.0, 0.1,0.25,0.5]
+                for q in Q_LIST:
+                    for by in BXY_list: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         ba = BXY_const
                         beta_xy = [ba, by]
                         data_dir = f"{dirname}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz={yz}_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
                         val_rate = 0.2
                         h_str =data_dir
                         if estimate:
-                            models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
+                            # models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
                             # models_to_run = zip(['real_TRE_Q'],[1])
                             # models_to_run = zip(['NCE_Q'],[10])
-                            # models_to_run = zip(['rulsif'],[1,1])
+                            models_to_run = zip(['rulsif'],[1,1])
                         else:
                             models_to_run = zip(['real_weights'],[1])
                         for mode in ['Q']:
@@ -74,7 +65,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                 for layers in net_layers:
                                     job_dir = f'{directory}_layers={layers}_width={width}'
                                     for model,kappa in models_to_run:#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
-                                        for br in [250]:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+                                        for br in BR:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
                                             args = {
                                                 'job_type':job_type,
                                                 'device': -1,
@@ -126,7 +117,7 @@ def generate_job_params_HSIC(n_list,runs=1,seed_max=1000,estimate=False,director
                 #                              [2.0, 2.0, 2.0, 2.0]):  # 50,3
             for beta_XZ in b_z:
                 # for q in [1e-2,0.05,0.1,0.25]:
-                for by in [0.0,BXY]: #Robin suggest: [0.0, 0.1,0.25,0.5]
+                for by in BXY_list: #Robin suggest: [0.0, 0.1,0.25,0.5]
                     ba = BXY_const
                     beta_xy = [ba, by]
                     data_dir = f"{dirname}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz={yz}_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
@@ -170,7 +161,7 @@ def generate_job_params_GCM(n_list,seed_max=1000,directory='job_dir/',job_type='
                 #                              [2.0, 2.0, 2.0, 2.0]):  # 50,3
             for beta_XZ in b_z:
                 # for q in [1e-2,0.05,0.1,0.25]:
-                for by in [0.0,BXY]: #Robin suggest: [0.0, 0.1,0.25,0.5]
+                for by in BXY_list: #Robin suggest: [0.0, 0.1,0.25,0.5]
                     ba = BXY_const
                     beta_xy = [ba, by]
                     data_dir = f"{dirname}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz={yz}_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
@@ -200,11 +191,14 @@ if __name__ == '__main__':
     # generate_job_params(n_list=[10000,5000,1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='exp_jobs_estimate',exp=True)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='job_univariate_real/')
     # generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_test_2',exp=True,job_type='kc')
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='exp_jobs_kc_est',job_type='kc',dirname=dirname)
-    generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='exp_jobs_kc_est_test',job_type='kc',dirname=dirname)
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_kc',job_type='kc',dirname=dirname)
-    generate_job_params_GCM(n_list=[1000,5000,10000],seed_max=N,directory='exp_jobs_gcm',dirname=dirname)
-    generate_job_params_GCM(n_list=[1000,5000,10000],seed_max=N,directory='exp_jobs_regression',dirname=dirname,job_type='regression')
-    generate_job_params_HSIC(n_list=[1000,5000,10000],seed_max=N,directory='exp_jobs_hsic',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est',job_type='kc',dirname=dirname)
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_rulsif',job_type='kc',dirname=dirname)
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='base_jobs_kc',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='exp_jobs_kc_est',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='exp_jobs_kc_est_test',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='exp_jobs_kc',job_type='kc',dirname=dirname)
+    # generate_job_params_GCM(n_list=[1000,5000,10000],seed_max=N,directory='exp_jobs_gcm',dirname=dirname)
+    # generate_job_params_GCM(n_list=[1000,5000,10000],seed_max=N,directory='exp_jobs_regression',dirname=dirname,job_type='regression')
+    # generate_job_params_HSIC(n_list=[1000,5000,10000],seed_max=N,directory='exp_jobs_hsic',dirname=dirname)
     # generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=N,estimate=False,directory='exp_jobs_kc',dirname=dirname)
     # generate_job_params(n_list=[1000],net_layers=[1],net_width=[64],runs=1,seed_max=N,estimate=True,directory='debug_gcm_NCE_Q',dirname=dirname)

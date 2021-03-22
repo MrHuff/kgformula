@@ -460,6 +460,7 @@ class chunk_iterator(): #joint = pos, pom = neg
 class NCE_dataloader():
     def __init__(self,dataset,bs_ratio,shuffle=False,kappa=10,TRE=False):
         self.dataset = dataset
+        self.dataset.set_mode('train')
         self.bs_ratio = bs_ratio
         self.batch_size = int(round(self.dataset.X.shape[0] * bs_ratio))
         self.shuffle = shuffle

@@ -148,9 +148,9 @@ class density_estimator():
             os.makedirs(self.tmp_path)
 
         self.dataset = self.create_classification_data()
-        self.dataset.set_mode('train')
-        self.dataloader = NCE_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True,kappa=self.kappa,
-                                    TRE=self.type in ['real_TRE','real_TRE_Q'])
+        if self.type!='rulsif':
+            self.dataloader = NCE_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True,kappa=self.kappa,
+                                        TRE=self.type in ['real_TRE','real_TRE_Q'])
         if self.type == 'NCE':
             self.model = MLP(d=self.dataset.X_train.shape[1]+self.dataset.Z_train.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
             self.train_classifier()
@@ -177,9 +177,6 @@ class density_estimator():
             self.train_classifier()
         elif self.type=='rulsif':
             self.train_rulsif(self.dataset)
-        # elif type == 'TRE_Q':
-        #     self.model = MLP_pq(d_p=dataset.X_train.shape[1] + dataset.Z_train.shape[1],d_q=dataset.X_train.shape[1], f=self.est_params['width'], k=self.est_params['layers']).to(self.x.device)
-        #     self.train_TRE_Q(dataset)
         elif self.type == 'random_uniform':
             self.w = torch.rand(*(self.x.shape[0],1)).squeeze().cuda(self.device)
         elif self.type == 'ones':
@@ -202,13 +199,6 @@ class density_estimator():
                                           kappa=self.kappa,
                                           val_rate=self.est_params['val_rate']
                                           )
-        # elif self.type=='TRE_Q':
-        #     return classification_dataset_Q_TRE(self.x,
-        #                                     self.z,
-        #                                     self.x_q,
-        #                                     bs=self.est_params['bs_ratio'],
-        #                                     kappa=self.kappa,
-        #                                     val_rate=self.est_params['val_rate'],)
         elif self.type=='real_TRE':
             return dataset_MI_TRE(X=self.x,
                                             Z=self.z,
