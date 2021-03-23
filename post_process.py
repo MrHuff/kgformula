@@ -6,8 +6,10 @@ from generate_job_params import *
 import ast
 from generate_data_multivariate import generate_sensible_variables,calc_snr
 from pylab import *
-rc('text', usetex=True)
-
+font_size = 14
+plt.rcParams['font.size'] = font_size
+plt.rcParams['legend.fontsize'] = font_size
+plt.rcParams['axes.labelsize'] = font_size
 def reject_outliers(data, m = 2.):
     d = np.abs(data - np.median(data))
     mdev = np.median(d)
@@ -79,12 +81,13 @@ def get_hist(ref_vals,name,pre_path,suffix,args,snr,ess,bxy,ks_val):
         #     estimator = args['estimator'].replace('_',' ')
         #
         # # xlabl =  r'Estimator: {est} $\quad \beta_{XY}={bxy}$'.format(est=estimator,bxy=bxy,XY='{XY}')
-        plt.hist(ref_vals, 25)
+        plt.hist(ref_vals, bins=[i/25 for i in range(0,26)])
         # plt.suptitle(title)
         plt.xlabel('p-values')
         plt.ylabel('Frequency')
         # plt.show()
-        plt.savefig(pre_path+f'{name}_{suffix}.jpg')
+        plt.savefig(pre_path+f'{name}_{suffix}.jpg',bbox_inches = 'tight',
+    pad_inches = 0.05)
         plt.clf()
     except Exception as e:
         print(e)
@@ -218,6 +221,6 @@ def generate_csv_file_parfor(base_dir):
     df.to_csv(f'{base_dir}.csv')
 
 if __name__ == '__main__':
-    # generate_csv_file_parfor('base_jobs_kc_est')
+    generate_csv_file_parfor('base_jobs_kc_est')
     generate_csv_file_parfor('base_jobs_kc')
     generate_csv_file_parfor('base_jobs_kc_est_rulsif')

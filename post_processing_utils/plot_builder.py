@@ -1,36 +1,21 @@
 import os
 import shutil
 
-def build_suffix(q_fac,required_n,estimator):
+def build_suffix(q_fac,required_n,estimator,br):
     if estimator=='real_weights':
         estimate=False
         split_data=False
     else:
         estimate=True
         split_data=True
-    suffix = f'__qf={q_fac}_qd=2_m=Q_s=0_100_e={estimate}_est={estimator}_sp={split_data}_br=250_n={required_n}'
+    suffix = f'__qf={q_fac}_qd=2_m=Q_s=0_100_e={estimate}_est={estimator}_sp={split_data}_br={br}_n={required_n}'
+
     return suffix
 
-def build_path(bxy,dz,bxz,theta,phi):
-    if dz==1:
-        list_xy = [0.0,int(bxy)]
-        dx=1
-        dy=1
-    else:
-        list_xy = [0,float(bxy)]
-        dx=3
-        dy=3
-    path = f'beta_xy={list_xy}_d_X={dx}_d_Y={dy}_d_Z={dz}_n=10000_yz=0.5_beta_XZ={bxz}_theta={theta}_phi={phi}/layers=3_width=32/'
+def build_path(list_xy,dx,dy,dz,bxz,theta,phi,yz):
+    path = f'beta_xy={list_xy}_d_X={dx}_d_Y={dy}_d_Z={dz}_n=10000_yz={yz}_beta_XZ={bxz}_theta={theta}_phi={phi}/'
     return path
 
-def build_histogram_plots(directory,row_num,col_num,prefix,bxy,dz,bxz,theta,phi,q_fac,required_n,estimator):
-
-
-    path = build_path(bxy,dz,bxz,theta,phi)
-    fn =f'{prefix}_'+ build_suffix(q_fac,required_n,estimator)+'.jpg'
-    source = 'data_100/'+path+fn
-    dest = directory + f'/r={row_num}_c={col_num}.jpg'
-    shutil.copy(source,dest)
 
 if __name__ == '__main__':
     est_comb = ['real_weights','NCE_Q','real_TRE_Q','rulsif']
