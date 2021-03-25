@@ -1,5 +1,4 @@
 import pandas as pd
-from generate_data_multivariate import generate_sensible_variables,calc_snr
 pd.set_option("display.max_rows", 999)
 pd.set_option("display.max_columns", 90)
 pd.set_option('display.expand_frame_repr', False)
@@ -50,6 +49,8 @@ def calibration_and_power_plots(directory,csv_file,beta_XZ,est,beta_xy): #Should
             a,b,e = calc_error_bars(y,alpha=0.05,num_samples=100)
             errorbar = plt.errorbar(x, y, yerr=e, ls='none')
             plt.hlines(0.05, 0, 10000)
+            legend1 = plt.legend(*scatter.legend_elements(),title=r'$c_q$')
+
             plt.suptitle(r"Estimator: {est} $\quad d_Z$={dz} $\quad\beta_{XY}={bxy}$".format(dz=d_Z,est=estimator,XY='{XY}',bxy=beta_xy))
             legend1 = plt.legend(*scatter.legend_elements(),title=r'$c_q$')
             plt.xlabel('n')

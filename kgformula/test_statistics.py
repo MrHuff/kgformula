@@ -57,7 +57,9 @@ class HSIC_independence_test():
 
     @staticmethod
     def calculate_pval(bootstrapped_list, test_statistic):
-        pval = 1 - 1 / (bootstrapped_list.shape[0] + 1) * (1 + (bootstrapped_list <= test_statistic).sum())
+        pval_right = 1 - 1 / (bootstrapped_list.shape[0] + 1) * (1 + (bootstrapped_list <= test_statistic).sum())
+        pval_left = 1 - pval_right
+        pval = 2 * min([pval_left.item(), pval_right.item()])
         return pval
 
     def kernel_ls_init(self,name,data,ls=None):

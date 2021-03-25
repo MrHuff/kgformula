@@ -1,4 +1,4 @@
-from kgformula.utils import simulation_object,simulation_object_hsic,simulation_object_GCM
+from kgformula.utils import simulation_object,simulation_object_hsic,simulation_object_GCM,simulation_object_linear_regression
 import argparse
 from generate_job_params import *
 parser = argparse.ArgumentParser()
@@ -13,6 +13,8 @@ def run_jobs(args):
         j = simulation_object_hsic(args)
     elif args['job_type']=='gcm':
         j = simulation_object_GCM(args)
+    elif args['job_type']=='regression':
+        j = simulation_object_linear_regression(args)
     j.run()
     del j
 

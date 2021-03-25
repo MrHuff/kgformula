@@ -8,7 +8,7 @@ if __name__ == '__main__': #Replace GCM with something else that works/has power
     seeds = 100
     # yz = [-0.5,4.0] #GCM breaker - coplua
     yz = [-0.5,1.0] #Counter example
-    xy_const = 00.0 #GCM breaker
+    xy_const = 0.0 #GCM breaker
     fam_z = 1
     fam_y= 1
     fam_x =[1,1]
@@ -20,7 +20,7 @@ if __name__ == '__main__': #Replace GCM with something else that works/has power
             b_z = (d_Z ** 2) * b_z
             beta_xz = generate_sensible_variables(d_Z, b_z, const=0)  # What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
             for n in [10000]:
-                for beta_xy in [[xy_const, 0.0],[xy_const, 0.5]]:
+                for beta_xy in [[xy_const, 0.0],[xy_const, 0.1],[xy_const, 0.2],[xy_const, 0.3],[xy_const, 0.4],[xy_const, 0.5]]:
                 # for beta_xy in [[xy_const, 0.0]]:
                     data_dir = f"{folder_name}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z / (d_Z ** 2), 3)}_theta={theta}_phi={round(phi, 2)}"
                     if not os.path.exists(f'./{data_dir}/'):
