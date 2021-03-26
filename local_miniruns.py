@@ -17,9 +17,9 @@ def run_jobs(args):
 
 if __name__ == '__main__':
     input = {
-        'idx':5,
+        'idx':0,
         'ngpu':1,
-        'job_folder': 'exp_jobs_kc_est'
+        'job_folder': 'ind_jobs_hsic'
     }
     listjob = os.listdir(input['job_folder'])
     for i in range(len(listjob)):

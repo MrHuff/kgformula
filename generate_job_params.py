@@ -10,25 +10,43 @@ def load_obj(name,folder):
     with open(f'{folder}' + name, 'rb') as f:
         return pickle.load(f)
 
-#COND BREAK
-N=100
-BXY_const = 0.0
-BXY = 0.5
-yz=[-0.5,4.0]
-# yz=[-0.5,1.0]
-b_z = [0.0]
-dirname ='exp_gcm_break_100'
-PHI=[2.0]
-THETA=[1.0]
-DX=[1]
-DY = [1]
-DZ = [1]
-#BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
-BXY_list = [0.0]
 
+#KC-HSIC BREAK
+N=100
+BXY_const = 0
+yz=[0.5,0.0]
+b_z = [0.75,1.0,1.25,1.5,1.75,2.0,2.25,2.5]
+dirname ='kchsic_break_100'
+PHI=[2.0]
+THETA=[4.0]
+BXY_list = [0.0]
+DX= [1]
+DY =  [1]
+DZ = [1]
 Q_LIST=[0.2,0.4,0.6,0.8,1.0]
 BR = [500]
 MAX_ITS=10
+
+
+
+#COND BREAK
+# N=100
+# BXY_const = 0.0
+# BXY = 0.5
+# # yz=[-0.5,4.0]
+# yz=[-0.5,1.0]
+# b_z = [0.0]
+# dirname ='exp_gcm_break_100'
+# PHI=[2.0]
+# THETA=[1.0]
+# DX=[1]
+# DY = [1]
+# DZ = [1]
+# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
+# # BXY_list = [0.0]
+# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+# BR = [500]
+# MAX_ITS=10
 
 
 
@@ -48,8 +66,8 @@ MAX_ITS=10
 # DY = [1]
 # DZ = [1]
 # BR = [500]
-# # BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
-# BXY_list = [0.0]
+# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
+# # BXY_list = [0.1]
 # Q_LIST=[0.2,0.4,0.6,0.8,1.0]
 # MAX_ITS=10
 
@@ -217,8 +235,9 @@ if __name__ == '__main__':
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_ablation',job_type='kc',dirname=dirname)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_rulsif',job_type='kc',dirname=dirname)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='base_jobs_kc',job_type='kc',dirname=dirname)
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)
 
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='cond_jobs_kc_est',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='cond_jobs_kc_est',job_type='kc',dirname=dirname)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='cond_jobs_kc',job_type='kc',dirname=dirname)
     # generate_job_params_GCM(n_list=[5000],seed_max=N,directory='cond_jobs_regression',dirname=dirname,job_type='regression')
     # generate_job_params_HSIC(n_list=[1000,5000,10000],seed_max=N,directory='ind_jobs_hsic',dirname=dirname)

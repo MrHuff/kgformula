@@ -1,20 +1,31 @@
 import pandas as pd
-from kgformula.post_process_plots import *
+import torch
 from kgformula.utils import x_q_class
-import os
-from generate_job_params import *
 import ast
 from generate_data_multivariate import generate_sensible_variables,calc_snr
+from scipy.stats import kstest
 from pylab import *
+import os
+import pickle
+
 font_size = 14
 plt.rcParams['font.size'] = font_size
 plt.rcParams['legend.fontsize'] = font_size
 plt.rcParams['axes.labelsize'] = font_size
+
+def load_obj(name,folder):
+    with open(f'{folder}' + name, 'rb') as f:
+        return pickle.load(f)
+
 def reject_outliers(data, m = 2.):
     d = np.abs(data - np.median(data))
     mdev = np.median(d)
     s = d/mdev if mdev else 0.
     return data[s<m]
+def get_power(level,p_values):
+    total_pvals = len(p_values)
+    power = sum(p_values<=level)/total_pvals
+    return power
 
 def concat_data(PATH,prefix,suffices):
     collection = []
@@ -64,28 +75,9 @@ def get_w_plot(data_path,est,w_est_path,args,pre_path,suffix):
 
 def get_hist(ref_vals,name,pre_path,suffix,args,snr,ess,bxy,ks_val):
     try:
-        # n = args['n']
-        # ess = round(ess,2)
-        # snr = round(snr,3)
-        # ks_val = round(ks_val,3)
-        # if bxy==0:
-        #     title = f'n: {n} ESS: {ess} SNR: {snr} KS-pval: {ks_val}'
-        # else:
-        #     title = f'n: {n} ESS: {ess} SNR: {snr}'
-        #
-        # if args['estimator']=='real_TRE_Q':
-        #     estimator = 'TRE-Q'
-        # elif  args['estimator']=='NCE_Q':
-        #     estimator  ='NCE-Q'
-        # else:
-        #     estimator = args['estimator'].replace('_',' ')
-        #
-        # # xlabl =  r'Estimator: {est} $\quad \beta_{XY}={bxy}$'.format(est=estimator,bxy=bxy,XY='{XY}')
         plt.hist(ref_vals, bins=[i/25 for i in range(0,26)])
-        # plt.suptitle(title)
         plt.xlabel('p-values')
         plt.ylabel('Frequency')
-        # plt.show()
         plt.savefig(pre_path+f'{name}_{suffix}.jpg',bbox_inches = 'tight',
     pad_inches = 0.05)
         plt.clf()
@@ -106,7 +98,6 @@ def return_filenames(args):
     split_data =  args['split']
     required_n =  args['n']
     suffix = f'_qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
-
     p_val_file = f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt'
     ref_val = f'./{data_dir}/{job_dir}/ref_val_array{suffix}.pt'
     w_file = f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt'
@@ -126,6 +117,51 @@ def data_dir_extract(data_dir):
 def calc_ess(w):
     return (w.sum()**2)/(w**2).sum()
 
+
+def calculate_one_row_contrast(j,base_dir):
+    levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
+    job_params = load_obj(j, folder=f'{base_dir}/')
+    try:
+        data_dir = job_params['data_dir']
+        job_dir = job_params['job_dir']
+        seeds_a = job_params['seeds_a']
+        seeds_b = job_params['seeds_b']
+        required_n = job_params['n']
+        if job_params['job_type']=='regression':
+            suffix = f'_linear_reg={seeds_a}_{seeds_b}_n={required_n}'
+        else:
+            bootstrap_runs = job_params['bootstrap_runs']
+            suffix = f'_hsic_s={seeds_a}_{seeds_b}_br={bootstrap_runs}_n={required_n}'
+
+        p_val_file = f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt'
+
+        pre_path = f'./{data_dir}/{job_dir}/'
+        dat_param = data_dir_extract(data_dir)
+        bxz = dat_param[-1]
+        d_Z = dat_param[3]
+        bxy = dat_param[0][1]
+        row = [job_params['n'], bxz, d_Z, bxy]
+        pval_dist = torch.load(p_val_file).numpy()
+        stat, pval = kstest(pval_dist, 'uniform')
+        get_hist(pval_dist, name='pvalhsit_', pre_path=pre_path, suffix=suffix, args=job_params, snr=0.0,
+                 ess=0.0, bxy=bxy, ks_val=pval)
+        row.append(pval)
+        row.append(stat)
+        custom_metric = pval_dist.mean() - 0.5
+        row.append(custom_metric)
+
+        h_0 = dat_param[0][1] == 0
+        results_size = []
+        for alpha in levels:
+            power = get_power(alpha, pval_dist)
+            results_size.append(power)
+        row = row + results_size
+        print('success')
+        return row
+    except Exception as e:
+        print(e)
+
+
 def calculate_one_row(j,base_dir):
     levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
     theta_dict = {1: 2.0, 3: 3.0, 15: 8.0, 50: 16.0}
@@ -142,15 +178,18 @@ def calculate_one_row(j,base_dir):
         bxy = dat_param[0][1]
         row = [job_params['n'], bxz, job_params['q_factor'], job_params['qdist'], job_params['est_params']['n_sample'],
                job_params['estimator'], d_Z, bxy, snr_xz]
-
-        eff_est, corr_coeff = get_w_plot(data_path=data_dir, est=estimate, w_est_path=w_file, args=job_params,
-                                         pre_path=pre_path, suffix=suffix)
-        row.append(eff_est.item())
+        try:
+            eff_est, corr_coeff = get_w_plot(data_path=data_dir, est=estimate, w_est_path=w_file, args=job_params,
+                                             pre_path=pre_path, suffix=suffix)
+            eff_est = eff_est.item()
+        except:
+            eff_est, corr_coeff = 0,0
+        row.append(eff_est)
         row.append(corr_coeff)
         pval_dist = torch.load(p_val_file).numpy()
         stat, pval = kstest(pval_dist, 'uniform')
         get_hist(pval_dist, name='pvalhsit_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
-                 ess=eff_est.item(), bxy=bxy, ks_val=pval)
+                 ess=eff_est, bxy=bxy, ks_val=pval)
         row.append(pval)
         row.append(stat)
         custom_metric = pval_dist.mean() - 0.5
@@ -158,7 +197,7 @@ def calculate_one_row(j,base_dir):
 
         ref_vals = torch.load(ref_val).numpy()
         get_hist(ref_vals, name='rvalhsit_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
-                 ess=eff_est.item(), bxy=bxy, ks_val=pval)
+                 ess=eff_est, bxy=bxy, ks_val=pval)
         h_0 = dat_param[0][1] == 0
         results_size = []
         for alpha in levels:
@@ -168,13 +207,13 @@ def calculate_one_row(j,base_dir):
         try:
             validity_pval = torch.load(validity_pval_filename).numpy()
             get_hist(validity_pval, name='validity_pvals_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
-                     ess=eff_est.item(), bxy=bxy, ks_val=pval)
+                     ess=eff_est, bxy=bxy, ks_val=pval)
             validity_val = torch.load(validity_val_filename).numpy()
             get_hist(validity_val, name='validity_val_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
-                 ess=eff_est.item(), bxy=bxy, ks_val=pval)
+                 ess=eff_est, bxy=bxy, ks_val=pval)
             actual_validity_pvals = torch.load(actual_validity_fname).numpy().squeeze()
             get_hist(actual_validity_pvals, name='actual_validity_pval_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
-                 ess=eff_est.item(), bxy=bxy, ks_val=pval)
+                 ess=eff_est, bxy=bxy, ks_val=pval)
 
         except Exception as e:
             print(e)
@@ -184,6 +223,7 @@ def calculate_one_row(j,base_dir):
         return row
     except Exception as e:
         print(e)
+
 
 def generate_csv_file(base_dir):
     jobs = os.listdir(base_dir)
@@ -220,7 +260,30 @@ def generate_csv_file_parfor(base_dir):
     df = df.sort_values('KS pval',ascending=False)
     df.to_csv(f'{base_dir}.csv')
 
+def generate_csv_contrast(base_dir):
+    jobs = os.listdir(base_dir)
+    jobs.sort()
+    df_data = []
+    for j in jobs:
+        row = calculate_one_row_contrast(j,base_dir)
+        if isinstance(row,list):
+            df_data.append(row)
+    levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
+    columns  = ['n','$/beta_{xz}$','d_Z','beta_xy','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
+    df = pd.DataFrame(df_data,columns=columns)
+    df = df.drop_duplicates()
+    df = df.sort_values('KS pval',ascending=False)
+    df.to_csv(f'{base_dir}.csv')
+    print(df.to_latex(escape=True))
+
+
+
 if __name__ == '__main__':
-    generate_csv_file_parfor('base_jobs_kc_est')
-    generate_csv_file_parfor('base_jobs_kc')
-    generate_csv_file_parfor('base_jobs_kc_est_rulsif')
+    # generate_csv_file_parfor('base_jobs_kc_est')
+    # generate_csv_file_parfor('base_jobs_kc')
+    # generate_csv_file_parfor('base_jobs_kc_est_rulsif')
+    generate_csv_file_parfor('base_jobs_kc_est_ablation')
+    # generate_csv_contrast('ind_jobs_hsic')
+    # generate_csv_contrast('cond_jobs_regression')
+    # generate_csv_file_parfor('hsic_jobs_kc')
+    # generate_csv_file_parfor('cond_jobs_kc')

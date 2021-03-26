@@ -163,8 +163,6 @@ if __name__ == '__main__':
     folder_name = f'do_null'
     sanity = False
     for d_X,d_Y,d_Z, theta,phi in zip( [1,3,3,3],[1,3,3,3],[1,3,15,50],[2.0,4.0,8.0,16.0],[2.0,2.0,2.0,2.0]): #50,3
-    # for d_X,d_Y,d_Z, theta,phi in zip( [3],[3],[3],[3.0],[2.0]): #50,3
-    # for d_X,d_Y,d_Z, theta,phi in zip( [1],[1],[1],[2.0],[2.0]): #50,3
         for b_z in [0.5]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z= (d_Z**2)*b_z
             beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
