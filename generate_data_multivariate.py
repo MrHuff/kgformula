@@ -103,7 +103,7 @@ def gen_data_and_sanity(data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fa
                     sig_xxz = theta
                     sample = (X[:, d] - test).squeeze().numpy()  # *sig_xxz
                     stat, pval = kstest(sample, 'norm', (0, sig_xxz))
-                    print(f'KS gamma test pval {pval}')
+                    print(f'KS test pval {pval}')
                     print('snr: ', snr)
 
                 plt.hist(test.squeeze().numpy(), bins=100, color='b', alpha=0.25)

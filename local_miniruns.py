@@ -1,10 +1,12 @@
-from kgformula.utils import simulation_object,simulation_object_hsic,simulation_object_GCM,simulation_object_linear_regression
+from kgformula.utils import simulation_object,simulation_object_hsic,simulation_object_GCM,simulation_object_linear_regression,simulation_object_adaptive
 from generate_job_params import *
 import os
 
 def run_jobs(args):
     if args['job_type']=='kc':
         j = simulation_object(args)
+    elif args['job_type']=='kc_adaptive':
+        j = simulation_object_adaptive(args)
     elif args['job_type']=='hsic':
         j = simulation_object_hsic(args)
     elif args['job_type']=='gcm':
@@ -17,9 +19,9 @@ def run_jobs(args):
 
 if __name__ == '__main__':
     input = {
-        'idx':0,
+        'idx':1,
         'ngpu':1,
-        'job_folder': 'ind_jobs_hsic'
+        'job_folder': 'kc_hsic_break_test'
     }
     listjob = os.listdir(input['job_folder'])
     for i in range(len(listjob)):
@@ -31,6 +33,6 @@ if __name__ == '__main__':
         jobs.sort()
         print(jobs[idx])
         job_params = load_obj(jobs[idx],folder=f'{fold}/')
-        job_params['device'] = 0
+        job_params['device'] = 1
         job_params['unique_job_idx'] = idx%ngpu
         run_jobs(args=job_params)

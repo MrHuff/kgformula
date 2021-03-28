@@ -97,7 +97,11 @@ def return_filenames(args):
     mode =  args['mode']
     split_data =  args['split']
     required_n =  args['n']
-    suffix = f'_qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
+    if args['job_type']=='kc':
+        suffix = f'_qf={q_fac}_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
+    else:
+        suffix = f'_qf=adaptive_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
+
     p_val_file = f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt'
     ref_val = f'./{data_dir}/{job_dir}/ref_val_array{suffix}.pt'
     w_file = f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt'
@@ -282,7 +286,10 @@ if __name__ == '__main__':
     # generate_csv_file_parfor('base_jobs_kc_est')
     # generate_csv_file_parfor('base_jobs_kc')
     # generate_csv_file_parfor('base_jobs_kc_est_rulsif')
-    generate_csv_file_parfor('base_jobs_kc_est_ablation')
+    # generate_csv_file_parfor('base_jobs_kc_est_ablation')
+    # generate_csv_file_parfor('base_jobs_kc_est_ablation')
+    # generate_csv_file_parfor('kc_hsic_break_job')
+    generate_csv_file_parfor('kc_hsic_break_test_adaptive_3')
     # generate_csv_contrast('ind_jobs_hsic')
     # generate_csv_contrast('cond_jobs_regression')
     # generate_csv_file_parfor('hsic_jobs_kc')

@@ -15,8 +15,9 @@ if __name__ == '__main__':
     folder_name = f'kchsic_break'
     sanity = False
     # for d_X,d_Y,d_Z, theta,phi in zip( [1,3,3,3],[1,3,3,3],[1,3,15,50],[2.0,4.0,8.0,16.0],[2.0,2.0,2.0,2.0]): #50,3
-    for d_X,d_Y,d_Z, theta,phi in zip( [1],[1],[1],[4.0],[2.0]): #50,3
-        for b_z in [0.75,1.0,1.25,1.5,1.75,2.0,2.25,2.5]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
+    # for d_X,d_Y,d_Z, theta,phi in zip( [3],[3],[3],[4.0],[2.0]): #50,3
+    for d_X,d_Y,d_Z, theta,phi in zip( [3],[3],[50],[16.0],[2.0]): #50,3
+        for b_z in [0.5,0.6,0.7,0.8,0.9]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z= (d_Z**2)*b_z
             beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
             for n in [10000]:

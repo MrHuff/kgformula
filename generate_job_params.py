@@ -11,23 +11,38 @@ def load_obj(name,folder):
         return pickle.load(f)
 
 
-#KC-HSIC BREAK
-N=100
-BXY_const = 0
-yz=[0.5,0.0]
-b_z = [0.75,1.0,1.25,1.5,1.75,2.0,2.25,2.5]
-dirname ='kchsic_break_100'
-PHI=[2.0]
-THETA=[4.0]
-BXY_list = [0.0]
-DX= [1]
-DY =  [1]
-DZ = [1]
-Q_LIST=[0.2,0.4,0.6,0.8,1.0]
-BR = [500]
-MAX_ITS=10
+# KC-HSIC BREAK
+# N=100
+# BXY_const = 0
+# yz=[0.5,0.0]
+# b_z = [0.5,0.6,0.7,0.8,0.9,1.0]
+# dirname ='kchsic_break_100'
+# PHI=[2.0]
+# THETA=[16.0]
+# BXY_list = [0.0]
+# DX= [3]
+# DY =  [3]
+# DZ = [50]
+# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+# BR = [500]
+# MAX_ITS=10
 
-
+#Try adaptive
+#
+# N=100
+# BXY_const = 0
+# yz=[0.5,0.0]
+# b_z = [0.5,0.6,0.7,0.8,0.9,1.0]
+# dirname ='kchsic_break_100'
+# PHI=[2.0]
+# THETA=[16.0]
+# BXY_list = [0.0]
+# DX= [3]
+# DY =  [3]
+# DZ = [50]
+# Q_LIST=[0.2]
+# BR = [500]
+# MAX_ITS=10
 
 #COND BREAK
 # N=100
@@ -72,21 +87,22 @@ MAX_ITS=10
 # MAX_ITS=10
 
 #
-# N=100
-# BXY_const = 0
-# yz=[0.5,0.0]
-# b_z = [0.5]
-# dirname ='do_null_100'
-# PHI=[2.0,2.0,2.0,2.0]
-# THETA=[2.0,4.0,8.0,16.0]
-# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
-# # BXY_list = [0.0,0.5]
-# DX= [1,3,3,3]
-# DY =  [1,3,3,3]
-# DZ = [1,3,15,50]
-# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
-# BR = [500]
-# MAX_ITS=10
+N=100
+BXY_const = 0
+yz=[0.5,0.0]
+b_z = [0.5]
+dirname ='do_null_100'
+PHI=[2.0,2.0,2.0,2.0]
+THETA=[2.0,4.0,8.0,16.0]
+BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
+# BXY_list = [0.0,0.5]
+DX= [1,3,3,3]
+DY =  [1,3,3,3]
+DZ = [1,3,15,50]
+Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+BR = [500]
+MAX_ITS=10
+
 def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc',dirname=''):
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -230,12 +246,15 @@ def generate_job_params_GCM(n_list,seed_max=1000,directory='job_dir/',job_type='
                             save_obj(args,f'job_{counter}',directory+'/')
                             counter+=1
 
-
 if __name__ == '__main__':
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_ablation',job_type='kc',dirname=dirname)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_rulsif',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='base_jobs_kc',job_type='kc',dirname=dirname)
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='base_jobs_kc_bug_rerun',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_adaptive',job_type='kc_adaptive',dirname=dirname)
+    # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_test_adaptive_3',job_type='kc_adaptive',dirname=dirname)
+    # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_test_adaptive_4',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_job',job_type='kc',dirname=dirname)
 
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='cond_jobs_kc_est',job_type='kc',dirname=dirname)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='cond_jobs_kc',job_type='kc',dirname=dirname)

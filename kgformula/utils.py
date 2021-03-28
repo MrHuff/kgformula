@@ -228,6 +228,7 @@ def calculate_pval_right_tail(bootstrapped_list, test_statistic):
 def calculate_pval_left_tail(bootstrapped_list, test_statistic):
     pval = 1/(bootstrapped_list.shape[0]+1) *(1 + (bootstrapped_list<=test_statistic).sum())
     return pval.item()
+
 def calculate_pval_symmetric(bootstrapped_list, test_statistic):
     pval_right = 1-1/(bootstrapped_list.shape[0]+1) *(1 + (bootstrapped_list<=test_statistic).sum())
     pval_left = 1-pval_right
@@ -330,18 +331,22 @@ class simulation_object():
     def reject_outliers(data, m=2):
         return data[abs(data - np.mean(data)) < m * np.std(data)]
 
-    def validity_sanity_check(self,X_test,Y_test,Z_test,density_est):
-        x_chunk = torch.chunk(X_test,self.validation_chunks)
-        y_chunk = torch.chunk(Y_test,self.validation_chunks)
-        z_chunk = torch.chunk(Z_test,self.validation_chunks)
+    def validity_sanity_check(self,X_test,Y_test,Z_test,density_est,q_fac):
+        # x_chunk = torch.chunk(X_test,self.validation_chunks)
+        # y_chunk = torch.chunk(Y_test,self.validation_chunks)
+        # z_chunk = torch.chunk(Z_test,self.validation_chunks)
         p_values = []
-        for x,y,z in zip(x_chunk,y_chunk,z_chunk):
-            x_keep,y_keep,z_keep,w_keep = self.validity_bootstrap_and_rejection_sampling(x,y,z,density_est)
-            x_q_c = x_q_class(qdist=self.qdist, q_fac=self.q_fac, X=x_keep)
+        # for x,y,z in zip(x_chunk,y_chunk,z_chunk):
+        for i in range(25):
+            # x_keep,y_keep,z_keep,w_keep = self.validity_bootstrap_and_rejection_sampling(x,y,z,density_est)
+            x_keep,y_keep,z_keep,w_keep = self.validity_bootstrap_and_rejection_sampling(X_test,Y_test,Z_test,density_est)
+            x_q_c = x_q_class(qdist=self.qdist, q_fac=q_fac, X=x_keep)
             x_q_keep = x_q_c.sample(x_keep.shape[0])
+            print(f'sample size: {x_keep.shape[0]}')
             p,ref_val,_ = self.perm_Q_test(x_keep,y_keep,x_q_keep,w_keep,i=np.random.randint(0,1000))
             p_values.append(p)
         return p_values
+
     def perm_Q_test(self,X,Y,X_q,w,i):
         c = Q_weighted_HSIC(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i)
         reference_metric = c.calculate_weighted_statistic().cpu().item()
@@ -352,6 +357,7 @@ class simulation_object():
             list_of_metrics).float()  # seem to be extremely sensitive to lengthscale, i.e. could be sign flipper
         p = calculate_pval_symmetric(array, reference_metric)  # comparison is fucking weird
         return p,reference_metric,array
+
     def validity_bootstrap_and_rejection_sampling(self,x,y,z,density_est):
         self.base_n = y.shape[0]
         index_list = list(range(self.base_n))
@@ -385,13 +391,10 @@ class simulation_object():
         required_n = self.args['n']
         exp_sanity = self.args['sanity_exp']
         ks_data = []
-        R2_errors = []
-        hsic_pval_list = []
         estimator_list = ['NCE', 'TRE_Q','NCE_Q', 'real_TRE_Q','rulsif']
         suffix = f'_qf={self.q_fac}_qd={self.qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={self.bootstrap_runs}_n={required_n}'
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
-        mse_loss = torch.nn.MSELoss()
 
         if os.path.exists(f'./{data_dir}/{job_dir}/df{suffix}.csv'):
             return
@@ -432,6 +435,12 @@ class simulation_object():
             if estimate:
                 d = density_estimator(x=X_train, z=Z_train,x_q=X_q_train, cuda=self.cuda,
                                       est_params=est_params, type=estimator, device=self.device,secret_indx=self.args['unique_job_idx'])
+                p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d,self.q_fac)
+                print(p_values_h_0)
+                actual_pvalues_validity.append(torch.tensor(p_values_h_0))
+                stat, pval =kstest(p_values_h_0,'uniform')
+                validity_p_list.append(pval)
+                validity_stat_list.append(stat)
                 w = d.return_weights(X_test,Z_test,X_q_test)
                 save_w = w.cpu().numpy()
                 if i%10==0:
@@ -445,17 +454,6 @@ class simulation_object():
                     plt.hist(self.reject_outliers(_w.cpu().numpy()),bins=100)
                     plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_ref_{suffix}.png')
                     plt.clf()
-                p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d)
-                print(p_values_h_0)
-                actual_pvalues_validity.append(torch.tensor(p_values_h_0))
-                stat, pval =kstest(p_values_h_0,'uniform')
-                validity_p_list.append(pval)
-                validity_stat_list.append(stat)
-                if estimator in estimator_list:
-                    with torch.no_grad():
-                        l = mse_loss(_w, w) / _w.var()
-                    R2_errors.append(1-l.item())
-                X_q_test = d.X_q_test
                 if i == 0:
                     torch.save(w,f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
             else:
@@ -491,7 +489,6 @@ class simulation_object():
         if estimator in estimator_list and estimate:
             validity_p_value_array = torch.tensor(validity_p_list)
             validity_value_array = torch.tensor(validity_stat_list)
-            r2_tensor = torch.tensor(R2_errors).float()
             actual_pvalues_validity = torch.cat(actual_pvalues_validity).float()
             torch.save(actual_pvalues_validity,
                        f'./{data_dir}/{job_dir}/actual_validity_p_value_array{suffix}.pt')
@@ -499,14 +496,145 @@ class simulation_object():
                        f'./{data_dir}/{job_dir}/validity_p_value_array{suffix}.pt')
             torch.save(validity_value_array,
                        f'./{data_dir}/{job_dir}/validity_value_array{suffix}.pt')
-            torch.save(r2_tensor,
-                       f'./{data_dir}/{job_dir}/r2_array{suffix}.pt')
 
         df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
         df.to_csv(f'./{data_dir}/{job_dir}/df{suffix}.csv')
         s = df.describe()
         s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
         return
+
+class simulation_object_adaptive(simulation_object):
+    def __init__(self,args):
+        super(simulation_object_adaptive, self).__init__(args)
+    def run(self):
+        estimate = self.args['estimate']
+        job_dir = self.args['job_dir']
+        data_dir = self.args['data_dir']
+        seeds_a = self.args['seeds_a']
+        seeds_b = self.args['seeds_b']
+        self.qdist = self.args['qdist']
+        self.bootstrap_runs  = self.args['bootstrap_runs']
+        est_params = self.args['est_params']
+        estimator = self.args['estimator']
+        mode = self.args['mode']
+        split_data = self.args['split']
+        required_n = self.args['n']
+        ks_data = []
+        estimator_list = ['NCE', 'TRE_Q','NCE_Q', 'real_TRE_Q','rulsif']
+        suffix = f'_qf=adaptive_qd={self.qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={self.bootstrap_runs}_n={required_n}'
+        if not os.path.exists(f'./{data_dir}/{job_dir}'):
+            os.makedirs(f'./{data_dir}/{job_dir}')
+        if os.path.exists(f'./{data_dir}/{job_dir}/df{suffix}.csv'):
+            return
+        p_value_list = []
+        reference_metric_list = []
+        validity_p_list = []
+        validity_stat_list = []
+        actual_pvalues_validity = []
+        for i in tqdm.trange(seeds_a,seeds_b):
+            if self.cuda:
+                X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
+            else:
+                X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+
+            X, Y, Z, _w = X[:required_n,:],Y[:required_n,:],Z[:required_n,:],_w[:required_n]
+            n_half = X.shape[0] // 2
+            X_train, X_test = split(X, n_half)
+            Y_train, Y_test = split(Y, n_half)
+            Z_train, Z_test = split(Z, n_half)
+
+            pval_list_tmp = []
+            stat_list_tmp = []
+            X_q_test_list_tmp = []
+            w_list_tmp = []
+            p_values_h_0_list_tmp = []
+            for div_pow in range(5):
+                q_fac = 1.0/2.**div_pow
+                Xq_class = x_q_class(qdist=self.qdist, q_fac=q_fac, X=X)
+                X_q = Xq_class.sample(n=X.shape[0])
+                n_half = X.shape[0] // 2
+                X_q_train, X_q_test = split(X_q, n_half)
+                d = density_estimator(x=X_train, z=Z_train,x_q=X_q_train, cuda=self.cuda,
+                                      est_params=est_params, type=estimator, device=self.device,secret_indx=self.args['unique_job_idx'])
+                w = d.return_weights(X_test,Z_test,X_q_test)
+                p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d,q_fac)
+                stat, pval =kstest(p_values_h_0,'uniform')
+                pval_list_tmp.append(pval)
+                stat_list_tmp.append(stat)
+                X_q_test_list_tmp.append(X_q_test)
+                w_list_tmp.append(w)
+                p_values_h_0_list_tmp.append(p_values_h_0)
+                if pval>=0.05:
+                    print('PASSED!')
+                    break
+            pval = max(pval_list_tmp)
+            max_ind = pval_list_tmp.index(pval)
+            p_values_h_0 = p_values_h_0_list_tmp[max_ind]
+            stat = stat_list_tmp[max_ind]
+            w = w_list_tmp[max_ind]
+            X_q_test =X_q_test_list_tmp[max_ind]
+
+            actual_pvalues_validity.append(torch.tensor(p_values_h_0))
+            validity_p_list.append(pval)
+            validity_stat_list.append(stat)
+            if i == 0:
+                torch.save(w, f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
+            save_w = w.cpu().numpy()
+            if i % 10 == 0:
+                print('est median: ', np.median(save_w))
+                print('est std: ', np.std(save_w))
+                plt.hist(save_w, bins=100)
+                plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_{suffix}.png')
+                plt.clf()
+                print('ref median: ', np.median(_w.cpu().numpy()))
+                print('ref std: ', np.std(_w.cpu().numpy()))
+                plt.hist(self.reject_outliers(_w.cpu().numpy()), bins=100)
+                plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_ref_{suffix}.png')
+                plt.clf()
+
+            p,reference_metric,_arr = self.perm_Q_test(X_test,Y_test,X_q_test,w,i)
+            if i==0:
+                n,_,_ = plt.hist(_arr, bins=100)
+                plt.vlines([reference_metric], ymin=0, ymax=n.max(), label='reference value',color='magenta')
+                plt.savefig(f'./{data_dir}/{job_dir}/_arr_{i}_{suffix}.png')
+                plt.clf()
+            print(f'seed {i} pval={p}')
+            p_value_list.append(p)
+            reference_metric_list.append(reference_metric)
+            if estimate:
+                del d,X,Y,Z,_w,w,X_q
+            else:
+                del X,Y,Z,_w,w,X_q
+
+        p_value_array = torch.tensor(p_value_list)
+        torch.save(p_value_array,
+                   f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt')
+        ref_metric_array = torch.tensor(reference_metric_list)
+        torch.save(ref_metric_array,
+                   f'./{data_dir}/{job_dir}/ref_val_array{suffix}.pt')
+        plt.hist(p_value_array.numpy(),bins=40)
+        plt.savefig(f'./{data_dir}/{job_dir}/pval_hist{suffix}.png')
+        plt.clf()
+        ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
+        print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
+        ks_data.append([ks_stat, p_val_ks_test])
+        if estimator in estimator_list and estimate:
+            validity_p_value_array = torch.tensor(validity_p_list)
+            validity_value_array = torch.tensor(validity_stat_list)
+            actual_pvalues_validity = torch.cat(actual_pvalues_validity).float()
+            torch.save(actual_pvalues_validity,
+                       f'./{data_dir}/{job_dir}/actual_validity_p_value_array{suffix}.pt')
+            torch.save(validity_p_value_array,
+                       f'./{data_dir}/{job_dir}/validity_p_value_array{suffix}.pt')
+            torch.save(validity_value_array,
+                       f'./{data_dir}/{job_dir}/validity_value_array{suffix}.pt')
+
+        df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
+        df.to_csv(f'./{data_dir}/{job_dir}/df{suffix}.csv')
+        s = df.describe()
+        s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
+        return
+
 
 class simulation_object_hsic():
     def __init__(self,args):
