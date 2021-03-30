@@ -328,6 +328,7 @@ class simulation_object():
         self.device = self.args['device']
         self.validation_chunks = 10
         self.validation_over_samp = 10
+        self.max_validation_samples =  self.args['n']//4
     @staticmethod
     def reject_outliers(data, m=2):
         return data[abs(data - np.mean(data)) < m * np.std(data)]
@@ -349,7 +350,7 @@ class simulation_object():
         return p_values
 
     def perm_Q_test(self,X,Y,X_q,w,i):
-        c = Q_weighted_HSIC(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i)
+        c = Q_weighted_HSIC(X=X[:2500], Y=Y[:2500], X_q=X_q[:2500], w=w[:2500], cuda=self.cuda, device=self.device, perm='Y', seed=i)
         reference_metric = c.calculate_weighted_statistic().cpu().item()
         list_of_metrics = []
         for i in range(self.bootstrap_runs):

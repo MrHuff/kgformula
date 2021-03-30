@@ -20,8 +20,8 @@ def run_jobs(args):
 if __name__ == '__main__':
     input = {
         'idx':1,
-        'ngpu':1,
-        'job_folder': 'kc_hsic_break_test_adaptive_5'
+        'ngpu':48,
+        'job_folder': 'debug'
     }
     listjob = os.listdir(input['job_folder'])
     for i in range(len(listjob)):
@@ -33,7 +33,7 @@ if __name__ == '__main__':
         jobs.sort()
         print(jobs[idx])
         job_params = load_obj(jobs[idx],folder=f'{fold}/')
-        job_params['device'] = 1
+        job_params['device'] = 0
         job_params['unique_job_idx'] = idx%ngpu
         job_params['n'] = 10000
 
