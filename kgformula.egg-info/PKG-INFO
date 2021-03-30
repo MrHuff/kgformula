@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: kgformula
+Version: 0.1
+Summary: KC-HSIC: Kernel Causal HSIC
+Home-page: https://github.com/MrHuff/KCHSIC
+Author: Robert Hu
+Author-email: robert.hu@stats.ox.ac.uk
+License: UNKNOWN
+Description: # kgformula
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
