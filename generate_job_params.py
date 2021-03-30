@@ -29,20 +29,20 @@ def load_obj(name,folder):
 
 #Try adaptive
 #
-# N=100
-# BXY_const = 0
-# yz=[0.5,0.0]
-# b_z = [0.5,0.6,0.7,0.8,0.9,1.0]
-# dirname ='kchsic_break_100'
-# PHI=[2.0]
-# THETA=[16.0]
-# BXY_list = [0.0]
-# DX= [3]
-# DY =  [3]
-# DZ = [50]
-# Q_LIST=[0.2]
-# BR = [500]
-# MAX_ITS=10
+N=100
+BXY_const = 0
+yz=[0.5,0.0]
+b_z = [0.5]
+dirname ='kchsic_break_100'
+PHI=[2.0]
+THETA=[16.0]
+BXY_list = [0.0]
+DX= [3]
+DY =  [3]
+DZ = [50]
+Q_LIST=[0.5]
+BR = [500]
+MAX_ITS=10
 
 #COND BREAK
 # N=100
@@ -87,21 +87,21 @@ def load_obj(name,folder):
 # MAX_ITS=10
 
 #
-N=100
-BXY_const = 0
-yz=[0.5,0.0]
-b_z = [0.5]
-dirname ='do_null_100'
-PHI=[2.0,2.0,2.0,2.0]
-THETA=[2.0,4.0,8.0,16.0]
-BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
-# BXY_list = [0.0,0.5]
-DX= [1,3,3,3]
-DY =  [1,3,3,3]
-DZ = [1,3,15,50]
-Q_LIST=[0.2,0.4,0.6,0.8,1.0]
-BR = [500]
-MAX_ITS=10
+# N=100
+# BXY_const = 0
+# yz=[0.5,0.0]
+# b_z = [0.5]
+# dirname ='do_null_100'
+# PHI=[2.0,2.0,2.0,2.0]
+# THETA=[2.0,4.0,8.0,16.0]
+# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
+# # BXY_list = [0.0,0.5]
+# DX= [1,3,3,3]
+# DY =  [1,3,3,3]
+# DZ = [1,3,15,50]
+# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+# BR = [500]
+# MAX_ITS=10
 
 def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc',dirname=''):
     if not os.path.exists(directory):
@@ -148,7 +148,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                 'q_factor':q,
                                                 'qdist': 2,
                                                 'n':n,
-                                                'est_params': {'lr': 1e-3, #use really small LR for TRE. Ok what the fuck is going on...
+                                                'est_params': {'lr': 1e-4, #use really small LR for TRE. Ok what the fuck is going on...
                                                                'max_its': MAX_ITS,
                                                                'width': width,
                                                                'layers':layers,
@@ -247,13 +247,13 @@ def generate_job_params_GCM(n_list,seed_max=1000,directory='job_dir/',job_type='
                             counter+=1
 
 if __name__ == '__main__':
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_ablation',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_rulsif',job_type='kc',dirname=dirname)
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='base_jobs_kc_bug_rerun',job_type='kc',dirname=dirname)
+    pass
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_ablation_rerun',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_bug_rerun_rulsif',job_type='kc',dirname=dirname)
     # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)
+
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_adaptive',job_type='kc_adaptive',dirname=dirname)
-    # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_test_adaptive_3',job_type='kc_adaptive',dirname=dirname)
-    # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_test_adaptive_4',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_test_adaptive_5',job_type='kc',dirname=dirname)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_job',job_type='kc',dirname=dirname)
 
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='cond_jobs_kc_est',job_type='kc',dirname=dirname)

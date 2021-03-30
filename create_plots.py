@@ -192,12 +192,12 @@ def plot_3_true_weights():
                 counter = 0
     doc.generate_tex()
 
-
+path_4567_csv ='base_jobs_kc_est_bug_rerun.csv'
 def plot_4_est_weights():
 
     all_path = 'do_null_100/'
-    small_path = 'base_jobs_kc_est_layers=3_width=32'
-    df = pd.read_csv('base_jobs_kc_est.csv',index_col=0)
+    small_path = 'base_jobs_kc_est_bug_rerun_layers=3_width=32'
+    df = pd.read_csv(path_4567_csv,index_col=0)
     df = df[df['beta_xy']==0.0]
     subset = df.loc[df.groupby(["n","d_Z"])["KS pval"].idxmax()].sort_values(['n','d_Z'])
     data_paths=[]
@@ -256,7 +256,7 @@ def plot_4_est_weights():
     doc.generate_tex()
 
 def plot_5_est_weights():
-    df_full = pd.read_csv('base_jobs_kc_est.csv', index_col=0)
+    df_full = pd.read_csv(path_4567_csv, index_col=0)
     df_full = df_full[df_full['beta_xy'] == 0.0]
     dir = 'plot_5_est'
     if not os.path.exists(dir):
@@ -295,7 +295,7 @@ def plot_5_est_weights():
     doc.generate_tex()
 
 def plot_6_est_weights():
-    df = pd.read_csv('base_jobs_kc_est.csv', index_col=0)
+    df = pd.read_csv(path_4567_csv, index_col=0)
     df = df[df['beta_xy'] != 0.0]
     df = df[df['nce_style']=='NCE_Q']
     dir = 'plot_6_est'
@@ -345,7 +345,7 @@ def plot_6_est_weights():
                 counter = 0
     doc.generate_tex()
 def plot_7_est_weights():
-    df = pd.read_csv('base_jobs_kc_est.csv', index_col=0)
+    df = pd.read_csv(path_4567_csv, index_col=0)
     df = df[df['beta_xy'] != 0.0]
     df = df[df['nce_style']=='real_TRE_Q']
     dir = 'plot_7_est'
@@ -1061,10 +1061,10 @@ if __name__ == '__main__':
     # plot_1_true_weights()
     # plot_2_true_weights()
     # plot_3_true_weights()
-    # plot_4_est_weights()
-    # plot_5_est_weights()
-    # plot_6_est_weights()
-    # plot_7_est_weights()
+    plot_4_est_weights()
+    plot_5_est_weights()
+    plot_6_est_weights()
+    plot_7_est_weights()
     # plot_8_rulsif()
     # plot_9_rulsif()
     # plot_10_rulsif()

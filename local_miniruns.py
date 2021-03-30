@@ -21,7 +21,7 @@ if __name__ == '__main__':
     input = {
         'idx':1,
         'ngpu':1,
-        'job_folder': 'kc_hsic_break_test'
+        'job_folder': 'kc_hsic_break_test_adaptive_5'
     }
     listjob = os.listdir(input['job_folder'])
     for i in range(len(listjob)):
@@ -35,4 +35,7 @@ if __name__ == '__main__':
         job_params = load_obj(jobs[idx],folder=f'{fold}/')
         job_params['device'] = 1
         job_params['unique_job_idx'] = idx%ngpu
+        job_params['n'] = 10000
+
+        print(job_params)
         run_jobs(args=job_params)
