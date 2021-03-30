@@ -1,11 +1,9 @@
-import torch
 from sklearn import metrics
 import torch.nn as nn
 import numpy as np
 from torch.utils.data import Dataset
 from math import log
-from torch.distributions import *
-from gpytorch.kernels import Kernel,RBFKernel
+from kgformula.kernels import *
 
 class Swish(torch.autograd.Function):
     @staticmethod

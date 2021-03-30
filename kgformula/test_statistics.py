@@ -1,4 +1,3 @@
-from pykeops.torch import LazyTensor,Genred
 from kgformula.networks import *
 from kgformula.kernels import *
 import os
@@ -73,33 +72,33 @@ def hsic_sanity_check_w(w,x,z,n_perms=250):
     p_val = hsic_test(x[idx_HSIC, :], z[idx_HSIC, :], n_perms)
     return p_val
 
-class keops_RBFkernel(torch.nn.Module):
-    def __init__(self,ls,x,y=None,device_id=0):
-        super(keops_RBFkernel, self).__init__()
-        self.device_id = device_id
-        self.raw_lengthscale = torch.nn.Parameter(ls,requires_grad=False).contiguous()
-        self.raw_lengthscale.requires_grad = False
-        self.register_buffer('x', x.contiguous())
-        self.shape = (x.shape[0],x.shape[0])
-        if y is not None:
-            self.register_buffer('y',y.contiguous())
-        else:
-            self.y = x
-        self.gen_formula = None
-
-    def get_formula(self,D,ls_size):
-        aliases = ['G_0 = Pm(0, ' + str(ls_size) + ')',
-                   'X_0 = Vi(1, ' + str(D) + ')',
-                   'Y_0 = Vj(2, ' + str(D) + ')',
-                   ]
-        formula = 'Exp(-G_0*SqNorm2(X_0 - Y_0))'
-        return formula,aliases
-
-    def forward(self):
-        if self.gen_formula is None:
-            self.formula, self.aliases = self.get_formula(D=self.x.shape[1], ls_size=self.raw_lengthscale.shape[0])
-            self.gen_formula = Genred(self.formula, self.aliases, reduction_op='Sum', axis=1, dtype='float32')
-        return self.gen_formula(*[self.raw_lengthscale,self.x,self.y],backend='GPU',device_id=self.device_id)
+# class keops_RBFkernel(torch.nn.Module):
+#     def __init__(self,ls,x,y=None,device_id=0):
+#         super(keops_RBFkernel, self).__init__()
+#         self.device_id = device_id
+#         self.raw_lengthscale = torch.nn.Parameter(ls,requires_grad=False).contiguous()
+#         self.raw_lengthscale.requires_grad = False
+#         self.register_buffer('x', x.contiguous())
+#         self.shape = (x.shape[0],x.shape[0])
+#         if y is not None:
+#             self.register_buffer('y',y.contiguous())
+#         else:
+#             self.y = x
+#         self.gen_formula = None
+#
+#     def get_formula(self,D,ls_size):
+#         aliases = ['G_0 = Pm(0, ' + str(ls_size) + ')',
+#                    'X_0 = Vi(1, ' + str(D) + ')',
+#                    'Y_0 = Vj(2, ' + str(D) + ')',
+#                    ]
+#         formula = 'Exp(-G_0*SqNorm2(X_0 - Y_0))'
+#         return formula,aliases
+#
+#     def forward(self):
+#         if self.gen_formula is None:
+#             self.formula, self.aliases = self.get_formula(D=self.x.shape[1], ls_size=self.raw_lengthscale.shape[0])
+#             self.gen_formula = Genred(self.formula, self.aliases, reduction_op='Sum', axis=1, dtype='float32')
+#         return self.gen_formula(*[self.raw_lengthscale,self.x,self.y],backend='GPU',device_id=self.device_id)
 
 def get_i_not_j_indices(n):
     vec = np.arange(0, n)
@@ -320,10 +319,10 @@ class density_estimator():
             ret = torch.sqrt(torch.median(d[d > 0]))
             return ret
 
-    def kernel_ls_init_keops(self,ls,data,data_2=None):
-        with torch.no_grad():
-            ker = keops_RBFkernel(ls=1/ls.unsqueeze(0),x=data,y=data_2,device_id=self.device)
-            return ker()
+    # def kernel_ls_init_keops(self,ls,data,data_2=None):
+    #     with torch.no_grad():
+    #         ker = keops_RBFkernel(ls=1/ls.unsqueeze(0),x=data,y=data_2,device_id=self.device)
+    #         return ker()
 
     def kernel_ls_init(self,name,data,data_2=None,ls=None):
         ker = RBFKernel()

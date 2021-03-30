@@ -1,28 +1,6 @@
-import torch
-import gpytorch
-import numpy as np
-from pykeops.torch import LazyTensor,Genred
-import time
 from kgformula.networks import *
+from kgformula.kernels import *
 import os
-try:
-    from torch.cuda.amp import GradScaler,autocast
-except Exception as e:
-    print(e)
-    print('Install nightly pytorch for mixed precision')
-from cvxopt import matrix, solvers
-import math
-
-def kernel_mean_matching(K,kappa,nz, B=1.0, eps=None):
-    if eps == None:
-        eps = B / math.sqrt(nz)
-    K = matrix(K)
-    kappa = matrix(kappa)
-    G = matrix(np.r_[np.ones((1, nz)), -np.ones((1, nz)), np.eye(nz), -np.eye(nz)])
-    h = matrix(np.r_[nz * (1 + eps), nz * (eps - 1), B * np.ones((nz,)), np.zeros((nz,))])
-    sol = solvers.qp(K, -kappa, G, h)
-    coef = np.array(sol['x'])
-    return coef
 
 class HSIC_independence_test():
     def __init__(self,X,Y,n_samples):
@@ -34,7 +12,7 @@ class HSIC_independence_test():
             self.X = self.X[idx,:]
             self.Y = self.Y[idx,:]
             self.n = 2500
-        self.kernel_base = gpytorch.kernels.Kernel()
+        self.kernel_base = Kernel()
         self.kernel_ls_init('ker_X',self.X)
         self.kernel_ls_init('ker_Y',self.Y)
         self.ker_X_eval = self.ker_X(self.X).evaluate()
@@ -63,7 +41,7 @@ class HSIC_independence_test():
         return pval
 
     def kernel_ls_init(self,name,data,ls=None):
-        ker = gpytorch.kernels.RBFKernel()
+        ker = RBFKernel()
         if ls is None:
             ls = self.get_median_ls(data)
         ker._set_lengthscale(ls)
@@ -94,33 +72,33 @@ def hsic_sanity_check_w(w,x,z,n_perms=250):
     p_val = hsic_test(x[idx_HSIC, :], z[idx_HSIC, :], n_perms)
     return p_val
 
-class keops_RBFkernel(torch.nn.Module):
-    def __init__(self,ls,x,y=None,device_id=0):
-        super(keops_RBFkernel, self).__init__()
-        self.device_id = device_id
-        self.raw_lengthscale = torch.nn.Parameter(ls,requires_grad=False).contiguous()
-        self.raw_lengthscale.requires_grad = False
-        self.register_buffer('x', x.contiguous())
-        self.shape = (x.shape[0],x.shape[0])
-        if y is not None:
-            self.register_buffer('y',y.contiguous())
-        else:
-            self.y = x
-        self.gen_formula = None
-
-    def get_formula(self,D,ls_size):
-        aliases = ['G_0 = Pm(0, ' + str(ls_size) + ')',
-                   'X_0 = Vi(1, ' + str(D) + ')',
-                   'Y_0 = Vj(2, ' + str(D) + ')',
-                   ]
-        formula = 'Exp(-G_0*SqNorm2(X_0 - Y_0))'
-        return formula,aliases
-
-    def forward(self):
-        if self.gen_formula is None:
-            self.formula, self.aliases = self.get_formula(D=self.x.shape[1], ls_size=self.raw_lengthscale.shape[0])
-            self.gen_formula = Genred(self.formula, self.aliases, reduction_op='Sum', axis=1, dtype='float32')
-        return self.gen_formula(*[self.raw_lengthscale,self.x,self.y],backend='GPU',device_id=self.device_id)
+# class keops_RBFkernel(torch.nn.Module):
+#     def __init__(self,ls,x,y=None,device_id=0):
+#         super(keops_RBFkernel, self).__init__()
+#         self.device_id = device_id
+#         self.raw_lengthscale = torch.nn.Parameter(ls,requires_grad=False).contiguous()
+#         self.raw_lengthscale.requires_grad = False
+#         self.register_buffer('x', x.contiguous())
+#         self.shape = (x.shape[0],x.shape[0])
+#         if y is not None:
+#             self.register_buffer('y',y.contiguous())
+#         else:
+#             self.y = x
+#         self.gen_formula = None
+#
+#     def get_formula(self,D,ls_size):
+#         aliases = ['G_0 = Pm(0, ' + str(ls_size) + ')',
+#                    'X_0 = Vi(1, ' + str(D) + ')',
+#                    'Y_0 = Vj(2, ' + str(D) + ')',
+#                    ]
+#         formula = 'Exp(-G_0*SqNorm2(X_0 - Y_0))'
+#         return formula,aliases
+#
+#     def forward(self):
+#         if self.gen_formula is None:
+#             self.formula, self.aliases = self.get_formula(D=self.x.shape[1], ls_size=self.raw_lengthscale.shape[0])
+#             self.gen_formula = Genred(self.formula, self.aliases, reduction_op='Sum', axis=1, dtype='float32')
+#         return self.gen_formula(*[self.raw_lengthscale,self.x,self.y],backend='GPU',device_id=self.device_id)
 
 def get_i_not_j_indices(n):
     vec = np.arange(0, n)
@@ -138,7 +116,7 @@ class density_estimator():
         self.device = device
         self.est_params = est_params
         self.type = type
-        self.kernel_base = gpytorch.kernels.Kernel()
+        self.kernel_base = Kernel()
         self.tmp_path = f'./tmp_folder_{secret_indx}/'
         if os.path.exists(f'./tmp_folder_{secret_indx}/best_run.pt'):
             os.remove(f'./tmp_folder_{secret_indx}/best_run.pt')
@@ -341,13 +319,13 @@ class density_estimator():
             ret = torch.sqrt(torch.median(d[d > 0]))
             return ret
 
-    def kernel_ls_init_keops(self,ls,data,data_2=None):
-        with torch.no_grad():
-            ker = keops_RBFkernel(ls=1/ls.unsqueeze(0),x=data,y=data_2,device_id=self.device)
-            return ker()
+    # def kernel_ls_init_keops(self,ls,data,data_2=None):
+    #     with torch.no_grad():
+    #         ker = keops_RBFkernel(ls=1/ls.unsqueeze(0),x=data,y=data_2,device_id=self.device)
+    #         return ker()
 
     def kernel_ls_init(self,name,data,data_2=None,ls=None):
-        ker = gpytorch.kernels.RBFKernel()
+        ker = RBFKernel()
         if ls is None:
             ls = self.get_median_ls(data)
         ker._set_lengthscale(ls)
@@ -376,7 +354,7 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
             self.X_q = self.X_q.unsqueeze(-1)
 
         with torch.no_grad():
-            self.kernel_X_X_q = gpytorch.kernels.RBFKernel().cuda(device)
+            self.kernel_X_X_q = RBFKernel().cuda(device)
             _ls = self.get_median_ls(self.X,self.X_q) #This is critical, figure out way to get the right lr
             self.kernel_X_X_q._set_lengthscale(_ls)
             self.k_X_X_q = self.kernel_X_X_q(self.X, self.X_q).evaluate()
@@ -421,13 +399,13 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
 
     def kernel_ls_init(self, name, data):
         setattr(self, f'ker_obj_{name}',
-                gpytorch.kernels.RBFKernel().cuda(self.device) if self.cuda else gpytorch.kernels.RBFKernel())
+                RBFKernel().cuda(self.device) if self.cuda else RBFKernel())
         ls = self.get_median_ls(data)
         getattr(self, f'ker_obj_{name}')._set_lengthscale(ls)
         setattr(self, f'kernel_{name}', getattr(self, f'ker_obj_{name}')(data).evaluate())
 
     def get_median_ls(self, X,Y=None):
-        kernel_base = gpytorch.kernels.Kernel().cuda(self.device)
+        kernel_base = Kernel().cuda(self.device)
         with torch.no_grad():
             if Y is None:
                 d = kernel_base.covar_dist(x1=X, x2=X)
@@ -526,13 +504,13 @@ class weighted_HSIC():
 
     def kernel_ls_init(self, name, data):
         setattr(self, f'ker_obj_{name}',
-                gpytorch.kernels.RBFKernel().cuda(self.device) if self.cuda else gpytorch.kernels.RBFKernel())
+                RBFKernel().cuda(self.device) if self.cuda else RBFKernel())
         ls = self.get_median_ls(data)
         getattr(self, f'ker_obj_{name}')._set_lengthscale(ls)
         setattr(self, f'kernel_{name}', getattr(self, f'ker_obj_{name}')(data).evaluate())
 
     def get_median_ls(self, X,Y=None):
-        kernel_base = gpytorch.kernels.Kernel().cuda(self.device)
+        kernel_base = Kernel().cuda(self.device)
         with torch.no_grad():
             if Y is None:
                 d = kernel_base.covar_dist(x1=X, x2=X)
@@ -561,7 +539,7 @@ class weighted_stat():
             self.W = self.w@self.w.t()
             self.W = self.W/self.n**2
             self.do_null=do_null
-            self.kernel_base = gpytorch.kernels.Kernel().cuda(self.device)
+            self.kernel_base = Kernel().cuda(self.device)
             for name,data in zip(['X','Y'],[self.X,self.Y]):
                 self.kernel_ls_init(name,data)
             if self.half_mode:
@@ -570,7 +548,7 @@ class weighted_stat():
                 self.W = self.W.half()
 
     def kernel_ls_init(self,name,data):
-        setattr(self, f'ker_obj_{name}', gpytorch.kernels.RBFKernel().cuda(self.device) if self.cuda else gpytorch.kernels.RBFKernel())
+        setattr(self, f'ker_obj_{name}', RBFKernel().cuda(self.device) if self.cuda else RBFKernel())
         ls = self.get_median_ls(data)
         getattr(self,f'ker_obj_{name}')._set_lengthscale(ls)
         if self.half_mode:

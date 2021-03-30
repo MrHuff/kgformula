@@ -9,6 +9,7 @@ import scipy as sp
 import matplotlib.tri as mtri
 from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
 import matplotlib as mpl
+from torch.distributions import *
 import os
 print(os.environ)
 
