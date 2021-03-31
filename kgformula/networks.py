@@ -306,7 +306,7 @@ class rulsif(torch.nn.Module):
         data = torch.cat([X,Z],dim=1)
         with torch.no_grad():
             alpha_density_ratio = self.ker(data, self.centers)@self.theta
-        return alpha_density_ratio
+        return alpha_density_ratio.clamp_min_(1e-30)
 
 
 

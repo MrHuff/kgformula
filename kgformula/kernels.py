@@ -1,11 +1,10 @@
 import torch
-
+import gpytorch
 class Kernel(torch.nn.Module):
     def __init__(self,):
         super(Kernel, self).__init__()
 
     def sq_dist(self,x1,x2):
-        x1_eq_x2 = torch.all(x1==x2).item()
         adjustment = x1.mean(-2, keepdim=True)
         x1 = x1 - adjustment
         x2 = x2 - adjustment  # x1 and x2 should be identical in all dims except -2 at this point
@@ -13,20 +12,17 @@ class Kernel(torch.nn.Module):
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
         x1_pad = torch.ones_like(x1_norm)
-        if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
-            x2_norm, x2_pad = x1_norm, x1_pad
-        else:
-            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
-            x2_pad = torch.ones_like(x2_norm)
+        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+        x2_pad = torch.ones_like(x2_norm)
         x1_ = torch.cat([-2.0 * x1, x1_norm, x1_pad], dim=-1)
         x2_ = torch.cat([x2, x2_pad, x2_norm], dim=-1)
         res = x1_.matmul(x2_.transpose(-2, -1))
-
-        if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
-            res.diagonal(dim1=-2, dim2=-1).fill_(0)
-
         # Zero out negative values
         res.clamp_min_(0)
+
+        # res  = torch.cdist(x1,x2,p=2)
+        # Zero out negative values
+        # res.clamp_min_(0)
         return res
 
     def covar_dist(self, x1, x2):
@@ -53,3 +49,15 @@ class RBFKernel(Kernel):
         self.x2 = x2
         return self
 
+    def __matmul__(self, other):
+        return self.evaluate()@other
+
+# if __name__ == '__main__':
+#     ker_1 = gpytorch.kernels.RBFKernel()
+#     ker_1._set_lengthscale(1.0)
+#
+#     ker_2 = RBFKernel()
+#     ker_2._set_lengthscale(1.0)
+#     r = torch.randn(10,1)
+#     print(ker_1(r).evaluate())
+#     print(ker_2(r).evaluate())

@@ -19,7 +19,7 @@ def run_jobs(args):
 
 if __name__ == '__main__':
     input = {
-        'idx':1,
+        'idx':0,
         'ngpu':48,
         'job_folder': 'debug'
     }
@@ -35,7 +35,6 @@ if __name__ == '__main__':
         job_params = load_obj(jobs[idx],folder=f'{fold}/')
         job_params['device'] = 0
         job_params['unique_job_idx'] = idx%ngpu
-        job_params['n'] = 10000
 
         print(job_params)
         run_jobs(args=job_params)
