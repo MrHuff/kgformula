@@ -128,7 +128,7 @@ class density_estimator():
             os.makedirs(self.tmp_path)
 
         self.dataset = self.create_classification_data()
-        if self.type!='rulsif':
+        if self.type in ['NCE','NCE_Q','real_TRE','real_TRE_Q']:
             self.dataloader = NCE_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True,kappa=self.kappa,
                                         TRE=self.type in ['real_TRE','real_TRE_Q'])
         if self.type == 'NCE':

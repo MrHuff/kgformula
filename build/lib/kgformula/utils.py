@@ -328,6 +328,7 @@ class simulation_object():
         self.device = self.args['device']
         self.validation_chunks = 10
         self.validation_over_samp = 10
+        self.max_validation_samples =  self.args['n']//4
     @staticmethod
     def reject_outliers(data, m=2):
         return data[abs(data - np.mean(data)) < m * np.std(data)]
@@ -349,7 +350,7 @@ class simulation_object():
         return p_values
 
     def perm_Q_test(self,X,Y,X_q,w,i):
-        c = Q_weighted_HSIC(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i)
+        c = Q_weighted_HSIC(X=X[:2500], Y=Y[:2500], X_q=X_q[:2500], w=w[:2500], cuda=self.cuda, device=self.device, perm='Y', seed=i)
         reference_metric = c.calculate_weighted_statistic().cpu().item()
         list_of_metrics = []
         for i in range(self.bootstrap_runs):
@@ -436,12 +437,16 @@ class simulation_object():
             if estimate:
                 d = density_estimator(x=X_train, z=Z_train,x_q=X_q_train, cuda=self.cuda,
                                       est_params=est_params, type=estimator, device=self.device,secret_indx=self.args['unique_job_idx'])
-                p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d,self.q_fac)
-                print(p_values_h_0)
-                actual_pvalues_validity.append(torch.tensor(p_values_h_0))
-                stat, pval =kstest(p_values_h_0,'uniform')
-                validity_p_list.append(pval)
-                validity_stat_list.append(stat)
+                try:
+                    p_values_h_0 = self.validity_sanity_check(X_test, Y_test, Z_test, d,self.q_fac)
+                    actual_pvalues_validity.append(torch.tensor(p_values_h_0))
+                    stat, pval = kstest(p_values_h_0, 'uniform')
+                    validity_p_list.append(pval)
+                    validity_stat_list.append(stat)
+                    print(p_values_h_0)
+                except Exception as e:
+                    print(e)
+
                 w = d.return_weights(X_test,Z_test,X_q_test)
                 save_w = w.cpu().numpy()
                 if i%10==0:

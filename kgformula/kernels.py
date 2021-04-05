@@ -1,5 +1,4 @@
 import torch
-import gpytorch
 class Kernel(torch.nn.Module):
     def __init__(self,):
         super(Kernel, self).__init__()

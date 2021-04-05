@@ -192,11 +192,11 @@ def plot_3_true_weights():
                 counter = 0
     doc.generate_tex()
 
-path_4567_csv ='base_jobs_kc_est_bug_rerun.csv'
+path_4567_csv ='base_jobs_kc_est_bug_rerun_2.csv'
 def plot_4_est_weights():
 
     all_path = 'do_null_100/'
-    small_path = 'base_jobs_kc_est_bug_rerun_layers=3_width=32'
+    small_path = 'base_jobs_kc_est_bug_rerun_2_layers=3_width=32'
     df = pd.read_csv(path_4567_csv,index_col=0)
     df = df[df['beta_xy']==0.0]
     subset = df.loc[df.groupby(["n","d_Z"])["KS pval"].idxmax()].sort_values(['n','d_Z'])
@@ -395,11 +395,12 @@ def plot_7_est_weights():
                 counter = 0
     doc.generate_tex()
 
+path_8910 = 'base_jobs_kc_est_bug_rerun_rulsif.csv'
 def plot_8_rulsif():
 
     all_path = 'do_null_100/'
-    small_path = 'base_jobs_kc_est_rulsif_layers=3_width=32'
-    df = pd.read_csv('base_jobs_kc_est_rulsif.csv',index_col=0)
+    small_path = 'base_jobs_kc_est_bug_rerun_rulsif_layers=3_width=32'
+    df = pd.read_csv(path_8910, index_col=0)
     df = df[df['beta_xy']==0.0]
     subset = df.loc[df.groupby(["n","d_Z"])["KS pval"].idxmax()].sort_values(['n','d_Z'])
     data_paths=[]
@@ -458,7 +459,7 @@ def plot_8_rulsif():
     doc.generate_tex()
 
 def plot_9_rulsif():
-    df_full = pd.read_csv('base_jobs_kc_est_rulsif.csv', index_col=0)
+    df_full = pd.read_csv(path_8910, index_col=0)
     df_full = df_full[df_full['beta_xy'] == 0.0]
     dir = 'plot_9_rulsif'
     if not os.path.exists(dir):
@@ -492,7 +493,7 @@ def plot_9_rulsif():
 
 
 def plot_10_rulsif():
-    df = pd.read_csv('base_jobs_kc_est_rulsif.csv', index_col=0)
+    df = pd.read_csv(path_8910, index_col=0)
     df = df[df['beta_xy'] != 0.0]
     df = df[df['nce_style']=='rulsif']
     dir = 'plot_10_rulsif'
@@ -542,10 +543,11 @@ def plot_10_rulsif():
                 counter = 0
     doc.generate_tex()
 
+path_111213 = 'base_jobs_kc_est_ablation_rerun.csv'
 def plot_11_ablation():
     all_path = 'do_null_100/'
-    small_path = 'base_jobs_kc_est_ablation_layers=3_width=32'
-    df = pd.read_csv('base_jobs_kc_est_ablation.csv',index_col=0)
+    small_path = 'base_jobs_kc_est_ablation_rerun_layers=3_width=32'
+    df = pd.read_csv(path_111213,index_col=0)
     df = df[df['beta_xy']==0.0]
     subset = df.loc[df.groupby(["n","d_Z"])["KS pval"].idxmax()].sort_values(['n','d_Z'])
     data_paths=[]
@@ -604,7 +606,7 @@ def plot_11_ablation():
     doc.generate_tex()
 
 def plot_12_ablation():
-    df_full = pd.read_csv('base_jobs_kc_est_ablation.csv', index_col=0)
+    df_full = pd.read_csv(path_111213, index_col=0)
     df_full = df_full[df_full['beta_xy'] == 0.0]
     dir = 'plot_12_ablation'
     if not os.path.exists(dir):
@@ -642,7 +644,7 @@ def plot_12_ablation():
                         doc.append(r'\includegraphics[width=\linewidth]{%s}'%p)
     doc.generate_tex()
 def plot_13_ablation():
-    df = pd.read_csv('base_jobs_kc_est_ablation.csv', index_col=0)
+    df = pd.read_csv(path_111213, index_col=0)
     df = df[df['beta_xy'] != 0.0]
     df = df[df['nce_style']=='NCE_Q']
     dir = 'plot_13_ablation'
@@ -1065,18 +1067,18 @@ if __name__ == '__main__':
     plot_5_est_weights()
     plot_6_est_weights()
     plot_7_est_weights()
-    # plot_8_rulsif()
-    # plot_9_rulsif()
-    # plot_10_rulsif()
+    plot_8_rulsif()
+    plot_9_rulsif()
+    plot_10_rulsif()
     # plot_11_ablation()
     # plot_12_ablation()
     # plot_13_ablation()
+
     # plot_14_hsic()
     # plot_15_hsic()
     # plot_17_hsic()
     # plot_18_gcm()
     # plot_19_gcm()
     # plot_20_gcm()
-    # plot_21_gcm()
 
 

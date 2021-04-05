@@ -1,10 +1,12 @@
-from kgformula.utils import simulation_object,simulation_object_hsic,simulation_object_GCM,simulation_object_linear_regression,simulation_object_adaptive
+from kgformula.utils import *
 from generate_job_params import *
 import os
 
 def run_jobs(args):
     if args['job_type']=='kc':
         j = simulation_object(args)
+    elif args['job_type']=='kc_px':
+        j = simulation_object_px(args)
     elif args['job_type']=='kc_adaptive':
         j = simulation_object_adaptive(args)
     elif args['job_type']=='hsic':
@@ -21,7 +23,7 @@ if __name__ == '__main__':
     input = {
         'idx':0,
         'ngpu':48,
-        'job_folder': 'debug'
+        'job_folder': 'random_uniform'
     }
     listjob = os.listdir(input['job_folder'])
     for i in range(len(listjob)):
@@ -35,6 +37,6 @@ if __name__ == '__main__':
         job_params = load_obj(jobs[idx],folder=f'{fold}/')
         job_params['device'] = 0
         job_params['unique_job_idx'] = idx%ngpu
-
+        #Index related error, might just add a try clause so it doesn't break
         print(job_params)
         run_jobs(args=job_params)

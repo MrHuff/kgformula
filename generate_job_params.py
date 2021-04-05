@@ -15,34 +15,39 @@ def load_obj(name,folder):
 # N=100
 # BXY_const = 0
 # yz=[0.5,0.0]
-# b_z = [0.5,0.6,0.7,0.8,0.9,1.0]
+# # b_z = [0.75,1.0,1.25,1.5,1.75,2.0,2.25,2.5]
+# b_z = [0.5,0.6,0.7,0.8,0.9]
 # dirname ='kchsic_break_100'
 # PHI=[2.0]
+# # THETA=[4.0]
 # THETA=[16.0]
 # BXY_list = [0.0]
 # DX= [3]
 # DY =  [3]
+# # DZ = [3]
 # DZ = [50]
 # Q_LIST=[0.2,0.4,0.6,0.8,1.0]
 # BR = [500]
 # MAX_ITS=10
 
-#Try adaptive
-#
+#adaptive example
 # N=100
 # BXY_const = 0
 # yz=[0.5,0.0]
 # b_z = [0.5]
-# dirname ='kchsic_break_100'
-# PHI=[2.0]
-# THETA=[16.0]
-# BXY_list = [0.0]
-# DX= [3]
-# DY =  [3]
-# DZ = [50]
-# Q_LIST=[0.5]
+# dirname ='do_null_100'
+# PHI=[2.0,2.0,2.0,2.0]
+# THETA=[2.0,4.0,8.0,16.0]
+# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
+# # BXY_list = [0.0,0.1,0.2]
+# DX= [1,3,3,3]
+# DY =  [1,3,3,3]
+# DZ = [1,3,15,50]
+# # Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+# Q_LIST=[1.0]
 # BR = [500]
 # MAX_ITS=10
+
 
 #COND BREAK
 # N=100
@@ -86,7 +91,25 @@ def load_obj(name,folder):
 # Q_LIST=[0.2,0.4,0.6,0.8,1.0]
 # MAX_ITS=10
 
-#
+#Regular setup
+# N=100
+# BXY_const = 0
+# yz=[0.5,0.0]
+# b_z = [0.5]
+# dirname ='do_null_100'
+# PHI=[2.0,2.0,2.0,2.0]
+# THETA=[2.0,4.0,8.0,16.0]
+# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
+# # BXY_list = [0.0,0.1,0.2]
+# DX= [1,3,3,3]
+# DY =  [1,3,3,3]
+# DZ = [1,3,15,50]
+# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+# # Q_LIST=[1.0]
+# BR = [500]
+# MAX_ITS=10
+
+#Ablation on training estimator
 N=100
 BXY_const = 0
 yz=[0.5,0.0]
@@ -94,14 +117,16 @@ b_z = [0.5]
 dirname ='do_null_100'
 PHI=[2.0,2.0,2.0,2.0]
 THETA=[2.0,4.0,8.0,16.0]
-BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
-# BXY_list = [0.0]
+BXY_list = [0.0]
+# BXY_list = [0.0,0.1,0.2]
 DX= [1,3,3,3]
 DY =  [1,3,3,3]
 DZ = [1,3,15,50]
 Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+# Q_LIST=[1.0]
 BR = [500]
 MAX_ITS=10
+
 
 # DEBUG
 # N=100
@@ -138,10 +163,11 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                         val_rate = 0.2
                         h_str =data_dir
                         if estimate:
-                            models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
+                            # models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
                             # models_to_run = zip(['real_TRE_Q'],[1])
                             # models_to_run = zip(['NCE_Q'],[10])
                             # models_to_run = zip(['rulsif'],[1,1])
+                            models_to_run = zip(['random_uniform'],[1,1])
                         else:
                             models_to_run = zip(['real_weights'],[1])
                         for mode in ['Q']:
@@ -266,14 +292,17 @@ def generate_job_params_GCM(n_list,seed_max=1000,directory='job_dir/',job_type='
 if __name__ == '__main__':
     pass
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_ablation_rerun',job_type='kc',dirname=dirname)
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_bug_rerun',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_bug_rerun_2',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_px',job_type='kc_px',dirname=dirname)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_bug_rerun_rulsif',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_adaptive_test',job_type='kc_adaptive',dirname=dirname)
+
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_2',job_type='kc',dirname=dirname)
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='random_uniform',job_type='kc',dirname=dirname)
+
+
     # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)
-
-
     # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='debug',job_type='kc',dirname=dirname)
-
-
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_adaptive',job_type='kc_adaptive',dirname=dirname)
     # generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_test_adaptive_5',job_type='kc',dirname=dirname)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_job',job_type='kc',dirname=dirname)
