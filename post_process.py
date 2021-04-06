@@ -285,10 +285,10 @@ def generate_csv_contrast(base_dir):
 if __name__ == '__main__':
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun')
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun_2')
-    # generate_csv_file_parfor('base_jobs_kc_est_ablation_rerun')
+    generate_csv_file_parfor('power_ablation')
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun_rulsif')
-    generate_csv_file_parfor('kc_hsic_break_1')
-    generate_csv_file_parfor('kc_adaptive_test')
+    # generate_csv_file_parfor('kc_hsic_break_1')
+    # generate_csv_file_parfor('kc_adaptive_test')
     # generate_csv_contrast('ind_jobs_hsic')
     # generate_csv_contrast('cond_jobs_regression')
     # generate_csv_file_parfor('hsic_jobs_kc')

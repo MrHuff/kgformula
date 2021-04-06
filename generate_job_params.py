@@ -110,23 +110,39 @@ def load_obj(name,folder):
 # MAX_ITS=10
 
 #Ablation on training estimator
+# N=100
+# BXY_const = 0
+# yz=[0.5,0.0]
+# b_z = [0.5]
+# dirname ='do_null_100'
+# PHI=[2.0,2.0,2.0,2.0]
+# THETA=[2.0,4.0,8.0,16.0]
+# BXY_list = [0.0]
+# # BXY_list = [0.0,0.1,0.2]
+# DX= [1,3,3,3]
+# DY =  [1,3,3,3]
+# DZ = [1,3,15,50]
+# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+# # Q_LIST=[1.0]
+# BR = [500]
+# MAX_ITS=10
+
+
+#Ablation on training estimator 2
 N=100
-BXY_const = 0
+BXY_const = 0.0
 yz=[0.5,0.0]
 b_z = [0.5]
-dirname ='do_null_100'
-PHI=[2.0,2.0,2.0,2.0]
-THETA=[2.0,4.0,8.0,16.0]
-BXY_list = [0.0]
-# BXY_list = [0.0,0.1,0.2]
-DX= [1,3,3,3]
-DY =  [1,3,3,3]
-DZ = [1,3,15,50]
+dirname ='ablation_100'
+PHI=[2.0]
+THETA=[2.0]
+BXY_list = [0.01,0.03,0.05,0.07,0.09]
+DX= [1]
+DY =  [1]
+DZ = [1]
 Q_LIST=[0.2,0.4,0.6,0.8,1.0]
-# Q_LIST=[1.0]
 BR = [500]
 MAX_ITS=10
-
 
 # DEBUG
 # N=100
@@ -163,11 +179,8 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                         val_rate = 0.2
                         h_str =data_dir
                         if estimate:
-                            # models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
-                            # models_to_run = zip(['real_TRE_Q'],[1])
-                            # models_to_run = zip(['NCE_Q'],[10])
+                            models_to_run = zip(['real_TRE_Q','NCE_Q','random_uniform'],[1,10,1])
                             # models_to_run = zip(['rulsif'],[1,1])
-                            models_to_run = zip(['random_uniform'],[1,1])
                         else:
                             models_to_run = zip(['real_weights'],[1])
                         for mode in ['Q']:
@@ -298,7 +311,9 @@ if __name__ == '__main__':
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_adaptive_test',job_type='kc_adaptive',dirname=dirname)
 
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_2',job_type='kc',dirname=dirname)
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='random_uniform',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='random_uniform',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='random_uniform_ablation',job_type='kc',dirname=dirname)
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='power_ablation',job_type='kc',dirname=dirname)
 
 
     # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)

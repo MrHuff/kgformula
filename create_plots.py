@@ -543,10 +543,11 @@ def plot_10_rulsif():
                 counter = 0
     doc.generate_tex()
 
-path_111213 = 'base_jobs_kc_est_ablation_rerun.csv'
+path_111213 = 'base_random_ablation.csv'
+nce_est = 'random_uniform'
 def plot_11_ablation():
     all_path = 'do_null_100/'
-    small_path = 'base_jobs_kc_est_ablation_rerun_layers=3_width=32'
+    small_path = 'base_random_ablation_layers=3_width=32'
     df = pd.read_csv(path_111213,index_col=0)
     df = df[df['beta_xy']==0.0]
     subset = df.loc[df.groupby(["n","d_Z"])["KS pval"].idxmax()].sort_values(['n','d_Z'])
@@ -611,7 +612,7 @@ def plot_12_ablation():
     dir = 'plot_12_ablation'
     if not os.path.exists(dir):
         os.makedirs(dir)
-    for est in ['NCE_Q']:
+    for est in [nce_est]:
         df = df_full[df_full['nce_style']==est]
         for d in [1,3,15,50]:
             subset = df[df['d_Z']==d].sort_values(['n'])
@@ -646,7 +647,7 @@ def plot_12_ablation():
 def plot_13_ablation():
     df = pd.read_csv(path_111213, index_col=0)
     df = df[df['beta_xy'] != 0.0]
-    df = df[df['nce_style']=='NCE_Q']
+    df = df[df['nce_style']==nce_est]
     dir = 'plot_13_ablation'
     if not os.path.exists(dir):
         os.makedirs(dir)
@@ -1058,27 +1059,81 @@ def plot_20_gcm():
                     doc.append(r'\includegraphics[width=\linewidth]{%s}'%p)
 
     doc.generate_tex()
+
+def plot_power_ablation(path,nce_est,dir):
+    df = pd.read_csv(path, index_col=0)
+    df = df[df['beta_xy'] != 0.0]
+    df = df[df['nce_style']==nce_est]
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    for d in [1]:
+        subset = df[df['d_Z'] == d]
+        for n in [1000, 5000, 10000]:
+            subset_2 = subset[subset['n'] == n].sort_values(['beta_xy'])
+            for c in [0.2, 0.4, 0.6, 0.8, 1.0]:
+                subset_3 = subset_2[subset_2['$c_q$'] == c]
+                a, b, e = calc_error_bars(subset_3['p_a=0.05'], alpha=0.05, num_samples=100)
+                plt.plot('beta_xy', 'p_a=0.05', data=subset_3, linestyle='--', marker='o', label=f'$c_q={c}$')
+                plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
+            plt.hlines(0.05, 0.01, 0.09)
+            plt.legend(prop={'size': 10})
+            plt.xticks( [0.01,0.03,0.05,0.07,0.09])
+            plt.xlabel(r'$\beta_{XY}$')
+            plt.ylabel(r'Power $\alpha=0.05$')
+            plt.savefig(f'{dir}/figure_{d}_{n}.png', bbox_inches='tight',
+                        pad_inches=0.05)
+            plt.clf()
+    doc = Document(default_filepath=dir)
+    with doc.create(Figure(position='H')) as plot:
+        with doc.create(subfigure(position='t', width=NoEscape(r'\linewidth'))):
+            for i, n in enumerate([1]):
+                if i == 0:
+                    with doc.create(subfigure(position='H', width=NoEscape(r'0.04\linewidth'))):
+                        # string_append = r'\raisebox{0cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{}}}' + '%'
+                        string_append = '\hfill'
+                        doc.append(string_append)
+                with doc.create(subfigure(position='H', width=NoEscape(r'0.24\linewidth'))):
+                    name = f'$d_Z={n}$'
+                    doc.append(Command('centering'))
+                    doc.append(r'\rotatebox{0}{\scalebox{0.75}{%s}}' % name)
+        counter = 0
+        for idx, (i, j) in enumerate(itertools.product([1000, 5000, 10000], [1])):
+            if idx % 4 == 0:
+                name = f'$n={i}$'
+                string_append = r'\raisebox{1.5cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{%s}}}' % name + '%\n'
+            p = f'{dir}/figure_{j}_{i}.png'
+            string_append += r'\includegraphics[width=0.24\linewidth]{%s}' % p + '%\n'
+            counter += 1
+            if counter == 4:
+                with doc.create(subfigure(position='H', width=NoEscape(r'\linewidth'))):
+                    doc.append(string_append)
+                counter = 0
+    doc.generate_tex()
+
+
 if __name__ == '__main__':
     pass
     # plot_1_true_weights()
     # plot_2_true_weights()
     # plot_3_true_weights()
-    plot_4_est_weights()
-    plot_5_est_weights()
-    plot_6_est_weights()
-    plot_7_est_weights()
-    plot_8_rulsif()
-    plot_9_rulsif()
-    plot_10_rulsif()
+    # plot_4_est_weights()
+    # plot_5_est_weights()
+    # plot_6_est_weights()
+    # plot_7_est_weights()
+    # plot_8_rulsif()
+    # plot_9_rulsif()
+    # plot_10_rulsif()
     # plot_11_ablation()
     # plot_12_ablation()
     # plot_13_ablation()
-
     # plot_14_hsic()
     # plot_15_hsic()
     # plot_17_hsic()
     # plot_18_gcm()
     # plot_19_gcm()
     # plot_20_gcm()
+    plot_power_ablation('power_ablation.csv','random_uniform','plot_22')
+    plot_power_ablation('power_ablation.csv','NCE_Q','plot_23')
+    plot_power_ablation('power_ablation.csv','real_TRE_Q','plot_24')
 
 
