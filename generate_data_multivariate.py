@@ -2,7 +2,7 @@ from kgformula.fixed_do_samplers import simulate_xyz_multivariate,apply_qdist
 from kgformula.test_statistics import  hsic_sanity_check_w,hsic_test
 import torch
 import os
-from scipy.stats import kstest
+from scipy.stats import kstest,ks_2samp
 from matplotlib import pyplot as plt
 from kgformula.utils import x_q_class
 import matplotlib as mpl
@@ -94,8 +94,9 @@ def gen_data_and_sanity(data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fa
                     test_d = torch.distributions.Gamma(rate=1.0, concentration=theta)
                     sample = test_d.sample([n])
                     test = X[:, d].squeeze() / mu
-                    stat, pval = kstest(test.squeeze().numpy(), sample.squeeze().numpy())
+                    stat, pval = ks_2samp(test.squeeze().numpy(), sample.squeeze().numpy())
                     sample = sample.numpy()
+                    print(f'KS test pval {pval}')
                 elif fam_z == 1:
                     snr = calc_snr(beta_xz, theta)
                     test = torch.cat([torch.ones(*(X.shape[0], 1)), Z],
@@ -119,6 +120,9 @@ def gen_data_and_sanity(data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fa
             print(f'sanity_check_w : {sanity_pval}')
             plt.hist(w, bins=250)
             plt.savefig(f'./{data_dir}/w.png')
+            plt.clf()
+            plt.hist(inv_w, bins=250)
+            plt.savefig(f'./{data_dir}/inv_w.png')
             plt.clf()
             ess_list = []
             for q in [1.0, 0.75, 0.5]:
