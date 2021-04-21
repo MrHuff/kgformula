@@ -39,12 +39,11 @@ b_z = [0.5]
 dirname ='do_null_100'
 PHI=[2.0,2.0,2.0]
 THETA=[4.0,8.0,16.0]
-BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
-# BXY_list = [0.0,0.1,0.2]
+# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
+BXY_list = [0.0]
 DX= [3,3,3]
 DY =  [3,3,3]
 DZ = [3,15,50]
-# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
 Q_LIST=[1.0]
 BR = [500]
 MAX_ITS=10
@@ -314,7 +313,7 @@ if __name__ == '__main__':
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_2',job_type='kc',dirname=dirname)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='random_uniform',job_type='kc',dirname=dirname)
     # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='random_uniform_ablation',job_type='kc',dirname=dirname)
-    generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule_2',job_type='kc_rule',dirname=dirname)
+    generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule',job_type='kc_rule',dirname=dirname)
 
 
     # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)
