@@ -26,19 +26,16 @@ if __name__ == '__main__':
         'job_folder': 'kc_rule'
     }
     listjob = os.listdir(input['job_folder'])
-    i = 0
-    input['idx']=i
-    idx = input['idx']
-    ngpu = input['ngpu']
-    fold = input['job_folder']
-    jobs = os.listdir(fold)
-    jobs.sort()
-    print(jobs[idx])
-    job_params = load_obj(jobs[idx],folder=f'{fold}/')
-    job_params['device'] = 0
-    job_params['unique_job_idx'] = 99999
-
-
-    #Index related error, might just add a try clause so it doesn't break
-    print(job_params)
-    run_jobs(args=job_params)
+    for i in range(len(listjob)):
+        input['idx']=i
+        idx = input['idx']
+        ngpu = input['ngpu']
+        fold = input['job_folder']
+        jobs = os.listdir(fold)
+        jobs.sort()
+        print(jobs[idx])
+        job_params = load_obj(jobs[idx],folder=f'{fold}/')
+        job_params['device'] = 0
+        job_params['unique_job_idx'] = 99999
+        print(job_params)
+        run_jobs(args=job_params)

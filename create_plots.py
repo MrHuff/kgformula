@@ -1199,6 +1199,92 @@ def plot_27(dir):
                 counter = 0
     doc.generate_tex()
 
+path_2829_csv ='kc_rule.csv'
+def plot_28():
+    df = pd.read_csv(path_2829_csv, index_col=0)
+    df = df[df['beta_xy'] == 0.0]
+    dir = 'plot_28_rule'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    for d in [1, 3, 15, 50]:
+        subset = df[df['d_Z'] == d].sort_values(['n'])
+        for c, c_str in zip(['NCE_Q', 'real_TRE_Q', 'random_uniform'], ['NCE-Q', 'TRE-Q', 'random uniform']):
+            subset_2 = subset[subset['nce_style'] == c]
+            a, b, e = calc_error_bars(subset_2['KS pval'], alpha=0.05, num_samples=100)
+            plt.plot('n','KS pval', data=subset_2, linestyle='--', marker='o', label=f'Estimator={c_str}')
+            plt.fill_between(subset_2['n'], a, b, alpha=0.1)
+        plt.hlines(0.05, 0, 10000)
+        plt.legend(prop={'size': 10})
+        plt.xlabel('$n$')
+        plt.ylabel('p-val')
+        plt.savefig(f'{dir}/figure_{d}.png', bbox_inches='tight',
+                    pad_inches=0.05)
+        plt.clf()
+    doc = Document(default_filepath=dir)
+    with doc.create(Figure(position='H')) as plot:
+        with doc.create(subfigure(position='t', width=NoEscape(r'\linewidth'))):
+            for i, n in enumerate([1, 3, 15, 50]):
+                with doc.create(subfigure(position='H', width=NoEscape(r'0.25\linewidth'))):
+                    name = f'$d_Z={n}$'
+                    p = f'{dir}/figure_{n}.png'
+                    doc.append(Command('centering'))
+                    doc.append(r'\rotatebox{0}{\scalebox{0.75}{%s}}' % name)
+                    doc.append(r'\includegraphics[width=\linewidth]{%s}' % p)
+
+    doc.generate_tex()
+
+
+def plot_29():
+    df = pd.read_csv(path_2829_csv, index_col=0)
+    df = df[df['beta_xy'] != 0.0]
+    dir = 'plot_29_rule'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    for d in [1, 3, 15, 50]:
+        subset = df[df['d_Z'] == d]
+        for n in [1000, 5000, 10000]:
+            subset_2 = subset[subset['n'] == n].sort_values(['beta_xy'])
+            for c,c_str in zip(['NCE_Q','real_TRE_Q','random_uniform'],['NCE-Q','TRE-Q','random uniform']):
+                subset_3 = subset_2[subset_2['nce_style'] == c]
+                a, b, e = calc_error_bars(subset_3['p_a=0.05'], alpha=0.05, num_samples=100)
+                plt.plot('beta_xy', 'p_a=0.05', data=subset_3, linestyle='--', marker='o', label=f'Estimator={c_str}')
+                plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
+            plt.hlines(0.05, 0.1, 0.5)
+            plt.legend(prop={'size': 10})
+            plt.xticks([0.1, 0.2, 0.3, 0.4, 0.5])
+            plt.xlabel(r'$\beta_{XY}$')
+            plt.ylabel(r'Power $\alpha=0.05$')
+            plt.savefig(f'{dir}/figure_{d}_{n}.png', bbox_inches='tight',
+                        pad_inches=0.05)
+            plt.clf()
+    doc = Document(default_filepath=dir)
+    with doc.create(Figure(position='H')) as plot:
+        with doc.create(subfigure(position='t', width=NoEscape(r'\linewidth'))):
+            for i, n in enumerate([1, 3, 15, 50]):
+                if i == 0:
+                    with doc.create(subfigure(position='H', width=NoEscape(r'0.04\linewidth'))):
+                        # string_append = r'\raisebox{0cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{}}}' + '%'
+                        string_append = '\hfill'
+                        doc.append(string_append)
+                with doc.create(subfigure(position='H', width=NoEscape(r'0.24\linewidth'))):
+                    name = f'$d_Z={n}$'
+                    doc.append(Command('centering'))
+                    doc.append(r'\rotatebox{0}{\scalebox{0.75}{%s}}' % name)
+        counter = 0
+        for idx, (i, j) in enumerate(itertools.product([1000, 5000, 10000], [1, 3, 15, 50])):
+            if idx % 4 == 0:
+                name = f'$n={i}$'
+                string_append = r'\raisebox{1.5cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{%s}}}' % name + '%\n'
+            p = f'{dir}/figure_{j}_{i}.png'
+            string_append += r'\includegraphics[width=0.24\linewidth]{%s}' % p + '%\n'
+            counter += 1
+            if counter == 4:
+                with doc.create(subfigure(position='H', width=NoEscape(r'\linewidth'))):
+                    doc.append(string_append)
+                counter = 0
+    doc.generate_tex()
+
+
 
 if __name__ == '__main__':
     pass
@@ -1224,8 +1310,8 @@ if __name__ == '__main__':
     # plot_power_ablation('power_ablation.csv','random_uniform','plot_22')
     # plot_power_ablation('power_ablation.csv','NCE_Q','plot_23')
     # plot_power_ablation('power_ablation.csv','real_TRE_Q','plot_24')
-
-    plot_25('kchsic_break.csv','NCE_Q','plot_25')
-    plot_25('kchsic_break.csv','real_TRE_Q','plot_26')
-    plot_27('plot_27')
-
+    # plot_25('kchsic_break.csv','NCE_Q','plot_25')
+    # plot_25('kchsic_break.csv','real_TRE_Q','plot_26')
+    # plot_27('plot_27')
+    plot_28()
+    plot_29()

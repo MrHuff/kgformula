@@ -555,7 +555,7 @@ class simulation_object_rule(simulation_object):
             best = 1e99
             for i in range(100):
                 T_inv = torch.diag(1. / (torch.diag(I_p) * c_q**2))
-                loss =-torch.abs(torch.norm(c_q**2 * I_p, p=2) ** 2 * torch.det(2 * T_inv - subtract_term))
+                loss =-torch.abs(torch.norm(c_q**2 * I_p, p=2) * torch.det(2 * T_inv - subtract_term))
                 if loss.item()<best:
                     best=loss.item()
                     best_c_q = torch.sqrt(c_q**2).item()
@@ -579,7 +579,6 @@ class simulation_object_rule(simulation_object):
         split_data = self.args['split']
         required_n = self.args['n']
         ks_data = []
-        estimator_list = ['NCE', 'TRE_Q','NCE_Q', 'real_TRE_Q','rulsif']
         suffix = f'_qf=rule_qd={self.qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={self.bootstrap_runs}_n={required_n}'
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
@@ -591,11 +590,8 @@ class simulation_object_rule(simulation_object):
 
         for i in tqdm.trange(seeds_a,seeds_b):
             try:
-                if self.cuda:
-                    X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt',map_location=f'cuda:{self.device}')
-                else:
-                    X, Y, Z,_w = torch.load(f'./{data_dir}/data_seed={i}.pt')
-
+                X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
+                X, Y, Z,_w =X.cuda(self.device), Y.cuda(self.device), Z.cuda(self.device),_w.cuda(self.device)
                 X, Y, Z, _w = X[:required_n,:],Y[:required_n,:],Z[:required_n,:],_w[:required_n]
                 n_half = X.shape[0] // 2
                 X_train, X_test = split(X, n_half)
