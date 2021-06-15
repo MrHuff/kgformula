@@ -11,6 +11,16 @@ def build_suffix(q_fac,required_n,estimator,br):
     suffix = f'__qf={q_fac}_qd=2_m=Q_s=0_100_e={estimate}_est={estimator}_sp={split_data}_br={br}_n={required_n}'
     return suffix
 
+def build_suffix_2(q_fac,required_n,estimator,br):
+    if estimator=='real_weights':
+        estimate=False
+        split_data=False
+    else:
+        estimate=True
+        split_data=True
+    suffix = f'qf=rule_qd=2_m=Q_s=0_100_e={estimate}_est={estimator}_sp={split_data}_br={br}_n={required_n}'
+    return suffix
+
 def build_hsic(required_n,br):
     suffix = f'__hsic_s={0}_{100}_br={br}_n={required_n}'
     return suffix

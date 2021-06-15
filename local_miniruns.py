@@ -11,8 +11,8 @@ def run_jobs(args):
         j = simulation_object_rule(args)
     elif args['job_type']=='hsic':
         j = simulation_object_hsic(args)
-    elif args['job_type']=='gcm':
-        j = simulation_object_GCM(args)
+    elif args['job_type']=='kc_rule_new':
+        j = simulation_object_rule_new(args)
     elif args['job_type']=='regression':
         j = simulation_object_linear_regression(args)
     j.run()
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     input = {
         'idx':0,
         'ngpu':48,
-        'job_folder': 'kc_rule'
+        'job_folder': 'do_null_binary_job_2'
     }
     listjob = os.listdir(input['job_folder'])
     for i in range(len(listjob)):

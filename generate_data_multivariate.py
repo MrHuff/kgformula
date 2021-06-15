@@ -4,7 +4,7 @@ import torch
 import os
 from scipy.stats import kstest,ks_2samp
 from matplotlib import pyplot as plt
-from kgformula.utils import x_q_class
+from kgformula.utils import x_q_class_cont
 import matplotlib as mpl
 from torch.distributions import Exponential,Normal
 import numpy as np
@@ -113,7 +113,7 @@ def gen_data_and_sanity(data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fa
                 plt.clf()
 
             p_val = hsic_test(X[0:1000, :], Z[0:1000, :], 250)
-            X_class = x_q_class(qdist=2, q_fac=1.0, X=X)
+            X_class = x_q_class_cont(qdist=2, q_fac=1.0, X=X)
             w = X_class.calc_w_q(inv_w)
             sanity_pval = hsic_sanity_check_w(w[0:1000], X[0:1000, :], Z[0:1000, :], 250)
             print(f'HSIC X Z: {p_val}')
@@ -126,7 +126,7 @@ def gen_data_and_sanity(data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fa
             plt.clf()
             ess_list = []
             for q in [1.0, 0.75, 0.5]:
-                X_class = x_q_class(qdist=2, q_fac=q, X=X)
+                X_class = x_q_class_cont(qdist=2, q_fac=q, X=X)
                 w = X_class.calc_w_q(inv_w)
                 ess = calc_ess(w)
                 ess_list.append(ess.item())

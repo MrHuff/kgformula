@@ -1,6 +1,6 @@
 import pandas as pd
 import torch
-from kgformula.utils import x_q_class
+from kgformula.utils import x_q_class_cont
 import ast
 from generate_data_multivariate import generate_sensible_variables,calc_snr
 from scipy.stats import kstest
@@ -39,10 +39,10 @@ def get_w_plot(data_path,est,w_est_path,args,pre_path,suffix):
     if est:
         w_est = torch.load(w_est_path, map_location=torch.device('cpu'))
     else:
-        Xq_class =  x_q_class(qdist=args['qdist'], q_fac=args['q_factor'], X=X[:args['n'],:])
+        Xq_class =  x_q_class_cont(qdist=args['qdist'], q_fac=args['q_factor'], X=X[:args['n'], :])
         w_est = Xq_class.calc_w_q(inv_w[:args['n']])
 
-    X_class = x_q_class(qdist=args['qdist'], q_fac=args['q_factor'], X=X[:args['n'],:])
+    X_class = x_q_class_cont(qdist=args['qdist'], q_fac=args['q_factor'], X=X[:args['n'], :])
     w = X_class.calc_w_q(inv_w[:args['n']])
     try:
         plt.hist(w_est.cpu().numpy(), 25)
