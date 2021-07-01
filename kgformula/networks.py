@@ -5,6 +5,18 @@ from torch.utils.data import Dataset
 from math import log
 from kgformula.kernels import *
 
+def get_binary_mask(X):
+    dim = X.shape[1]
+    mask_ls = [0] * dim
+    label_size = []
+    for i in range(dim):
+        x = X[:, i]
+        un_el = x.unique()
+        mask_ls[i] = un_el.numel() <= 10
+        if mask_ls[i]:
+            label_size.append(un_el.numel())
+    return torch.tensor(mask_ls)
+
 class Swish(torch.autograd.Function):
     @staticmethod
     def forward(ctx, i):
@@ -33,6 +45,30 @@ class input_block(torch.nn.Module):
     def forward(self, x):
         return self.f(x)
 
+class nn_node(torch.nn.Module): #Add dropout layers, Do embedding layer as well!
+    def __init__(self,d_in,d_out,cat_size_list,transformation=torch.tanh):
+        super(nn_node, self).__init__()
+
+        self.has_cat = len(cat_size_list)>0
+        self.latent_col_list = []
+        print('cat_size_list',cat_size_list)
+        for i,el in enumerate(cat_size_list):
+            col_size = el//2+2
+            setattr(self,f'embedding_{i}',torch.nn.Embedding(el,col_size))
+            self.latent_col_list.append(col_size)
+        self.w = torch.nn.Linear(d_in+sum(self.latent_col_list),d_out)
+        self.f = transformation
+
+    def forward(self,X,x_cat=[]):
+        if not isinstance(x_cat,list):
+            seq = torch.unbind(x_cat,1)
+            cat_vals = [X]
+            for i,f in enumerate(seq):
+                o = getattr(self,f'embedding_{i}')(f)
+                cat_vals.append(o)
+            X = torch.cat(cat_vals,dim=1)
+        return self.f(self.w(X))
+
 class output_block(torch.nn.Module):
     def __init__(self, input, output):
         super(output_block, self).__init__()
@@ -54,15 +90,21 @@ class _res_block(torch.nn.Module):
 
 
 class MLP(torch.nn.Module):
-    def __init__(self,d,f=12,k=2,o=1):
+    def __init__(self,d,cat_marker,cat_size_list,f=12,k=2,o=1):
         super(MLP, self).__init__()
+        self.cat_marker=cat_marker
+        self.cat_size_list = cat_size_list
         self.model = nn.ModuleList()
-        self.model.append(input_block(d, f))
+        self.first_layer = nn_node(d_in=d,d_out=f,cat_size_list=cat_size_list)
         for i in range(k):
             self.model.append(_res_block(f, f))
         self.model.append(output_block(f, o))
+
     def pass_through(self,x):
         # X,Z = x.unbind(dim=1)
+        cont_x = x[:,~self.cat_marker]
+        cat_x= x[:,self.cat_marker].long()
+        x = self.first_layer(cont_x,cat_x)
         for l in self.model:
             x = l(x)
         return x #+ (X.unsqueeze(-1)**2+Z.unsqueeze(-1)**2)
@@ -83,12 +125,15 @@ class MLP(torch.nn.Module):
         return torch.exp(-self.forward_val(torch.cat([x,z],dim=1)) )
 
 class TRE_net(torch.nn.Module):
-    def __init__(self, dim, o, f, k, m):
+    def __init__(self, dim, o, f, k, m,cat_marker,cat_size_list):
         super(TRE_net, self).__init__()
         self.module_list = torch.nn.ModuleList()
+        self.cat_marker=cat_marker
+        self.cat_size_list = cat_size_list
+
         self.m = m
         for i in range(m):
-            self.module_list.append(MLP(dim,f,k,o))
+            self.module_list.append(MLP(dim,self.cat_marker,self.cat_size_list,f,k,o))
 
     def forward(self,input):
         output = []
@@ -190,27 +235,6 @@ class classification_dataset_Q(classification_dataset):
         self.bs = int(round(self.bs_perc * self.X_joint.shape[0]))
 
 
-# class classification_dataset_Q_TRE(classification_dataset_Q):
-#     def __init__(self,X,Z,X_q,bs=1.0,kappa=1,val_rate = 0.01):
-#         super(classification_dataset_Q_TRE, self).__init__(X,Z,X_q,bs,kappa,val_rate)
-#
-#     def get_sample(self):
-#         i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs-1)
-#         joint_samp = torch.cat([self.X_joint[i_s:(i_s+self.bs),:],self.Z_joint[i_s:(i_s+self.bs),:]],dim=1)
-#         i_s_2 = np.random.randint(0,  self.X_q_pom.shape[0]- self.bs*self.kappa-1)
-#         X_p_samp  =self.X_pom[i_s_2:(i_s_2+self.bs*self.kappa),:]
-#         pom_samp = torch.cat([X_p_samp, self.Z_pom[torch.randperm(self.Z_pom.shape[0])[:(self.bs*self.kappa)],:]],dim=1)
-#         X_q_samp = self.X_q_pom[i_s:(i_s+self.bs),:]
-#         return joint_samp,pom_samp,X_p_samp,X_q_samp
-#
-#     def get_val_sample(self):
-#         n = min(self.X_joint.shape[0],self.X_pom.shape[0])
-#         joint_samp = torch.cat([self.X_joint[:n,:],self.Z_joint[:n,:]],dim=1)
-#         X_p_samp = self.X_pom[:n,:]
-#         pom_samp = torch.cat([X_p_samp, self.Z_pom[torch.arange(self.Z_pom.shape[0]-1,-1,-1),:]],dim=1)
-#         X_q_samp = self.X_q_pom[:n,:]
-#         return joint_samp,pom_samp,n,X_p_samp,X_q_samp
-
 class dataset_MI_TRE(Dataset):
     def __init__(self,X,Z,m,p=1,bs=1.0,val_rate = 0.01):
         self.m = m
@@ -251,22 +275,6 @@ class dataset_MI_TRE(Dataset):
         self.divide_data()
         self.bs = int(round(self.bs_perc * self.X_joint.shape[0]))
 
-    # def get_sample(self):
-    #     i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs - 1)
-    #     X_joint_samp,Z_joint_samp = self.X_joint[i_s:(i_s + self.bs), :], self.Z_joint[i_s:(i_s + self.bs), :]
-    #     i_s_2 = np.random.randint(0, self.Z_pom.shape[0] - self.bs * self.kappa - 1)
-    #     X_pom_samp,Z_pom_samp = self.X_pom[torch.randperm(self.X_pom.shape[0])[:(self.bs * self.kappa)], :],self.Z_pom[i_s_2:(i_s_2 + self.bs * self.kappa), :]
-    #     data_out = [torch.cat([X_pom_samp,Z_pom_samp],dim=1)]
-    #     for a_0, a_m in zip(self.a_0, self.a_m):
-    #         transition_x = a_0 * X_pom_samp + a_m * X_joint_samp
-    #         data_out.append(torch.cat([transition_x,Z_pom_samp],dim=1))
-    #     data_out.append(torch.cat([X_joint_samp,Z_joint_samp],dim=1))
-    #     return data_out
-
-    # def get_val_sample(self):
-    #     data_out = [torch.cat([self.X_pom, self.Z_pom], dim=1)]
-    #     data_out.append(torch.cat([ self.X_joint, self.Z_joint],dim=1))
-    #     return data_out
 
 class dataset_rulsif(Dataset):
     def __init__(self,X,X_q,Z):
@@ -353,36 +361,6 @@ class dataset_MI_TRE_Q(Dataset):
         self.divide_data()
         self.bs = int(round(self.bs_perc * self.X_joint.shape[0]))
 
-    # def train_mode(self):
-    #     self.X = self.X_train
-    #     self.X_q = self.X_q_train
-    #     self.Z = self.Z_train
-    #     self.divide_data()
-    #     self.bs = int(round(self.bs_perc*self.X_joint.shape[0]))
-    #
-    # def val_mode(self):
-    #     self.X = self.X_val
-    #     self.X_q = self.X_q_val
-    #     self.Z = self.Z_val
-    #     self.divide_data()
-
-    # def get_sample(self):
-    #     i_s = np.random.randint(0, self.X_joint.shape[0] - self.bs - 1)
-    #     X_joint_samp,Z_joint_samp = self.X_joint[i_s:(i_s + self.bs), :], self.Z_joint[i_s:(i_s + self.bs), :]
-    #     i_s_2 = np.random.randint(0, self.X_pom.shape[0] - self.bs * self.kappa - 1)
-    #     X_pom_samp,Z_pom_samp = self.X_pom[torch.randperm(self.X_pom.shape[0])[:(self.bs * self.kappa)], :],self.Z_pom[i_s_2:(i_s_2 + self.bs * self.kappa), :]
-    #     data_out = [torch.cat([X_pom_samp,Z_pom_samp],dim=1)]
-    #     for a_0, a_m in zip(self.a_0, self.a_m):
-    #         transition_x = a_0 * X_pom_samp + a_m * X_joint_samp
-    #         data_out.append(torch.cat([transition_x, Z_pom_samp], dim=1))
-    #     data_out.append(torch.cat([X_joint_samp,Z_joint_samp],dim=1))
-    #     return data_out
-    #
-    # def get_val_sample(self):
-    #     data_out = [torch.cat([self.X_pom, self.Z_pom], dim=1)]
-    #     data_out.append(torch.cat([ self.X_joint, self.Z_joint],dim=1))
-    #     return data_out
-
 class chunk_iterator(): #joint = pos, pom = neg
     def __init__(self,X_joint,Z_joint,X_pom,Z_pom,shuffle,batch_size,kappa=10,TRE=False,a_0=[],a_m=[],mode='train'):
         self.mode = mode
@@ -390,6 +368,8 @@ class chunk_iterator(): #joint = pos, pom = neg
         self.Z_joint = Z_joint
         self.X_pom = X_pom
         self.Z_pom = Z_pom
+        self.x_binary = get_binary_mask(self.X_joint)
+        self.z_binary = get_binary_mask(self.Z_joint)
         self.shuffle = shuffle
         self.batch_size = batch_size
         self.n_joint = self.X_joint.shape[0]
@@ -436,6 +416,7 @@ class chunk_iterator(): #joint = pos, pom = neg
                 if self.TRE:
                     for a_0, a_m in zip(self.a_0, self.a_m):
                         transition_x = a_0 * c + a_m * a
+                        transition_x[:,self.x_binary] = c[:,self.x_binary] #cant have continous transition for binary variables
                         data_out.append(torch.cat([transition_x, d], dim=1))
                 data_out.append(torch.cat([a, b], dim=1))
                 self._index += 1

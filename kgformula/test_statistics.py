@@ -1,7 +1,17 @@
 from kgformula.networks import *
 from kgformula.kernels import *
 import os
-
+def get_binary_mask(X):
+    dim = X.shape[1]
+    mask_ls = [0] * dim
+    label_size = []
+    for i in range(dim):
+        x = X[:, i]
+        un_el = x.unique()
+        mask_ls[i] = un_el.numel() <= 10
+        if mask_ls[i]:
+            label_size.append(un_el.numel())
+    return torch.tensor(mask_ls),label_size
 class HSIC_independence_test():
     def __init__(self,X,Y,n_samples):
         self.X = X
@@ -111,6 +121,10 @@ class density_estimator():
     def __init__(self, x, z,x_q, est_params=None, cuda=False, device=0, type='linear',secret_indx=0):
         self.x = x
         self.z = z
+        cat_data = torch.cat([x,z],dim=1)
+
+        self.cat_marker,self.cat_list = get_binary_mask(cat_data)#derive this instead...
+        self.cont_marker = ~self.cat_marker
         self.cuda = cuda
         self.n = self.x.shape[0]
         self.device = device
@@ -132,27 +146,27 @@ class density_estimator():
             self.dataloader = NCE_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True,kappa=self.kappa,
                                         TRE=self.type in ['real_TRE','real_TRE_Q'])
         if self.type == 'NCE':
-            self.model = MLP(d=self.dataset.X_train.shape[1]+self.dataset.Z_train.shape[1],f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
+            self.model = MLP(d=self.cont_marker.sum().item(),cat_size_list=self.cat_list,cat_marker=self.cat_marker,f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
             self.train_classifier()
 
         elif self.type=='NCE_Q':
-            self.model = MLP(d=self.dataset.X_train.shape[1] + self.dataset.Z_train.shape[1], f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
+            self.model = MLP(d=self.cont_marker.sum().item(),cat_size_list=self.cat_list,cat_marker=self.cat_marker, f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
             self.train_classifier()
 
         elif self.type=='real_TRE':
-            self.model = TRE_net(dim=self.dataset.X_train.shape[1]+self.dataset.Z_train.shape[1],
+            self.model = TRE_net(dim=self.cont_marker.sum().item(),
                                  o = 1,
                                  f=self.est_params['width'],
                                  k=self.est_params['layers'],
-                                 m = self.est_params['m']
+                                 m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
                                  ).to(self.x.device)
             self.train_classifier()
         elif self.type=='real_TRE_Q':
-            self.model = TRE_net(dim=self.dataset.X_train.shape[1]+self.dataset.Z_train.shape[1],
+            self.model = TRE_net(dim=self.cont_marker.sum().item(),
                                  o = 1,
                                  f=self.est_params['width'],
                                  k=self.est_params['layers'],
-                                 m = self.est_params['m']
+                                 m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
                                  ).to(self.x.device)
             self.train_classifier()
         elif self.type=='rulsif':
@@ -206,8 +220,6 @@ class density_estimator():
         pom,joint,pom_q = dataset.get_data()
         self.model = rulsif(pom=pom,joint=joint).to(self.device)
         self.model.calc_theta()
-
-
 
     def validation_loop(self,epoch):
         self.dataloader.dataset.set_mode('val')
