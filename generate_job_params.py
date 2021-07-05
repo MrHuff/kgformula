@@ -407,7 +407,7 @@ def generate_job_binary(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                    'criteria_limit': 0.05,
                                                    'kill_counter': 2,
                                                     'kappa':kappa,
-                                                   'm': 4
+                                                   'm': 6
                                                    },
                                     'estimator': model, #ones, 'NCE'
                                     'runs': runs,
@@ -431,10 +431,10 @@ if __name__ == '__main__':
     # generate_job_paradox(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='cont_g_paradox_jobs',job_type='kc_rule',dirname='',K=10,binary_flag=False)
     # generate_job_paradox(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='bin_g_paradox_jobs',job_type='kc_rule',dirname='',K=10,binary_flag=True)
     # generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_1',job_type='kc_rule',dirname='',K=1,binary_flag=True)
-    generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_binary_job_h0_2',job_type='kc_rule_new',dirname='',null_case=True)
-    generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_binary_job_h1_2',job_type='kc_rule_new',dirname='',null_case=False)
-    generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_h0_2_est',job_type='kc_rule_new',dirname='',null_case=True)
-    generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_h1_2_est',job_type='kc_rule_new',dirname='',null_case=False)
+    # generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_binary_job_h0_2',job_type='kc_rule_new',dirname='',null_case=True)
+    # generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_binary_job_h1_2',job_type='kc_rule_new',dirname='',null_case=False)
+    generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_h0_2_est_3',job_type='kc_rule_new',dirname='',null_case=True)
+    generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_h1_2_est_3',job_type='kc_rule_new',dirname='',null_case=False)
 
 
     # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)

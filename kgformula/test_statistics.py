@@ -1,3 +1,5 @@
+import torch.nn
+
 from kgformula.networks import *
 from kgformula.kernels import *
 import os
@@ -121,10 +123,15 @@ class density_estimator():
     def __init__(self, x, z,x_q, est_params=None, cuda=False, device=0, type='linear',secret_indx=0):
         self.x = x
         self.z = z
-        cat_data = torch.cat([x,z],dim=1)
 
+
+        cat_data = torch.cat([x,z],dim=1)
         self.cat_marker,self.cat_list = get_binary_mask(cat_data)#derive this instead...
         self.cont_marker = ~self.cat_marker
+
+        tmp_1,tmp_2= get_binary_mask(x)
+        tmp_3,tmp_4= get_binary_mask(z)
+        self.x_pure_cat = len(tmp_2)==x.shape[1]
         self.cuda = cuda
         self.n = self.x.shape[0]
         self.device = device
@@ -141,40 +148,51 @@ class density_estimator():
         if not os.path.exists(self.tmp_path):
             os.makedirs(self.tmp_path)
 
-        self.dataset = self.create_classification_data()
-        if self.type in ['NCE','NCE_Q','real_TRE','real_TRE_Q']:
-            self.dataloader = NCE_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True,kappa=self.kappa,
-                                        TRE=self.type in ['real_TRE','real_TRE_Q'])
-        if self.type == 'NCE':
-            self.model = MLP(d=self.cont_marker.sum().item(),cat_size_list=self.cat_list,cat_marker=self.cat_marker,f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
-            self.train_classifier()
+        if self.x_pure_cat:
+            self.kappa=1
+            self.dataset = cat_dataset(X=self.x,Z=self.z, bs = self.est_params['bs_ratio'],
+                                    val_rate = self.est_params['val_rate'])
+            self.dataloader = cat_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True)
+            self.model = cat_density_ratio(
+                X_cat_train_data=self.x,
+                d=self.cont_marker.sum().item(), cat_size_list=tmp_4, cat_marker=~tmp_1,
+                             f=self.est_params['width'], k=self.est_params['layers']).to(self.x.device)
+            self.train_classifier_categorical()
+        else:
+            self.dataset = self.create_classification_data()
+            if self.type in ['NCE','NCE_Q','real_TRE','real_TRE_Q']:
+                self.dataloader = NCE_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True,kappa=self.kappa,
+                                            TRE=self.type in ['real_TRE','real_TRE_Q'])
+            if self.type == 'NCE':
+                self.model = MLP(d=self.cont_marker.sum().item(),cat_size_list=self.cat_list,cat_marker=self.cat_marker,f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
+                self.train_classifier()
 
-        elif self.type=='NCE_Q':
-            self.model = MLP(d=self.cont_marker.sum().item(),cat_size_list=self.cat_list,cat_marker=self.cat_marker, f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
-            self.train_classifier()
+            elif self.type=='NCE_Q':
+                self.model = MLP(d=self.cont_marker.sum().item(),cat_size_list=self.cat_list,cat_marker=self.cat_marker, f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
+                self.train_classifier()
 
-        elif self.type=='real_TRE':
-            self.model = TRE_net(dim=self.cont_marker.sum().item(),
-                                 o = 1,
-                                 f=self.est_params['width'],
-                                 k=self.est_params['layers'],
-                                 m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
-                                 ).to(self.x.device)
-            self.train_classifier()
-        elif self.type=='real_TRE_Q':
-            self.model = TRE_net(dim=self.cont_marker.sum().item(),
-                                 o = 1,
-                                 f=self.est_params['width'],
-                                 k=self.est_params['layers'],
-                                 m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
-                                 ).to(self.x.device)
-            self.train_classifier()
-        elif self.type=='rulsif':
-            self.train_rulsif(self.dataset)
-        elif self.type == 'random_uniform':
-            self.w = torch.rand(*(self.x.shape[0],1)).squeeze().cuda(self.device)
-        elif self.type == 'ones':
-            self.w = torch.ones(*(self.x.shape[0],1)).squeeze().cuda(self.device)
+            elif self.type=='real_TRE':
+                self.model = TRE_net(dim=self.cont_marker.sum().item(),
+                                     o = 1,
+                                     f=self.est_params['width'],
+                                     k=self.est_params['layers'],
+                                     m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
+                                     ).to(self.x.device)
+                self.train_classifier()
+            elif self.type=='real_TRE_Q':
+                self.model = TRE_net(dim=self.cont_marker.sum().item(),
+                                     o = 1,
+                                     f=self.est_params['width'],
+                                     k=self.est_params['layers'],
+                                     m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
+                                     ).to(self.x.device)
+                self.train_classifier()
+            elif self.type=='rulsif':
+                self.train_rulsif(self.dataset)
+            elif self.type == 'random_uniform':
+                self.w = torch.rand(*(self.x.shape[0],1)).squeeze().cuda(self.device)
+            elif self.type == 'ones':
+                self.w = torch.ones(*(self.x.shape[0],1)).squeeze().cuda(self.device)
 
     def create_classification_data(self):
         self.kappa = self.est_params['kappa']
@@ -271,6 +289,56 @@ class density_estimator():
         for preds in list_preds:
             loss += self.calc_loss(loss_func, preds[0], preds[1], [])
         return loss / len(list_preds)
+
+    def categorical_classification_loss(self,output,x):
+        loss = 0
+        for i,o in enumerate(output):
+            sub_x = x[:,i].long()
+            l = self.loss_func(o,sub_x)
+            loss+=l
+        return loss
+    def train_classifier_categorical(self):
+        self.loss_func = torch.nn.CrossEntropyLoss()
+        self.opt = torch.optim.Adam(self.model.parameters(), lr=self.est_params['lr'])
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.opt,factor=0.5, patience=1)
+        self.counter = 0
+        self.best = np.inf
+        torch.save({'state_dict': self.model.state_dict(),
+                    'epoch': 0}, self.tmp_path + 'best_run.pt')
+        for epoch in range(self.est_params['max_its']):
+            print(f'epoch {epoch+1}')
+            self.dataloader.dataset.set_mode('train')
+            total_err = 0.
+            for i, (x,z) in enumerate(self.dataloader):
+                self.opt.zero_grad()
+                output = self.model.get_pxz_output(z)
+                l = self.categorical_classification_loss(output,x)
+                l.backward()
+                self.opt.step()
+                total_err += l.item()
+
+            self.dataloader.dataset.set_mode('val')
+            total_err_val = 0.
+
+            with torch.no_grad():
+                for i, (x,z) in enumerate(self.dataloader):
+                    output = self.model.get_pxz_output(z)
+                    l = self.categorical_classification_loss(output, x)
+                    total_err_val += l.item()
+
+                self.scheduler.step(total_err_val)
+                if total_err_val < self.best:
+                    self.best =total_err_val
+                    self.counter = 0
+                    torch.save({'state_dict': self.model.state_dict(),
+                                'epoch': epoch}, self.tmp_path + 'best_run.pt')
+                else:
+                    self.counter += 1
+                if self.counter > self.est_params['kill_counter']:
+                    return True
+
+            print(f'train err: {total_err}')
+            print(f'val err: {total_err_val}')
 
     def train_classifier(self):
         self.loss_func = NCE_objective_stable(self.kappa)

@@ -1,3 +1,4 @@
+import torch.nn
 from sklearn import metrics
 import torch.nn as nn
 import numpy as np
@@ -167,6 +168,29 @@ class logistic_regression(torch.nn.Module):
     def get_w(self, x,z):
         return torch.exp(self.forward(torch.cat([x,z],dim=1)))
 
+class cat_dataset(Dataset):
+    def __init__(self,X,Z,bs=1.0,val_rate=0.01):
+        super(cat_dataset, self).__init__()
+        self.n=X.shape[0]
+        self.bs_perc = bs
+        self.mask = np.array([False] * self.n)
+        self.mask[0:round(val_rate*self.n)] = True
+        np.random.shuffle(self.mask)
+        self.X_train = X[~self.mask,:]
+        self.Z_train = Z[~self.mask,:]
+        self.X_val = X[self.mask]
+        self.Z_val = Z[self.mask]
+
+    def set_mode(self, mode):
+        self.mode = mode
+        if self.mode == 'train':
+            self.X = self.X_train
+            self.Z = self.Z_train
+        elif self.mode == 'val':
+            self.X = self.X_val
+            self.Z = self.Z_val
+        self.bs = int(round(self.bs_perc * self.X.shape[0]))
+
 class classification_dataset(Dataset):
     def __init__(self,X,Z,bs=1.0,kappa=1,val_rate = 0.01):
         super(classification_dataset, self).__init__()
@@ -287,6 +311,69 @@ class dataset_rulsif(Dataset):
 
     def get_data(self):
         return self.pom_xz,self.joint,self.pom_x_q_z
+
+class px_categorical(torch.nn.Module):
+    def __init__(self,X_cat_train_data):
+        super(px_categorical, self).__init__()
+        self.denom = X_cat_train_data.shape[0]
+        self.d = X_cat_train_data.shape[1]
+        self.unique_each_dim = []
+        for i in range(self.d):
+            _,counts =torch.unique(X_cat_train_data[:,i],return_counts=True)
+            prob_vec = counts/self.denom
+            self.unique_each_dim.append(counts.shape[0])
+            setattr(self,f'prob_vec_{i}',prob_vec)
+
+    def forward(self,X_cat):
+        probs = []
+        for i in range(self.d):
+            idx = X_cat[:,i].long()
+            ref = getattr(self,f'prob_vec_{i}')
+            probs.append(ref[idx])
+        return torch.stack(probs,dim=1)
+
+class p_x_z_net_cat(torch.nn.Module):
+    def __init__(self,x_unique,d,cat_marker,cat_size_list,f=12,k=2):
+        super(p_x_z_net_cat, self).__init__()
+        self.dim = len(x_unique)
+        for i,el in enumerate(x_unique):
+            setattr(self,f'pxz_{i}',MLP(d,cat_marker,cat_size_list,f,k,o=el))
+
+    def forward(self,Z):
+        output_list = []
+        for i in range(self.dim):
+            net = getattr(self,f'pxz_{i}')
+            output = net.pass_through(Z)
+            output_list.append(output)
+        return output_list
+
+class cat_density_ratio(torch.nn.Module):
+    def __init__(self,X_cat_train_data,d,cat_marker,cat_size_list,f=12,k=2):
+        super(cat_density_ratio, self).__init__()
+        self.cat_X = px_categorical(X_cat_train_data=X_cat_train_data)
+        self.x_unique = self.cat_X.unique_each_dim
+        self.cat_px_z = p_x_z_net_cat(x_unique=self.x_unique,d=d,cat_marker=cat_marker,cat_size_list=cat_size_list,f=f,k=k)
+
+    def get_pxz_output(self,Z):
+        return self.cat_px_z(Z)
+
+    def get_pxz_output_prob(self,X, Z):
+        with torch.no_grad():
+            o = self.cat_px_z(Z)
+            base = 1.0
+            for i,el in enumerate(o):
+                idx = X[:,i].long()
+                el = torch.softmax(el,dim=1)
+                res = torch.gather(el, 1, idx.unsqueeze(-1))
+                base*=res
+        return base
+
+    def get_w(self,X, Z,X_q_test):
+        p_x = torch.prod(self.cat_X(X),dim=1)
+        p_xz = self.get_pxz_output_prob(X,Z)
+        w = p_x.squeeze()/p_xz.squeeze()
+        return w
+
 
 class rulsif(torch.nn.Module):
     def __init__(self,joint,pom,lambda_reg=1e-3,alpha=0.1):
@@ -435,6 +522,82 @@ class chunk_iterator(): #joint = pos, pom = neg
 
     def __len__(self):
         return self.true_chunks
+
+class chunk_iterator_cat(): #joint = pos, pom = neg
+    def __init__(self,X_joint,Z_joint,shuffle,batch_size,mode='train'):
+        self.mode = mode
+        self.X_joint = X_joint
+        self.Z_joint = Z_joint
+        self.x_binary = get_binary_mask(self.X_joint)
+        self.z_binary = get_binary_mask(self.Z_joint)
+        self.shuffle = shuffle
+        self.batch_size = batch_size
+        self.n_joint = self.X_joint.shape[0]
+        self.chunks_joint = self.n_joint // batch_size + 1
+        self.perm_joint = torch.randperm(self.n_joint)
+        if self.shuffle:
+            self.X_joint = self.X_joint[self.perm_joint,:]
+            self.Z_joint = self.Z_joint[self.perm_joint,:]
+
+        if self.mode=='train':
+            self.it_X = torch.chunk(self.X_joint,self.chunks_joint)
+            self.it_Z = torch.chunk(self.Z_joint,self.chunks_joint)
+        elif self.mode=='val':
+            val_n = self.n_joint
+            self.chunks_joint = val_n // batch_size + 1
+            self.X_joint = self.X_joint[:val_n,:]
+            self.Z_joint = self.Z_joint[:val_n,:]
+            self.it_X = torch.chunk(self.X_joint, self.n_joint)
+            self.it_Z = torch.chunk(self.Z_joint, self.n_joint)
+
+        self.true_chunks = len(self.it_X)
+        self._index = 0
+
+    def __next__(self):
+        ''''Returns the next value from team object's lists '''
+        if self.mode=='train':
+            if self._index < self.true_chunks:
+                a,b = self.it_X[self._index],self.it_Z[self._index]
+                self._index += 1
+                return a,b
+            raise StopIteration
+
+        else:
+            if self._index < self.true_chunks:
+                a,b = self.it_X[self._index],self.it_Z[self._index]
+                self._index += 1
+                return a,b
+            raise StopIteration
+
+    def __len__(self):
+        return self.true_chunks
+
+class cat_dataloader():
+    def __init__(self,dataset,bs_ratio,shuffle=False):
+        self.dataset = dataset
+        self.dataset.set_mode('train')
+        self.bs_ratio = bs_ratio
+        self.batch_size = int(round(self.dataset.X.shape[0] * bs_ratio))
+        self.shuffle = shuffle
+        self.n = self.dataset.X.shape[0]
+        self.len=self.n//self.batch_size+1
+
+    def __iter__(self):
+        if self.dataset.mode=='train':
+            self.batch_size = int(round(self.dataset.X.shape[0] * self.bs_ratio))
+        else:
+            self.batch_size = self.dataset.X.shape[0]//5
+        return chunk_iterator_cat(X_joint=self.dataset.X,Z_joint=self.dataset.Z,shuffle=self.shuffle,batch_size=self.batch_size,
+                                  mode=self.dataset.mode,
+                                  )
+    def __len__(self):
+        if self.dataset.mode=='train':
+            self.batch_size = int(round(self.dataset.X.shape[0] * self.bs_ratio))
+        else:
+            self.batch_size = self.dataset.X.shape[0]//5
+        return len(chunk_iterator_cat(X_joint=self.dataset.X,Z_joint=self.dataset.Z,shuffle=self.shuffle,batch_size=self.batch_size,
+                                  mode=self.dataset.mode,
+                                  ))
 
 class NCE_dataloader():
     def __init__(self,dataset,bs_ratio,shuffle=False,kappa=10,TRE=False):

@@ -36,12 +36,13 @@ if __name__ == '__main__':
                                                    'n_sample': 250,
                                                    'criteria_limit': 0.05,
                                                    'kill_counter': 2,
-                                                    'kappa':1,
-                                                   'm': 8
+                                                    'kappa':1, #might need to adjust this for binary data?
+                                                   'm': 6
                                                    }
     device = 'cuda:0'
     X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
     _w_plot = _w.numpy()
+    _w_plot = _w_plot[_w_plot<2]
     plt.hist(_w_plot,bins=100)
     plt.show()
     plt.clf()
