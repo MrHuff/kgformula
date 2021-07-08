@@ -672,6 +672,7 @@ class simulation_object_rule(simulation_object):
         s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
         return
 
+
 class simulation_object_rule_new(simulation_object_rule):
     def __init__(self,args):
         super(simulation_object_rule_new, self).__init__(args)
@@ -731,10 +732,12 @@ class simulation_object_rule_new(simulation_object_rule):
                     q_fac_list.append(q_fac)
                     Xq_class_cont = x_q_class_cont(qdist=self.qdist, q_fac=q_fac, X=X_cont)
                     X_q_cont = Xq_class_cont.sample(n=X_cont.shape[0])
+                    X_q_cont = X_q_cont.to(self.device)
                     concat_q.append(X_q_cont)
                 if X_bin.numel()>0:
                     Xq_class_bin = x_q_class_bin(X=X_bin)
                     X_q_bin = Xq_class_bin.sample(n=X_bin.shape[0])
+                    X_q_bin = X_q_bin.to(self.device)
                     concat_q.append(X_q_bin)
                 X_q = torch.cat(concat_q,dim=1)
                 X_q = X_q.to(self.device)
@@ -799,12 +802,42 @@ class simulation_object_rule_new(simulation_object_rule):
         s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
         return
 
-
-class simulation_object_adaptive(simulation_object):
-    def __init__(self,args):
-        super(simulation_object_adaptive, self).__init__(args)
-    def run(self):
-        pass
+    def run_data(self, X, Y, Z):
+        self.qdist = self.args['qdist']
+        self.bootstrap_runs = self.args['bootstrap_runs']
+        est_params = self.args['est_params']
+        estimator = self.args['estimator']
+        q_fac_list = []
+        X, Y, Z = X.cuda(self.device), Y.cuda(self.device), Z.cuda(self.device)
+        n_half = X.shape[0] // 2
+        X_train, X_test = split(X, n_half)
+        Y_train, Y_test = split(Y, n_half)
+        Z_train, Z_test = split(Z, n_half)
+        binary_mask_X = self.get_binary_mask(X)
+        X_cont = X[:, ~binary_mask_X]
+        X_bin = X[:, binary_mask_X]
+        concat_q = []
+        if X_cont.numel() > 0:
+            q_fac = self.get_q_fac(X_train, Z_train)
+            q_fac_list.append(q_fac)
+            Xq_class_cont = x_q_class_cont(qdist=self.qdist, q_fac=q_fac, X=X_cont)
+            X_q_cont = Xq_class_cont.sample(n=X_cont.shape[0])
+            X_q_cont = X_q_cont.to(self.device)
+            concat_q.append(X_q_cont)
+        if X_bin.numel() > 0:
+            Xq_class_bin = x_q_class_bin(X=X_bin)
+            X_q_bin = Xq_class_bin.sample(n=X_bin.shape[0])
+            X_q_bin = X_q_bin.to(self.device)
+            concat_q.append(X_q_bin)
+        X_q = torch.cat(concat_q, dim=1)
+        X_q = X_q.to(self.device)
+        X_q_train, X_q_test = split(X_q, n_half)
+        d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
+                              est_params=est_params, type=estimator, device=self.device,
+                              secret_indx=self.args['unique_job_idx'])
+        w = d.return_weights(X_test, Z_test, X_q_test)
+        p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0)
+        return p, reference_metric
 
 
 class simulation_object_hsic():

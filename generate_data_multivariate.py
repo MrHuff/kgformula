@@ -134,6 +134,14 @@ def gen_data_and_sanity(data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fa
             print('max_ess: ', max_ess)
     torch.save((X, Y, Z, inv_w), f'./{data_dir}/data_seed={i}.pt')
 
+def generate_data_simple(args):
+    def decorator(data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fam_x,fam_z,fam_y,sanity):
+        X, Y, Z, inv_w = simulate_xyz_multivariate(n, oversamp=100, d_Z=d_Z, beta_xz=beta_xz,
+                                                   beta_xy=beta_xy, seed=i, yz=yz, d_X=d_X, d_Y=d_Y,
+                                                   phi=phi, theta=theta, fam_x=fam_x, fam_z=fam_z, fam_y=fam_y)
+        return X,Y,Z,inv_w
+    return decorator(*args)
+
 def multiprocess_wrapper(args):
     gen_data_and_sanity(*args)
 

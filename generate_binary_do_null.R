@@ -20,8 +20,6 @@ pars <- list(
   Y = list(beta = c(-0.5,0.2), phi=1), #Change 0.2 to 0 for null
   cop = list(beta = c(1,0.5))) # controls dependency between x and z. 
 
-
-
 fold_name="do_null_binary_csv_debug"
 if (!dir.exists(fold_name)){
   dir.create(fold_name)

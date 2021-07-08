@@ -368,11 +368,11 @@ def generate_job_binary(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
     counter = 0
     for n in n_list:
         for alp in [0.0, 2 * 1e-2, 4 * 1e-2, 6 * 1e-2, 8 * 1e-2, 1e-1]:
-            data_dir = f'do_null_univariate_alp={alp}_null={null_case}'
+            data_dir = f'do_null_univariate_alp={alp}_null={null_case}_d=3'
             val_rate = 0.2
             h_str =data_dir
             if estimate:
-                models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10])
+                models_to_run = zip(['NCE_Q'],[1])
             else:
                 models_to_run = zip(['real_weights'],[1])
             for mode in ['Q']:
@@ -416,6 +416,70 @@ def generate_job_binary(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                 }
                                 save_obj(args,f'job_{counter}',directory+'/')
                                 counter+=1
+
+def generate_job_mixed(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc'):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    else:
+        shutil.rmtree(directory)
+        os.makedirs(directory)
+    counter = 0
+    d = 3
+    theta = 4.0
+    for null_case in [True,False]:
+        if null_case:
+            data_dir = f"do_null_mix_100/beta_xy=[0, 0.0]_d_X={d}_d_Y={d}_d_Z={d}_n=10000_yz=[0.5, 0.0]_beta_XZ=0.5_theta={theta}_phi=2.0"
+        else:
+            data_dir = f"do_null_mix_100/beta_xy=[0, 0.2]_d_X={d}_d_Y={d}_d_Z={d}_n=10000_yz=[0.5, 0.0]_beta_XZ=0.5_theta={theta}_phi=2.0"
+        for n in n_list:
+            val_rate = 0.2
+            h_str =data_dir
+            if estimate:
+                models_to_run = zip(['real_TRE_Q', 'NCE_Q'], [1, 10, ])
+            else:
+                models_to_run = zip(['real_weights'],[1])
+            for mode in ['Q']:
+                for width in net_width:
+                    for layers in net_layers:
+                        job_dir = f'{directory}_layers={layers}_width={width}'
+                        for model,kappa in models_to_run:#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
+                            for br in BR:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+                                args = {
+                                    'job_type':job_type,
+                                    'device': -1,
+                                    'job_dir':job_dir,
+                                    'data_dir': h_str,
+                                    'estimate': estimate,
+                                    'debug_plot': False,
+                                    'seeds_a': 0,
+                                    'seeds_b': seed_max,
+                                    'bootstrap_runs': br, #play with this (increase it!)
+                                    'mode': mode,
+                                    'split': estimate,
+                                    'q_factor':1.0,
+                                    'qdist': 2,
+                                    'n':n,
+                                    'est_params': {'lr': 1e-4, #use really small LR for TRE. Ok what the fuck is going on...
+                                                   'max_its': MAX_ITS,
+                                                   'width': width,
+                                                   'layers':layers,
+                                                   'mixed': False,
+                                                   'bs_ratio': 1e-2,
+                                                   'val_rate': val_rate,
+                                                   'n_sample': 250,
+                                                   'criteria_limit': 0.05,
+                                                   'kill_counter': 2,
+                                                    'kappa':kappa,
+                                                   'm': 6
+                                                   },
+                                    'estimator': model, #ones, 'NCE'
+                                    'runs': runs,
+                                    'cuda': True,
+                                    'sanity_exp': False,
+                                }
+                                save_obj(args,f'job_{counter}',directory+'/')
+                                counter+=1
+
 if __name__ == '__main__':
     pass
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_ablation_rerun',job_type='kc',dirname=dirname)
@@ -430,11 +494,10 @@ if __name__ == '__main__':
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule',job_type='kc_rule',dirname=dirname)
     # generate_job_paradox(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='cont_g_paradox_jobs',job_type='kc_rule',dirname='',K=10,binary_flag=False)
     # generate_job_paradox(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='bin_g_paradox_jobs',job_type='kc_rule',dirname='',K=10,binary_flag=True)
-    # generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_1',job_type='kc_rule',dirname='',K=1,binary_flag=True)
-    # generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_binary_job_h0_2',job_type='kc_rule_new',dirname='',null_case=True)
-    # generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_binary_job_h1_2',job_type='kc_rule_new',dirname='',null_case=False)
-    generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_h0_2_est_3',job_type='kc_rule_new',dirname='',null_case=True)
-    generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_h1_2_est_3',job_type='kc_rule_new',dirname='',null_case=False)
+    # generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_h0_d=3',job_type='kc_rule_new',dirname='',null_case=True)
+    # generate_job_binary(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_h1_d=3',job_type='kc_rule_new',dirname='',null_case=False)
+    generate_job_mixed(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_job_mixed_all',job_type='kc_rule_new')
+
 
 
     # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)

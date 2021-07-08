@@ -25,7 +25,7 @@ def get_binary_mask(X):
 if __name__ == '__main__':
     estimator = 'real_TRE_Q'
     i=0
-    data_dir = 'do_null_univariate_alp=0.1_null=True'
+    data_dir = 'do_null_univariate_alp=0.1_null=True_d=3'
     est_params= {'lr': 1e-4, #use really small LR for TRE. Ok what the fuck is going on...
                                                    'max_its': 10,
                                                    'width': 32,
