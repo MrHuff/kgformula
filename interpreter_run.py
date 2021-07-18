@@ -9,8 +9,6 @@ parser.add_argument('--job_folder', type=str, default='', help='cdim')
 def run_jobs(args):
     if args['job_type']=='kc':
         j = simulation_object(args)
-    elif args['job_type']=='kc_adaptive':
-        j = simulation_object_adaptive(args)
     elif args['job_type']=='kc_rule':
         j = simulation_object_rule(args)
     elif args['job_type']=='kc_rule_new':

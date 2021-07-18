@@ -103,6 +103,8 @@ def return_filenames(args):
         suffix = f'_qf=adaptive_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
     elif args['job_type']=='kc_rule':
         suffix = f'_qf=rule_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
+    elif args['job_type'] == 'kc_rule_new':
+        suffix = f'_qf=rule_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
 
     p_val_file = f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt'
     ref_val = f'./{data_dir}/{job_dir}/ref_val_array{suffix}.pt'
@@ -286,7 +288,7 @@ if __name__ == '__main__':
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun')
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun_2')
     # generate_csv_file_parfor('kchsic_break')
-    generate_csv_file_parfor('kc_rule')
+    generate_csv_file_parfor('do_null_binary_all_1d')
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun_rulsif')
     # generate_csv_file_parfor('kc_hsic_break_1')
     # generate_csv_file_parfor('kc_adaptive_test')

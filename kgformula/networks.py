@@ -54,7 +54,7 @@ class nn_node(torch.nn.Module): #Add dropout layers, Do embedding layer as well!
         self.latent_col_list = []
         print('cat_size_list',cat_size_list)
         for i,el in enumerate(cat_size_list):
-            col_size = el//2+2
+            col_size = el//2+4
             setattr(self,f'embedding_{i}',torch.nn.Embedding(el,col_size))
             self.latent_col_list.append(col_size)
         self.w = torch.nn.Linear(d_in+sum(self.latent_col_list),d_out)
@@ -87,7 +87,7 @@ class _res_block(torch.nn.Module):
                                 torch.nn.Tanh(),
                                )
     def forward(self,x):
-        return self.f(x)+x
+        return self.f(x) + x
 
 
 class MLP(torch.nn.Module):
@@ -96,11 +96,14 @@ class MLP(torch.nn.Module):
         self.cat_marker=cat_marker
         self.cat_size_list = cat_size_list
         self.model = nn.ModuleList()
-        self.first_layer = nn_node(d_in=d,d_out=f,cat_size_list=cat_size_list)
-        for i in range(k):
-            self.model.append(_res_block(f, f))
-        self.model.append(output_block(f, o))
-
+        if k==0:
+            self.first_layer = nn_node(d_in=d,d_out=1,cat_size_list=cat_size_list)
+        else:
+            self.first_layer = nn_node(d_in=d,d_out=f,cat_size_list=cat_size_list)
+            for i in range(k-1):
+                self.model.append(_res_block(f, f))
+            self.model.append(output_block(f, o))
+        print(self)
     def pass_through(self,x):
         # X,Z = x.unbind(dim=1)
         cont_x = x[:,~self.cat_marker]
@@ -135,6 +138,7 @@ class TRE_net(torch.nn.Module):
         self.m = m
         for i in range(m):
             self.module_list.append(MLP(dim,self.cat_marker,self.cat_size_list,f,k,o))
+        print(self)
 
     def forward(self,input):
         output = []
@@ -368,12 +372,42 @@ class cat_density_ratio(torch.nn.Module):
                 base*=res
         return base
 
-    def get_w(self,X, Z,X_q_test):
+    def get_w(self,X, Z,X_cont):
         p_x = torch.prod(self.cat_X(X),dim=1)
         p_xz = self.get_pxz_output_prob(X,Z)
         w = p_x.squeeze()/p_xz.squeeze()
         return w
 
+class cat_density_ratio_conditional(torch.nn.Module):
+    def __init__(self,X_cat_train_data,d_x_cont,d_z,cat_marker,cat_size_list,f=12,k=2):
+        super(cat_density_ratio_conditional, self).__init__()
+        self.cat_X = px_categorical(X_cat_train_data=X_cat_train_data)
+        self.x_unique = self.cat_X.unique_each_dim
+        self.cat_px_z = p_x_z_net_cat(x_unique=self.x_unique,d=d_z,cat_marker=cat_marker,cat_size_list=cat_size_list,f=f,k=k)
+        self.cat_px_x = p_x_z_net_cat(x_unique=self.x_unique,d=d_x_cont,cat_marker=torch.tensor([False]*d_x_cont),cat_size_list=[],f=f,k=k)
+
+    def get_pxz_output(self,Z):
+        return self.cat_px_z(Z)
+
+    def get_pxx_output(self,X_cont):
+        return self.cat_px_x(X_cont)
+
+    def get_output_prob(self, model, X_cat, Z):
+        with torch.no_grad():
+            o = model(Z)
+            base = 1.0
+            for i,el in enumerate(o):
+                idx = X_cat[:,i].long()
+                el = torch.softmax(el,dim=1)
+                res = torch.gather(el, 1, idx.unsqueeze(-1))
+                base*=res
+        return base
+
+    def get_w(self,X_cat, Z,X_cont):
+        p_xz = self.get_output_prob(self.cat_px_z,X_cat, torch.cat([Z,X_cont],dim=1))
+        p_xx = self.get_output_prob(self.cat_px_x,X_cat, X_cont)
+        w = p_xx.squeeze()/p_xz.squeeze()
+        return w
 
 class rulsif(torch.nn.Module):
     def __init__(self,joint,pom,lambda_reg=1e-3,alpha=0.1):
@@ -501,9 +535,26 @@ class chunk_iterator(): #joint = pos, pom = neg
                 c,d = self.X_pom[pom_perm,:],self.Z_pom[:n_]
                 data_out = [torch.cat([c, d], dim=1)]
                 if self.TRE:
-                    for a_0, a_m in zip(self.a_0, self.a_m):
+                    bin_a = a[:, self.x_binary]
+                    bin_c = c[:, self.x_binary]
+                    disc_dim = bin_a.shape[1]
+                    m = len(self.a_m)
+
+                    for i,(a_0, a_m) in enumerate(zip(self.a_0, self.a_m)):
                         transition_x = a_0 * c + a_m * a
-                        transition_x[:,self.x_binary] = c[:,self.x_binary] #cant have continous transition for binary variables
+                        if disc_dim<2:
+                            fac = np.round(i/m)
+                            mix_discrete = (1-fac)*bin_c + bin_a*fac
+                        else:
+                            fac_a = round(i/m * disc_dim)
+                            fac_c = disc_dim-fac_a
+                            mix_comp_list = []
+                            if fac_c>0:
+                                mix_comp_list.append(bin_c[:,:fac_c])
+                            if fac_a>0:
+                                mix_comp_list.append(bin_c[:,:fac_a])
+                            mix_discrete = torch.cat(mix_comp_list,dim=1)
+                        transition_x[:,self.x_binary] = mix_discrete  #cant have continous transition for binary variables
                         data_out.append(torch.cat([transition_x, d], dim=1))
                 data_out.append(torch.cat([a, b], dim=1))
                 self._index += 1

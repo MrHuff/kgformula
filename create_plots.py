@@ -245,7 +245,6 @@ def plot_4_est_weights():
         for idx,(i, j, p) in enumerate(zip(subset['d_Z'].tolist(), subset['n'].tolist(), plot_paths)):
             if idx%4==0:
                 name = f'$n={j}$'
-
                 string_append=r'\raisebox{1.5cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{%s}}}'%name +'%\n'
             string_append+=r'\includegraphics[width=0.24\linewidth]{%s}'%p + '%\n'
             counter+=1

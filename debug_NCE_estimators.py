@@ -11,6 +11,7 @@ except:
     print('no gpu rip')
 from kgformula.utils import split,x_q_class_bin,density_estimator
 import torch
+import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
 matplotlib.use( 'tkagg' )
@@ -23,29 +24,24 @@ def get_binary_mask(X):
         mask_ls[i] = un_el.numel() <= 10
     return torch.tensor(mask_ls)
 if __name__ == '__main__':
-    estimator = 'real_TRE_Q'
+    estimator = 'NCE_Q'
     i=0
-    data_dir = 'do_null_univariate_alp=0.1_null=True_d=3'
-    est_params= {'lr': 1e-4, #use really small LR for TRE. Ok what the fuck is going on...
+    data_dir = 'do_null_mix_100/beta_xy=[0, 0.0]_d_X=3_d_Y=3_d_Z=3_n=10000_yz=[0.5, 0.0]_beta_XZ=0.5_theta=4.0_phi=2.0'
+    est_params= {'lr': 1e-3, #use really small LR for TRE. Ok what the fuck is going on...
                                                    'max_its': 10,
                                                    'width': 32,
-                                                   'layers':3,
-                                                   'mixed': False,
+                                                   'layers':4,
                                                    'bs_ratio': 1e-2,
-                                                   'val_rate': 0.05,
+                                                   'val_rate': 0.1,
                                                    'n_sample': 250,
                                                    'criteria_limit': 0.05,
                                                    'kill_counter': 2,
-                                                    'kappa':1, #might need to adjust this for binary data?
-                                                   'm': 6
+                                                    'kappa': 10 if estimator in ['NCE', 'NCE_Q'] else 1, #might need to adjust this for binary data?
+                                                   'm': 4,
+                                                    'separate':False
                                                    }
     device = 'cuda:0'
     X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
-    _w_plot = _w.numpy()
-    _w_plot = _w_plot[_w_plot<2]
-    plt.hist(_w_plot,bins=100)
-    plt.show()
-    plt.clf()
 
     X, Y, Z, _w = X.cuda(device), Y.cuda(device), Z.cuda(device), _w.cuda(device)
 
@@ -54,6 +50,14 @@ if __name__ == '__main__':
     Y_train, Y_test = split(Y, n_half)
     Z_train, Z_test = split(Z, n_half)
     binary_mask_X = get_binary_mask(X)
+    _, _w_plot = split(_w, n_half)
+
+    _w_plot = _w_plot.cpu().numpy()
+    _w_plot_plot = _w_plot[_w_plot<2]
+    plt.hist(_w_plot_plot,bins=100)
+    plt.show()
+    plt.clf()
+    print(_w_plot)
     X_cont = X[:, ~binary_mask_X]
     X_bin = X[:, binary_mask_X]
     Xq_class_bin = x_q_class_bin(X=X_bin)
@@ -69,6 +73,12 @@ if __name__ == '__main__':
                           secret_indx=9999)
     w = d.return_weights(X_test, Z_test, X_q_test)
     save_w = w.cpu().numpy()
-    plt.hist(save_w,bins=100)
+    print(save_w)
+    plot_save_w =  save_w[save_w<2]
+    plt.hist(plot_save_w,bins=100)
+    plt.show()
+    plt.clf()
+    err = np.abs(_w_plot-save_w)
+    plt.hist(err,bins=100)
     plt.show()
     plt.clf()

@@ -149,59 +149,123 @@ class density_estimator():
 
         if not os.path.exists(self.tmp_path):
             os.makedirs(self.tmp_path)
+        if self.est_params['separate']:
+            if self.type=='rulsif':
+                self.has_cat = False
+                self.train_rulsif(self.dataset)
+            elif self.type == 'random_uniform':
+                self.has_cat = False
+                self.w = torch.rand(*(self.x.shape[0],1)).squeeze().cuda(self.device)
+            elif self.type == 'ones':
+                self.has_cat = False
+                self.w = torch.ones(*(self.x.shape[0],1)).squeeze().cuda(self.device)
+            else:
+                if self.has_cat:
+                    if self.has_cont:
+                        cond_data = torch.cat([self.z,self.x_cont],dim=1)
+                        tmp_zx_1, tmp_zx_2 = get_binary_mask(cond_data)
+                        self.d_z = self.z.shape[1]
+                        self.kappa=1
+                        self.dataset = cat_dataset(X=self.x_cat,Z=cond_data, bs = self.est_params['bs_ratio'],
+                                                val_rate = self.est_params['val_rate'])
+                        self.dataloader = cat_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True)
+                        self.model_cat = cat_density_ratio_conditional(
+                            X_cat_train_data=self.x_cat,
+                            d_x_cont=self.x_cont.shape[1],
+                            d_z=sum(~tmp_zx_1), cat_size_list=tmp_zx_2, cat_marker=tmp_zx_1,
+                                         f=self.est_params['width'], k=self.est_params['layers']).to(self.device)
+                        self.train_classifier_categorical()
+                    else:
+                        self.kappa = 1
+                        self.dataset = cat_dataset(X=self.x_cat, Z=self.z, bs=self.est_params['bs_ratio'],
+                                                   val_rate=self.est_params['val_rate'])
+                        self.dataloader = cat_dataloader(dataset=self.dataset, bs_ratio=self.est_params['bs_ratio'],
+                                                         shuffle=True)
+                        self.model_cat = cat_density_ratio(
+                            X_cat_train_data=self.x_cat,
+                            d=sum(~tmp_3), cat_size_list=tmp_4, cat_marker=tmp_3,
+                            f=self.est_params['width'], k=self.est_params['layers']).to(self.x_cat.device)
+                        self.train_classifier_categorical()
 
-        if self.type=='rulsif':
-            self.has_cat = False
-            self.train_rulsif(self.dataset)
-        elif self.type == 'random_uniform':
-            self.has_cat = False
-            self.w = torch.rand(*(self.x.shape[0],1)).squeeze().cuda(self.device)
-        elif self.type == 'ones':
-            self.has_cat = False
-            self.w = torch.ones(*(self.x.shape[0],1)).squeeze().cuda(self.device)
+                if self.has_cont:
+                    # For all density ratios, mixed z is ok but separated x
+                    self.dataset = self.create_classification_data()
+                    if self.type in ['NCE','NCE_Q','real_TRE','real_TRE_Q']:
+                        self.dataloader = NCE_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True,kappa=self.kappa,
+                                                    TRE=self.type in ['real_TRE','real_TRE_Q'])
+                    if self.type == 'NCE':
+                        self.model = MLP(d=self.cont_marker.sum().item(),cat_size_list=self.cat_list,cat_marker=self.cat_marker,f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
+                        self.train_classifier()
+
+                    elif self.type=='NCE_Q':
+                        self.model = MLP(d=self.cont_marker.sum().item(),cat_size_list=self.cat_list,cat_marker=self.cat_marker, f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
+                        self.train_classifier()
+
+                    elif self.type=='real_TRE':
+                        self.model = TRE_net(dim=self.cont_marker.sum().item(),
+                                             o = 1,
+                                             f=self.est_params['width'],
+                                             k=self.est_params['layers'],
+                                             m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
+                                             ).to(self.x.device)
+                        self.train_classifier()
+                    elif self.type=='real_TRE_Q':
+                        self.model = TRE_net(dim=self.cont_marker.sum().item(),
+                                             o = 1,
+                                             f=self.est_params['width'],
+                                             k=self.est_params['layers'],
+                                             m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
+                                             ).to(self.x.device)
+                        self.train_classifier()
         else:
-            if self.has_cat:
-                self.kappa=1
-                self.dataset = cat_dataset(X=self.x_cat,Z=self.z, bs = self.est_params['bs_ratio'],
-                                        val_rate = self.est_params['val_rate'])
-                self.dataloader = cat_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True)
-                self.model_cat = cat_density_ratio(
-                    X_cat_train_data=self.x_cat,
-                    d=sum(~tmp_3), cat_size_list=tmp_4, cat_marker=tmp_3,
-                                 f=self.est_params['width'], k=self.est_params['layers']).to(self.x_cat.device)
-                self.train_classifier_categorical()
 
-            if self.has_cont:
-                # For all density ratios, mixed z is ok but separated x
+            if self.type == 'rulsif':
+                self.has_cat = False
+                self.train_rulsif(self.dataset)
+            elif self.type == 'random_uniform':
+                self.has_cat = False
+                self.w = torch.rand(*(self.x.shape[0], 1)).squeeze().cuda(self.device)
+            elif self.type == 'ones':
+                self.has_cat = False
+                self.w = torch.ones(*(self.x.shape[0], 1)).squeeze().cuda(self.device)
+            else:
+                cat_data = torch.cat([self.x, self.z], dim=1)
+                self.cat_marker, self.cat_list = get_binary_mask(cat_data)
+                self.x_cont = self.x
+                self.x_q_cont = self.x_q
                 self.dataset = self.create_classification_data()
-                if self.type in ['NCE','NCE_Q','real_TRE','real_TRE_Q']:
-                    self.dataloader = NCE_dataloader(dataset=self.dataset,bs_ratio=self.est_params['bs_ratio'],shuffle=True,kappa=self.kappa,
-                                                TRE=self.type in ['real_TRE','real_TRE_Q'])
+                if self.type in ['NCE', 'NCE_Q', 'real_TRE', 'real_TRE_Q']:
+                    self.dataloader = NCE_dataloader(dataset=self.dataset, bs_ratio=self.est_params['bs_ratio'],
+                                                     shuffle=True, kappa=self.kappa,
+                                                     TRE=self.type in ['real_TRE', 'real_TRE_Q'])
                 if self.type == 'NCE':
-                    self.model = MLP(d=self.cont_marker.sum().item(),cat_size_list=self.cat_list,cat_marker=self.cat_marker,f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
+                    self.model = MLP(d=self.cont_marker.sum().item(), cat_size_list=self.cat_list,
+                                     cat_marker=self.cat_marker, f=self.est_params['width'],
+                                     k=self.est_params['layers']).to(self.x.device)
                     self.train_classifier()
 
-                elif self.type=='NCE_Q':
-                    self.model = MLP(d=self.cont_marker.sum().item(),cat_size_list=self.cat_list,cat_marker=self.cat_marker, f=self.est_params['width'],k=self.est_params['layers']).to(self.x.device)
+                elif self.type == 'NCE_Q':
+                    self.model = MLP(d=self.cont_marker.sum().item(), cat_size_list=self.cat_list,
+                                     cat_marker=self.cat_marker, f=self.est_params['width'],
+                                     k=self.est_params['layers']).to(self.x.device)
                     self.train_classifier()
 
-                elif self.type=='real_TRE':
+                elif self.type == 'real_TRE':
                     self.model = TRE_net(dim=self.cont_marker.sum().item(),
-                                         o = 1,
+                                         o=1,
                                          f=self.est_params['width'],
                                          k=self.est_params['layers'],
-                                         m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
+                                         m=self.est_params['m'], cat_marker=self.cat_marker, cat_size_list=self.cat_list
                                          ).to(self.x.device)
                     self.train_classifier()
-                elif self.type=='real_TRE_Q':
+                elif self.type == 'real_TRE_Q':
                     self.model = TRE_net(dim=self.cont_marker.sum().item(),
-                                         o = 1,
+                                         o=1,
                                          f=self.est_params['width'],
                                          k=self.est_params['layers'],
-                                         m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
+                                         m=self.est_params['m'], cat_marker=self.cat_marker, cat_size_list=self.cat_list
                                          ).to(self.x.device)
                     self.train_classifier()
-
 
     def create_classification_data(self):
         self.kappa = self.est_params['kappa']
@@ -322,10 +386,16 @@ class density_estimator():
             for i, (x,z) in enumerate(self.dataloader):
                 self.opt.zero_grad()
                 output = self.model_cat.get_pxz_output(z)
-                l = self.categorical_classification_loss(output,x)
-                l.backward()
+                l_cat = self.categorical_classification_loss(output,x)
+                if self.has_cont:
+                    output_cont = self.model_cat.get_pxx_output(z[:,self.d_z:])
+                    l_cont = self.categorical_classification_loss(output_cont, x)
+                else:
+                    l_cont  = 0
+                l_tot = l_cat + l_cont
+                l_tot.backward()
                 self.opt.step()
-                total_err += l.item()
+                total_err += l_tot.item()
 
             self.dataloader.dataset.set_mode('val')
             total_err_val = 0.
@@ -333,8 +403,14 @@ class density_estimator():
             with torch.no_grad():
                 for i, (x,z) in enumerate(self.dataloader):
                     output = self.model_cat.get_pxz_output(z)
-                    l = self.categorical_classification_loss(output, x)
-                    total_err_val += l.item()
+                    l_cat = self.categorical_classification_loss(output, x)
+                    if self.has_cont:
+                        output_cont = self.model_cat.get_pxx_output(z[:, self.d_z:])
+                        l_cont = self.categorical_classification_loss(output_cont, x)
+                    else:
+                        l_cont = 0
+                    l_tot = l_cat + l_cont
+                    total_err_val += l_tot.item()
 
                 self.scheduler.step(total_err_val)
                 if total_err_val < self.best:
@@ -395,33 +471,25 @@ class density_estimator():
         _w = w.cpu().squeeze().numpy()
         return w
 
-    def model_eval_cat(self,X,Z,X_q_test):
-        
-        if self.type in ['ones','random_uniform']:
-            self.X_q_test = X_q_test
-            if self.X_q_test.dim() == 1:
-                self.X_q_test = self.X_q_test.unsqueeze(-1)
-            return self.w
-        n = X.shape[0]
-        self.X_q_test = X_q_test
-        if self.X_q_test.dim()==1:
-            self.X_q_test = self.X_q_test.unsqueeze(-1)
+    def model_eval_cat(self,X,Z,X_cont):
         with torch.no_grad():
-            if self.type == 'rulsif':
-                w = self.model_cat.get_w(X, Z, self.X_q_test)
-            else:
-                self.load_best_model_cat()
-                w = self.model_cat.get_w(X, Z,[])
+            self.load_best_model_cat()
+            w = self.model_cat.get_w(X, Z,X_cont)
         _w = w.cpu().squeeze().numpy()
         return w
+
     def return_weights(self,X,Z,X_Q):
         self.w = 1.0
-        if self.has_cat:
-            w_cat= self.model_eval_cat(X[:,self.cat_x_marker],Z,X_Q)
-            self.w = self.w*w_cat
-        if self.has_cont:
-            w_cont= self.model_eval(X[:,~self.cat_x_marker],Z,X_Q)/self.kappa
-            self.w = self.w * w_cont
+
+        if self.est_params['separate']:
+            if self.has_cat:
+                w_cat= self.model_eval_cat(X[:,self.cat_x_marker],Z,X[:,~self.cat_x_marker])
+                self.w = self.w*w_cat.squeeze()
+            if self.has_cont:
+                w_cont= self.model_eval(X[:,~self.cat_x_marker],Z,X_Q)
+                self.w = self.w * w_cont.squeeze()
+        else:
+            self.w  = self.model_eval(X,Z,X_Q)
 
         return self.w.squeeze()
 
@@ -534,6 +602,8 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
             else:
                 d = kernel_base.covar_dist(x1=X, x2=Y)
             ret = torch.sqrt(torch.median(d[d >= 0])) # print this value, should be increasing with d
+            if ret.item()==0:
+                ret = torch.tensor(1.0)
             return ret
 
 class weighted_HSIC():

@@ -677,7 +677,6 @@ class simulation_object_rule_new(simulation_object_rule):
     def __init__(self,args):
         super(simulation_object_rule_new, self).__init__(args)
 
-
     def get_binary_mask(self,X):
         dim = X.shape[1]
         mask_ls = [0]*dim
@@ -686,7 +685,6 @@ class simulation_object_rule_new(simulation_object_rule):
             un_el = x.unique()
             mask_ls[i] = un_el.numel()==2
         return torch.tensor(mask_ls)
-
 
     def run(self):
         estimate = self.args['estimate']
@@ -727,6 +725,11 @@ class simulation_object_rule_new(simulation_object_rule):
                 X_cont = X[:,~binary_mask_X]
                 X_bin = X[:,binary_mask_X]
                 concat_q = []
+                if X_bin.numel()>0:
+                    Xq_class_bin = x_q_class_bin(X=X_bin)
+                    X_q_bin = Xq_class_bin.sample(n=X_bin.shape[0])
+                    X_q_bin = X_q_bin.to(self.device)
+                    concat_q.append(X_q_bin)
                 if X_cont.numel()>0:
                     q_fac = self.get_q_fac(X_train, Z_train)
                     q_fac_list.append(q_fac)
@@ -734,14 +737,12 @@ class simulation_object_rule_new(simulation_object_rule):
                     X_q_cont = Xq_class_cont.sample(n=X_cont.shape[0])
                     X_q_cont = X_q_cont.to(self.device)
                     concat_q.append(X_q_cont)
-                if X_bin.numel()>0:
-                    Xq_class_bin = x_q_class_bin(X=X_bin)
-                    X_q_bin = Xq_class_bin.sample(n=X_bin.shape[0])
-                    X_q_bin = X_q_bin.to(self.device)
-                    concat_q.append(X_q_bin)
+
                 X_q = torch.cat(concat_q,dim=1)
                 X_q = X_q.to(self.device)
                 X_q_train, X_q_test = split(X_q, n_half)
+                X = torch.cat([X_bin,X_cont],dim=1)
+                X_train, X_test = split(X, n_half)
 
                 if estimate:
                     d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
