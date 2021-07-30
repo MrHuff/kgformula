@@ -144,7 +144,6 @@ def plot_2_true_weights():
 
 def plot_3_true_weights():
     df = pd.read_csv('base_jobs_kc.csv', index_col=0)
-    df = df[df['beta_xy'] != 0.0]
     dir = 'plot_3_real'
     if not os.path.exists(dir):
         os.makedirs(dir)
@@ -1235,7 +1234,7 @@ def plot_28():
 
 def plot_29():
     df = pd.read_csv(path_2829_csv, index_col=0)
-    df = df[df['beta_xy'] != 0.0]
+    # df = df[df['beta_xy'] != 0.0]
     dir = 'plot_29_rule'
     if not os.path.exists(dir):
         os.makedirs(dir)
@@ -1248,9 +1247,9 @@ def plot_29():
                 a, b, e = calc_error_bars(subset_3['p_a=0.05'], alpha=0.05, num_samples=100)
                 plt.plot('beta_xy', 'p_a=0.05', data=subset_3, linestyle='--', marker='o', label=f'Estimator={c_str}')
                 plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
-            plt.hlines(0.05, 0.1, 0.5)
+            plt.hlines(0.05, 0.0, 0.5)
             plt.legend(prop={'size': 10})
-            plt.xticks([0.1, 0.2, 0.3, 0.4, 0.5])
+            plt.xticks([0.0,0.1, 0.2, 0.3, 0.4, 0.5])
             plt.xlabel(r'$\beta_{XY}$')
             plt.ylabel(r'Power $\alpha=0.05$')
             plt.savefig(f'{dir}/figure_{d}_{n}.png', bbox_inches='tight',
@@ -1314,9 +1313,9 @@ def plot_30_rule_h0():
         os.makedirs(DIRNAME)
     plot_paths = []
     for i in range(len(data_paths)):
-        full_file = f'{all_path}{data_paths[i]}{small_path}/pval_hist_{suffix_paths[i]}.png'
-        shutil.copy(full_file,DIRNAME+f'/pval_hist_{suffix_paths[i]}_{z_líst[i]}.png')
-        plot_paths.append(DIRNAME+f'/pval_hist_{suffix_paths[i]}_{z_líst[i]}.png')
+        full_file = f'{all_path}{data_paths[i]}{small_path}/pvalhsit___{suffix_paths[i]}.jpg'
+        shutil.copy(full_file,DIRNAME+f'/pvalhsit___{suffix_paths[i]}_{z_líst[i]}.jpg')
+        plot_paths.append(DIRNAME+f'/pvalhsit___{suffix_paths[i]}_{z_líst[i]}.jpg')
 
     doc = Document(default_filepath=DIRNAME)
     with doc.create(Figure(position='H')) as plot:
@@ -1345,9 +1344,115 @@ def plot_30_rule_h0():
                 counter=0
     doc.generate_tex()
 
+def plot_31_true_weights_rule():
+    all_path = 'do_null_100/'
+    small_path = 'kc_rule_real_weights_9_layers=3_width=32'
+    df = pd.read_csv('kc_rule_real_weights_9.csv',index_col=0)
+    df = df[df['beta_xy']==0.0]
+    subset = df.loc[df.groupby(["n","d_Z"])["KS pval"].idxmax()].sort_values(['n','d_Z'])
+    data_paths=[]
+    suffix_paths=[]
+    z_líst = []
+    for index,row in subset.iterrows():
+        dz = row['d_Z']
+        suffix_paths.append(build_suffix_2(q_fac=row['$c_q$'],required_n=row['n'],estimator=row['nce_style'],br=500))
+        data_paths.append(build_path(dx=dim_theta_phi[dz]['d_x'],
+                                     dy=dim_theta_phi[dz]['d_y'],
+                                     dz=dz,
+                                     theta=dim_theta_phi[dz]['theta'],
+                                     phi=dim_theta_phi[dz]['phi'],
+                                     bxz=0.5,
+                                     list_xy=[0,0.0],
+                                     yz=[0.5,0.0])
+                          )
+        z_líst.append(dz)
+    DIRNAME = 'plot_31_true_weights_rule'
+    if os.path.exists(DIRNAME):
+        shutil.rmtree(DIRNAME)
+        os.makedirs(DIRNAME)
+    else:
+        os.makedirs(DIRNAME)
+    plot_paths = []
+    for i in range(len(data_paths)):
+        full_file = f'{all_path}{data_paths[i]}{small_path}/pvalhsit___{suffix_paths[i]}.jpg'
+        shutil.copy(full_file,DIRNAME+f'/pvalhsit___{suffix_paths[i]}_{z_líst[i]}.jpg')
+        plot_paths.append(DIRNAME+f'/pvalhsit___{suffix_paths[i]}_{z_líst[i]}.jpg')
+
+    doc = Document(default_filepath='plot_31_true_weights_rule')
+    with doc.create(Figure(position='H')) as plot:
+        with doc.create(subfigure(position='t', width=NoEscape(r'\linewidth'))):
+            for i,n in enumerate([1,3,15,50]):
+                if i==0:
+                    with doc.create(subfigure(position='H', width=NoEscape(r'0.04\linewidth'))):
+                        # string_append = r'\raisebox{0cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{}}}' + '%'
+                        string_append = '\hfill'
+                        doc.append(string_append)
+                with doc.create(subfigure(position='H', width=NoEscape(r'0.24\linewidth'))):
+                    name = f'$d_Z={n}$'
+                    doc.append(Command('centering'))
+                    doc.append(r'\rotatebox{0}{\scalebox{0.75}{%s}}'%name)
+        counter=0
+        for idx,(i, j, p) in enumerate(zip(subset['d_Z'].tolist(), subset['n'].tolist(), plot_paths)):
+            if idx%4==0:
+                name = f'$n={j}$'
+
+                string_append=r'\raisebox{1.5cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{%s}}}'%name +'%\n'
+            string_append+=r'\includegraphics[width=0.24\linewidth]{%s}'%p + '%\n'
+            counter+=1
+            if counter==4:
+                with doc.create(subfigure(position='H', width=NoEscape(r'\linewidth'))):
+                    doc.append(string_append)
+                counter=0
+    doc.generate_tex()
+
+def plot_32_true_weights():
+    df = pd.read_csv('kc_rule_real_weights_9.csv',index_col=0)
+    dir = 'plot_32_true_weights'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    for d in [1,3,15,50]:
+        subset = df[df['d_Z']==d]
+        for n in [1000,5000,10000]:
+            subset_2 = subset[subset['n'] == n].sort_values(['beta_xy'])
+            a,b,e = calc_error_bars(subset_2['p_a=0.05'],alpha=0.05,num_samples=100)
+            plt.plot('beta_xy','p_a=0.05',data=subset_2,linestyle='--', marker='o',label=f'$n={n}$')
+            plt.fill_between(subset_2['beta_xy'], a, b, alpha=0.1)
+        plt.hlines(0.05, 0.0, 0.5)
+        plt.legend(prop={'size': 10})
+        plt.xticks([0.0,0.1,0.2,0.3,0.4,0.5])
+        plt.xlabel(r'$\beta_{XY}$')
+        plt.ylabel(r'Power $\alpha=0.05$')
+        plt.savefig(f'{dir}/figure_{d}.png',bbox_inches = 'tight',
+        pad_inches = 0.05)
+        plt.clf()
+    doc = Document(default_filepath='plot_32_true_weights')
+    with doc.create(Figure(position='H')) as plot:
+        with doc.create(subfigure(position='t', width=NoEscape(r'\linewidth'))):
+            for i, n in enumerate([1, 3, 15, 50]):
+                if i == 0:
+                    with doc.create(subfigure(position='H', width=NoEscape(r'0.04\linewidth'))):
+                        # string_append = r'\raisebox{0cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{}}}' + '%'
+                        string_append = '\hfill'
+                        doc.append(string_append)
+                with doc.create(subfigure(position='H', width=NoEscape(r'0.24\linewidth'))):
+                    name = f'$d_Z={n}$'
+                    doc.append(Command('centering'))
+                    doc.append(r'\rotatebox{0}{\scalebox{0.75}{%s}}' % name)
+        counter = 0
+        for idx,i in enumerate([1,3,15,50]):
+            p = f'{dir}/figure_{i}.png'
+            string_append += r'\includegraphics[width=0.24\linewidth]{%s}' % p + '%\n'
+            counter += 1
+            if counter == 4:
+                with doc.create(subfigure(position='H', width=NoEscape(r'\linewidth'))):
+                    doc.append(string_append)
+                counter = 0
+    doc.generate_tex()
+
+
 if __name__ == '__main__':
-    pass
-    plot_1_true_weights()
+    # pass
+    # plot_1_true_weights()
     # plot_2_true_weights()
     # plot_3_true_weights()
     # plot_4_est_weights()
@@ -1372,6 +1477,8 @@ if __name__ == '__main__':
     # plot_25('kchsic_break.csv','NCE_Q','plot_25')
     # plot_25('kchsic_break.csv','real_TRE_Q','plot_26')
     # plot_27('plot_27')
-    plot_28()
+    # plot_28()
     plot_29()
     plot_30_rule_h0()
+    plot_31_true_weights_rule()
+    plot_32_true_weights()

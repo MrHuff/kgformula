@@ -215,6 +215,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                                'criteria_limit': 0.05,
                                                                'kill_counter': 2,
                                                                 'kappa':kappa,
+                                                               'separate':False,
                                                                'm': 4
                                                                },
                                                 'estimator': model, #ones, 'NCE'
@@ -371,12 +372,13 @@ def generate_job_binary(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
             for alp in [0.0,2*1e-2,4*1e-2,6*1e-2,8*1e-2,1e-1]:
             # for alp in [4 * 1e-2]:
                 for null_case in [True,False]:
-                    for sep in [True,False]:
+                    for sep in [True]:
                         data_dir = f'do_null_univariate_alp={alp}_null={null_case}_d={d}'
                         val_rate = 0.2
                         h_str =data_dir
                         if estimate:
-                            models_to_run = zip(['real_TRE_Q', 'NCE_Q'], [1, 10, ])
+                            # models_to_run = zip(['real_TRE_Q', 'NCE_Q'], [1, 10, ])
+                            models_to_run = zip([ 'NCE_Q'], [10, ])
                         else:
                             models_to_run = zip(['real_weights'],[1])
                         for mode in ['Q']:
@@ -500,8 +502,9 @@ if __name__ == '__main__':
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule',job_type='kc_rule',dirname=dirname)
     # generate_job_paradox(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='cont_g_paradox_jobs',job_type='kc_rule',dirname='',K=10,binary_flag=False)
     # generate_job_paradox(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='bin_g_paradox_jobs',job_type='kc_rule',dirname='',K=10,binary_flag=True)
-    # generate_job_binary(n_list=[1000,5000,10000],net_layers=[1],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_debug_3d',job_type='kc_rule_new',dirname='',null_case=True)
-    generate_job_binary(n_list=[1000,5000,10000],net_layers=[1],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_all_1d',job_type='kc_rule_new',dirname='')
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='kc_rule_real_weights_10',job_type='kc_rule_new',dirname=dirname)
+
+    # generate_job_binary(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_binary_all_1d_real',job_type='kc_rule_new',dirname='')
     # generate_job_mixed(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_sep',job_type='kc_rule_new')
 
     # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)

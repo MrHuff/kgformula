@@ -19,3 +19,4 @@ g_env/*
 *.jpg
 *.pkl
 *.Rhistory
+*ReadmeTwins*

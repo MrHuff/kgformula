@@ -54,8 +54,11 @@ class nn_node(torch.nn.Module): #Add dropout layers, Do embedding layer as well!
         self.latent_col_list = []
         print('cat_size_list',cat_size_list)
         for i,el in enumerate(cat_size_list):
-            col_size = el//2+4
-            setattr(self,f'embedding_{i}',torch.nn.Embedding(el,col_size))
+            translate_dict = { int(cat):j  for j,cat in enumerate(el)}
+            nr_of_uniques = len(el)
+            col_size = nr_of_uniques//2+4
+            setattr(self,f'embedding_{i}',torch.nn.Embedding(nr_of_uniques,col_size))
+            setattr(self,f'translate_dict_{i}',translate_dict)
             self.latent_col_list.append(col_size)
         self.w = torch.nn.Linear(d_in+sum(self.latent_col_list),d_out)
         self.f = transformation
@@ -64,7 +67,12 @@ class nn_node(torch.nn.Module): #Add dropout layers, Do embedding layer as well!
         if not isinstance(x_cat,list):
             seq = torch.unbind(x_cat,1)
             cat_vals = [X]
+            _dev = X.device
             for i,f in enumerate(seq):
+                f=f.cpu()
+                ts_dict = getattr(self,f'translate_dict_{i}')
+                f.apply_(lambda x: ts_dict[x])
+                f = f.long().to(_dev)
                 o = getattr(self,f'embedding_{i}')(f)
                 cat_vals.append(o)
             X = torch.cat(cat_vals,dim=1)
@@ -104,6 +112,7 @@ class MLP(torch.nn.Module):
                 self.model.append(_res_block(f, f))
             self.model.append(output_block(f, o))
         print(self)
+
     def pass_through(self,x):
         # X,Z = x.unbind(dim=1)
         cont_x = x[:,~self.cat_marker]

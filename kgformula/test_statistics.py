@@ -4,15 +4,17 @@ from kgformula.networks import *
 from kgformula.kernels import *
 import os
 def get_binary_mask(X):
+    #TODO: rewrite this a bit
     dim = X.shape[1]
     mask_ls = [0] * dim
     label_size = []
     for i in range(dim):
         x = X[:, i]
         un_el = x.unique()
-        mask_ls[i] = un_el.numel() <= 10
+        mask_ls[i] = un_el.numel() <= 5
         if mask_ls[i]:
-            label_size.append(un_el.numel())
+            label_size.append(un_el.tolist())
+
     return torch.tensor(mask_ls),label_size
 class HSIC_independence_test():
     def __init__(self,X,Y,n_samples):
@@ -120,18 +122,34 @@ def get_i_not_j_indices(n):
     return list_np
 
 class density_estimator():
-    def __init__(self, x, z,x_q, est_params=None, cuda=False, device=0, type='linear',secret_indx=0):
+    def __init__(self, x, z,x_q,x_full=None,z_full=None, est_params=None, cuda=False, device=0, type='linear',secret_indx=0,cat_cols_z={}):
+        #TODO: Configure the cat_cols to make sense
+
         self.x = x
         self.z = z
-        self.cat_x_marker,tmp_2= get_binary_mask(x)
-        tmp_3,tmp_4= get_binary_mask(z)
+        self.cat_x_marker,tmp_2= get_binary_mask(x_full)
         self.x_cont = self.x[:,~self.cat_x_marker]
         self.x_cat = self.x[:,self.cat_x_marker]
         self.has_cat = self.x_cat.shape[1]>0
         self.has_cont = self.x_cont.shape[1]>0
-        cat_data = torch.cat([self.x_cont,self.z],dim=1)
-        self.cat_marker,self.cat_list = get_binary_mask(cat_data)
+        self.x_q = x_q
+        self.x_q_cont = self.x_q[:,~self.cat_x_marker]
+        self.x_q_cat = self.x_q[:,self.cat_x_marker]
+
+        """
+        cat and cont separation procedure...
+        """
+        if len(cat_cols_z)==0:
+            tmp_3,tmp_4= get_binary_mask(z_full)
+        else:
+            tmp_3,tmp_4 = torch.tensor(cat_cols_z['indicator']),cat_cols_z['index_lists']
+
+        self.cat_marker = torch.tensor([False] * x_full[:, ~self.cat_x_marker].shape[1] + tmp_3.tolist())
+        self.cat_list = tmp_4
         self.cont_marker = ~self.cat_marker
+
+        if self.x_q.dim()==1:
+            self.x_q = self.x_q.unsqueeze(-1)
         self.cuda = cuda
         self.n = self.x.shape[0]
         self.device = device
@@ -141,11 +159,6 @@ class density_estimator():
         self.tmp_path = f'./tmp_folder_{secret_indx}/'
         if os.path.exists(f'./tmp_folder_{secret_indx}/best_run.pt'):
             os.remove(f'./tmp_folder_{secret_indx}/best_run.pt')
-        self.x_q = x_q
-        self.x_q_cont = self.x_q[:,~self.cat_x_marker]
-        self.x_q_cat = self.x_q[:,self.cat_x_marker]
-        if self.x_q.dim()==1:
-            self.x_q = self.x_q.unsqueeze(-1)
 
         if not os.path.exists(self.tmp_path):
             os.makedirs(self.tmp_path)
@@ -229,8 +242,19 @@ class density_estimator():
                 self.has_cat = False
                 self.w = torch.ones(*(self.x.shape[0], 1)).squeeze().cuda(self.device)
             else:
-                cat_data = torch.cat([self.x, self.z], dim=1)
-                self.cat_marker, self.cat_list = get_binary_mask(cat_data)
+
+                """
+                further separation procedure
+                """
+                if len(cat_cols_z) == 0:
+                    cat_data = torch.cat([self.x, self.z], dim=1)
+                    self.cat_marker, self.cat_list = get_binary_mask(cat_data)
+                else:
+                    tmp_3, tmp_4 = torch.tensor(cat_cols_z['indicator']), cat_cols_z['index_lists']
+                    self.cat_marker = self.cat_x_marker + tmp_3
+                    self.cat_list = tmp_2+tmp_4
+
+
                 self.x_cont = self.x
                 self.x_q_cont = self.x_q
                 self.dataset = self.create_classification_data()
@@ -479,19 +503,22 @@ class density_estimator():
         return w
 
     def return_weights(self,X,Z,X_Q):
-        self.w = 1.0
 
-        if self.est_params['separate']:
-            if self.has_cat:
-                w_cat= self.model_eval_cat(X[:,self.cat_x_marker],Z,X[:,~self.cat_x_marker])
-                self.w = self.w*w_cat.squeeze()
-            if self.has_cont:
-                w_cont= self.model_eval(X[:,~self.cat_x_marker],Z,X_Q)
-                self.w = self.w * w_cont.squeeze()
+        if self.type in ['random_uniform','ones']:
+            return self.w
         else:
-            self.w  = self.model_eval(X,Z,X_Q)
+            self.w = 1.0
+            if self.est_params['separate']:
+                if self.has_cat:
+                    w_cat= self.model_eval_cat(X[:,self.cat_x_marker],Z,X[:,~self.cat_x_marker])
+                    self.w = self.w*w_cat.squeeze()
+                if self.has_cont:
+                    w_cont= self.model_eval(X[:,~self.cat_x_marker],Z,X_Q)
+                    self.w = self.w * w_cont.squeeze()
+            else:
+                self.w  = self.model_eval(X,Z,X_Q)
 
-        return self.w.squeeze()
+            return self.w.squeeze()
 
     def get_median_ls_XY(self,X,Y):
         with torch.no_grad():

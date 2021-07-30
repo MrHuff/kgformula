@@ -7,6 +7,9 @@ from scipy.stats import kstest
 from pylab import *
 import os
 import pickle
+from pylatex import Document, Section, Figure, SubFigure, NoEscape,Command
+from pylatex.base_classes import Environment
+from pylatex.package import Package
 
 font_size = 14
 plt.rcParams['font.size'] = font_size
@@ -288,7 +291,7 @@ if __name__ == '__main__':
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun')
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun_2')
     # generate_csv_file_parfor('kchsic_break')
-    generate_csv_file_parfor('do_null_binary_all_1d')
+    generate_csv_file_parfor('kc_rule_real_weights_9')
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun_rulsif')
     # generate_csv_file_parfor('kc_hsic_break_1')
     # generate_csv_file_parfor('kc_adaptive_test')

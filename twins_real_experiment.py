@@ -1,14 +1,14 @@
 import pandas as pd
 import torch
 from kgformula.utils import simulation_object_rule_new
-df = pd.read_csv("lalonde.csv")
 
-X = torch.from_numpy(df['treat'].values).unsqueeze(-1).float()
-Y = torch.from_numpy(df['re78'].values).unsqueeze(-1).float()
-Z = torch.from_numpy(df[['age','education','black','hispanic','married','nodegree','re74','re75']].values).float()
+
+X,Y,Z,ind_dict = torch.load('twins.pt')
+
+
 
 n = X.shape[0]
-m = 100
+m = 10000
 
 for est in ['NCE_Q']:
     for sep in [True]:
@@ -31,7 +31,7 @@ for est in ['NCE_Q']:
                 'estimator': est,
                 'cuda': True,
                 'device': 'cuda:0',
-                'n':100,
+                'n':10000,
                 'unique_job_idx':0
                 }
         pval_list = []
@@ -43,15 +43,14 @@ for est in ['NCE_Q']:
             x = X[perm]
             y = Y[perm]
             z = Z[perm]
-            # try:
-            sim_obj = simulation_object_rule_new(args=args) #Why getting nans?
-            pval, ref = sim_obj.run_data(x,y,z)
-            # except Exception as e:
-            #     print (e)
+            try:
+                sim_obj = simulation_object_rule_new(args=args) #Why getting nans?
+                pval, ref = sim_obj.run_data(x,y,z,ind_dict)
+            except Exception as e:
+                print (e)
             pval_list.append(pval)
         pvals = torch.tensor(pval_list)
-        torch.save({'pvals':pvals,'config':args},f'lalonde_pvals_{est}_{sep}.pt')
-
+        torch.save({'pvals':pvals,'config':args},f'twins_pvals_{est}_{sep}.pt')
 
 
 

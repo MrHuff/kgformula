@@ -19,21 +19,21 @@ def run_jobs(args):
 
 if __name__ == '__main__':
     input = {
-        'idx':0,
+        'idx':30,#bugbug
         'ngpu':48,
-        'job_folder': 'do_null_sep'
+        'job_folder': 'kc_rule_real_weights_6'
     }
     listjob = os.listdir(input['job_folder'])
-    for i in range(len(listjob)):
-        input['idx']=i
-        idx = input['idx']
-        ngpu = input['ngpu']
-        fold = input['job_folder']
-        jobs = os.listdir(fold)
-        jobs.sort()
-        print(jobs[idx])
-        job_params = load_obj(jobs[idx],folder=f'{fold}/')
-        job_params['device'] = 0
-        job_params['unique_job_idx'] = 99999
-        print(job_params)
-        run_jobs(args=job_params)
+    # for i in range(len(listjob)):
+    # input['idx']=i
+    idx = input['idx']
+    ngpu = input['ngpu']
+    fold = input['job_folder']
+    jobs = os.listdir(fold)
+    jobs.sort()
+    print(jobs[idx])
+    job_params = load_obj(jobs[idx],folder=f'{fold}/')
+    job_params['device'] = 0
+    job_params['unique_job_idx'] = 99999
+    print(job_params)
+    run_jobs(args=job_params)

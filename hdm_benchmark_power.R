@@ -35,7 +35,7 @@ for (alp in alphas){
   }
 }
 
-write.csv(df,"~/Documents/phd_projects/kgformula/hdm_bench_1d.csv", row.names = FALSE)
+write.csv(df,"~/Documents/phd_projects/kgformula/hdm_bench_syntehtic.csv", row.names = FALSE)
 
 
 
