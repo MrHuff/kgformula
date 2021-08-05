@@ -8,9 +8,9 @@ X,Y,Z,ind_dict = torch.load('twins.pt')
 
 
 n = X.shape[0]
-m = 10000
+m = 5000
 
-for est in ['NCE_Q']:
+for est in ['NCE_Q','TRE_Q']:
     for sep in [True]:
         args = {'qdist':2,
                 'bootstrap_runs':250,

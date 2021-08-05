@@ -19,9 +19,9 @@ def run_jobs(args):
 
 if __name__ == '__main__':
     input = {
-        'idx':30,#bugbug
+        'idx':0,#bugbug
         'ngpu':48,
-        'job_folder': 'kc_rule_real_weights_6'
+        'job_folder': 'do_null_mixed_est_new'
     }
     listjob = os.listdir(input['job_folder'])
     # for i in range(len(listjob)):

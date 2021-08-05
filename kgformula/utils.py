@@ -544,7 +544,9 @@ def one_dim_corr(X,Z): #This is wrong wtf
 def standardize_variance(input):
     output = input
     output = (output-output.mean(0))/output.std(0)
-    return output
+    boolean = input.std(0)>0
+
+    return output[:,boolean]
 
 class simulation_object_rule(simulation_object):
     def __init__(self,args):

@@ -1346,8 +1346,9 @@ def plot_30_rule_h0():
 
 def plot_31_true_weights_rule():
     all_path = 'do_null_100/'
-    small_path = 'kc_rule_real_weights_9_layers=3_width=32'
-    df = pd.read_csv('kc_rule_real_weights_9.csv',index_col=0)
+    it = 10
+    small_path = f'kc_rule_real_weights_{it}_layers=3_width=32'
+    df = pd.read_csv(f'kc_rule_real_weights_{it}.csv',index_col=0)
     df = df[df['beta_xy']==0.0]
     subset = df.loc[df.groupby(["n","d_Z"])["KS pval"].idxmax()].sort_values(['n','d_Z'])
     data_paths=[]
@@ -1406,7 +1407,7 @@ def plot_31_true_weights_rule():
     doc.generate_tex()
 
 def plot_32_true_weights():
-    df = pd.read_csv('kc_rule_real_weights_9.csv',index_col=0)
+    df = pd.read_csv('kc_rule_real_weights_10.csv',index_col=0)
     dir = 'plot_32_true_weights'
     if not os.path.exists(dir):
         os.makedirs(dir)

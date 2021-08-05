@@ -291,7 +291,7 @@ if __name__ == '__main__':
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun')
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun_2')
     # generate_csv_file_parfor('kchsic_break')
-    generate_csv_file_parfor('kc_rule_real_weights_9')
+    generate_csv_file_parfor('kc_rule_real_weights_10')
     # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun_rulsif')
     # generate_csv_file_parfor('kc_hsic_break_1')
     # generate_csv_file_parfor('kc_adaptive_test')
