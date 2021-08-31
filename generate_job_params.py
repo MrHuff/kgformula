@@ -1,6 +1,7 @@
 import os
 import shutil
 import pickle
+from itertools import *
 
 def save_obj(obj, name ,folder):
     with open(f'{folder}'+ name + '.pkl', 'wb') as f:
@@ -16,45 +17,28 @@ def load_obj(name,folder):
 # BXY_const = 0
 # BXY = 0.5
 # yz=[0.5,0.0]
-# b_z =[0.0,0.2,0.4,0.6,0.8]
+# b_z =[0.0,0.5]#[0.0,0.25,0.5,0.75,1.0,2.0,5.0,10.0]
 # dirname ='kchsic_break_100'
-# PHI=[1.5]
-# THETA=[1.0]
+# PHI=[1.0]
+# THETA=[0.1,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]
 # DX=[1]
 # DY = [1]
 # DZ = [1]
 # BR = [500]
 # BXY_list = [0.0]
-# # Q_LIST=[0.2,0.4,0.6,0.8,1.0]
 # Q_LIST=[1.0]
 # MAX_ITS=10
 
 
 
-# adaptive example
-N=100
-BXY_const = 0
-yz=[0.5,0.0]
-b_z = [0.5]
-dirname ='do_null_100'
-PHI=[2.0,2.0,2.0,2.0]
-THETA=[2.0,4.0,8.0,16.0]
-BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
-# BXY_list = [0.0]
-DX= [1,3,3,3]
-DY =  [1,3,3,3]
-DZ = [1,3,15,50]
-Q_LIST=[1.0]
-BR = [500]
-MAX_ITS=10
 
 
 #COND BREAK
 # N=100
 # BXY_const = 0.0
 # BXY = 0.5
-# # yz=[-0.5,4.0]
-# yz=[-0.5,1.0]
+# yz=[-0.5,4.0]
+# # yz=[-0.5,1.0]
 # b_z = [0.0]
 # dirname ='exp_gcm_break_100'
 # PHI=[2.0]
@@ -62,9 +46,9 @@ MAX_ITS=10
 # DX=[1]
 # DY = [1]
 # DZ = [1]
-# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
+# BXY_list = [0.0]
 # # BXY_list = [0.0]
-# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+# Q_LIST=[1.0]
 # BR = [500]
 # MAX_ITS=10
 
@@ -76,9 +60,9 @@ MAX_ITS=10
 # BXY_const = 0.0
 # BXY = 0.5
 # yz=[0.5,0.0]
-# b_z = [0.5]
+# b_z = [1e-2,0.05,0.1,0.25,0.5,1.0]
 # dirname ='exp_hsic_break_100'
-# PHI=[0.9]
+# PHI=[1.5]
 # THETA=[0.1]
 # # PHI=[0.5]
 # # THETA=[5.0]
@@ -86,49 +70,28 @@ MAX_ITS=10
 # DY = [1]
 # DZ = [1]
 # BR = [500]
-# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
+# BXY_list = [0.0]
 # # BXY_list = [0.1]
-# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
+# Q_LIST=[1.0]
 # MAX_ITS=10
 
 #Regular setup
-# N=100
-# BXY_const = 0
-# yz=[0.5,0.0]
-# b_z = [0.5]
-# dirname ='do_null_100'
-# PHI=[2.0,2.0,2.0,2.0]
-# THETA=[2.0,4.0,8.0,16.0]
-# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
-# # BXY_list = [0.0,0.1,0.2]
-# DX= [1,3,3,3]
-# DY =  [1,3,3,3]
-# DZ = [1,3,15,50]
-# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
-# # Q_LIST=[1.0]
-# BR = [500]
-# MAX_ITS=10
-
-#Ablation on training estimator
-# N=100
-# BXY_const = 0
-# yz=[0.5,0.0]
-# b_z = [0.5]
-# dirname ='do_null_100'
-# PHI=[2.0,2.0,2.0,2.0]
-# THETA=[2.0,4.0,8.0,16.0]
-# BXY_list = [0.0]
-# # BXY_list = [0.0,0.1,0.2]
-# DX= [1,3,3,3]
-# DY =  [1,3,3,3]
-# DZ = [1,3,15,50]
-# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
-# # Q_LIST=[1.0]
-# BR = [500]
-# MAX_ITS=10
+N=100
+BXY_const = 0
+yz=[0.5,0.0]
+b_z = [0.5]
+dirname ='do_null_100'
+PHI=[2.0,2.0,2.0,2.0]
+THETA=[2.0,4.0,8.0,16.0]
+BXY_list = [0.0,0.05,0.1,0.15,0.2]
+DX= [1,3,3,3]
+DY =  [1,3,3,3]
+DZ = [1,3,15,50]
+Q_LIST=[1.0]
+BR = [500]
+MAX_ITS=10
 
 
-#Ablation on training estimator 2
 # N=100
 # BXY_const = 0.0
 # yz=[0.5,0.0]
@@ -137,30 +100,12 @@ MAX_ITS=10
 # PHI=[2.0]
 # THETA=[2.0]
 # BXY_list = [0.01,0.03,0.05,0.07,0.09]
-# DX= [1]
-# DY =  [1]
-# DZ = [1]
-# Q_LIST=[0.2,0.4,0.6,0.8,1.0]
-# BR = [500]
-# MAX_ITS=10
-
-# DEBUG
-# N=100
-# BXY_const = 0
-# yz=[0.5,0.0]
-# b_z = [0.5]
-# dirname ='do_null_100'
-# PHI=[2.0]
-# THETA=[2.0]
-# BXY_list = [0.0,0.1,0.2,0.3,0.4,0.5]
-# # BXY_list = [0.0,0.5]
-# DX= [1]
-# DY =  [1]
-# DZ = [1]
+# DX= [2]
+# DY =  [2]
+# DZ = [2]
 # Q_LIST=[1.0]
 # BR = [500]
 # MAX_ITS=10
-
 def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc',dirname=''):
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -168,8 +113,10 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
         shutil.rmtree(directory)
         os.makedirs(directory)
     counter = 0
-    for n in n_list:
-        for d_X, d_Y, d_Z, theta, phi in zip(DX, DY, DZ, THETA,PHI):
+    # els = list(product(*[DX, DY, DZ, THETA,PHI]))
+    # for d_X, d_Y, d_Z, theta, phi in els:
+    for d_X, d_Y, d_Z, theta, phi in zip(DX,DY,DZ,THETA,PHI):
+        for n in n_list:
             for beta_XZ in b_z:
                 for q in Q_LIST:
                     for by in BXY_list: #Robin suggest: [0.0, 0.1,0.25,0.5]
@@ -179,7 +126,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                         val_rate = 0.2
                         h_str =data_dir
                         if estimate:
-                            models_to_run = zip(['real_TRE_Q','NCE_Q','random_uniform'],[1,10,1])
+                            models_to_run = zip(['real_TRE_Q','NCE_Q','random_uniform','rulsif'],[1,10,1,1])
                             # models_to_run = zip(['rulsif'],[1,1])
                         else:
                             models_to_run = zip(['real_weights'],[1])
@@ -215,7 +162,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                                'criteria_limit': 0.05,
                                                                'kill_counter': 2,
                                                                 'kappa':kappa,
-                                                               'separate':False,
+                                                               'separate':True,
                                                                'm': 4
                                                                },
                                                 'estimator': model, #ones, 'NCE'
@@ -302,63 +249,7 @@ def generate_job_params_GCM(n_list,seed_max=1000,directory='job_dir/',job_type='
                             }
                             save_obj(args,f'job_{counter}',directory+'/')
                             counter+=1
-def generate_job_paradox(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc',dirname='',K=10,binary_flag=False):
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    else:
-        shutil.rmtree(directory)
-        os.makedirs(directory)
-    counter = 0
-    for n in n_list:
-        for q in Q_LIST:
-            data_dir = f"g_paradox_data_10000_{K}_{binary_flag}_{seed_max}"
-            val_rate = 0.2
-            h_str =data_dir
-            if estimate:
-                models_to_run = zip(['real_TRE_Q','NCE_Q'],[1,10,])
-            else:
-                models_to_run = zip(['real_weights'],[1])
-            for mode in ['Q']:
-                for width in net_width:
-                    for layers in net_layers:
-                        job_dir = f'{directory}_layers={layers}_width={width}'
-                        for model,kappa in models_to_run:#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
-                            for br in BR:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
-                                args = {
-                                    'job_type':job_type,
-                                    'device': -1,
-                                    'job_dir':job_dir,
-                                    'data_dir': h_str,
-                                    'estimate': estimate,
-                                    'debug_plot': False,
-                                    'seeds_a': 0,
-                                    'seeds_b': seed_max,
-                                    'bootstrap_runs': br, #play with this (increase it!)
-                                    'mode': mode,
-                                    'split': estimate,
-                                    'q_factor':q,
-                                    'qdist': 2,
-                                    'n':n,
-                                    'est_params': {'lr': 1e-4, #use really small LR for TRE. Ok what the fuck is going on...
-                                                   'max_its': MAX_ITS,
-                                                   'width': width,
-                                                   'layers':layers,
-                                                   'mixed': False,
-                                                   'bs_ratio': 0.01,
-                                                   'val_rate': val_rate,
-                                                   'n_sample': 250,
-                                                   'criteria_limit': 0.05,
-                                                   'kill_counter': 2,
-                                                    'kappa':kappa,
-                                                   'm': 4
-                                                   },
-                                    'estimator': model, #ones, 'NCE'
-                                    'runs': runs,
-                                    'cuda': True,
-                                    'sanity_exp': False,
-                                }
-                                save_obj(args,f'job_{counter}',directory+'/')
-                                counter+=1
+
 
 def generate_job_binary(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc',dirname=''):
     if not os.path.exists(directory):
@@ -424,99 +315,106 @@ def generate_job_binary(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                             save_obj(args,f'job_{counter}',directory+'/')
                                             counter+=1
 
-def generate_job_mixed(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc'):
+def generate_job_mixed(data_source,n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc'):
     if not os.path.exists(directory):
         os.makedirs(directory)
     else:
         shutil.rmtree(directory)
         os.makedirs(directory)
+    if estimate:
+        models,kappas = ['real_TRE_Q', 'NCE_Q', 'random_uniform', 'rulsif'],[1, 10, 1, 1]
+        sep_list = [True, False]
+    else:
+        models,kappas = ['real_weights'], [1]
+        sep_list = [False]
     counter = 0
-    for d_X, d_Y, d_Z, theta, phi in zip([2, 4, 6, 8], [2, 4, 6, 8], [2, 3, 15, 50], [2.0, 4.0, 8.0, 16.0],
-                                         [2.0, 2.0, 2.0, 2.0]):
-        for sep in [True,False]:
-            for null_case in [True,False]:
-                for beta_xy in [[0, 0.0], [0, 0.1], [0, 0.2], [0, 0.3], [0, 0.4], [0, 0.5]]:
-                    data_dir = f"do_null_mix_new_100/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz=[0.5, 0.0]_beta_XZ=0.5_theta={theta}_phi={phi}"
-                    for n in n_list:
-                        val_rate = 0.2
-                        h_str =data_dir
-                        if estimate:
-                            models_to_run = zip(['real_TRE_Q', 'NCE_Q'], [1, 10, ])
-                        else:
-                            models_to_run = zip(['real_weights'],[1])
-                        for mode in ['Q']:
-                            for width in net_width:
-                                for layers in net_layers:
-                                    job_dir = f'{directory}_layers={layers}_width={width}_sep={sep}'
-                                    for model,kappa in models_to_run:#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
-                                        for br in BR:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
-                                            args = {
-                                                'job_type':job_type,
-                                                'device': -1,
-                                                'job_dir':job_dir,
-                                                'data_dir': h_str,
-                                                'estimate': estimate,
-                                                'debug_plot': False,
-                                                'seeds_a': 0,
-                                                'seeds_b': seed_max,
-                                                'bootstrap_runs': br, #play with this (increase it!)
-                                                'mode': mode,
-                                                'split': estimate,
-                                                'q_factor':1.0,
-                                                'qdist': 2,
-                                                'n':n,
-                                                'est_params': {'lr': 1e-4, #use really small LR for TRE. Ok what the fuck is going on...
-                                                               'max_its': MAX_ITS,
-                                                               'width': width,
-                                                               'layers':layers,
-                                                               'mixed': False,
-                                                               'bs_ratio': 1e-2,
-                                                               'val_rate': val_rate,
-                                                               'n_sample': 250,
-                                                               'criteria_limit': 0.05,
-                                                               'kill_counter': 2,
-                                                                'kappa':kappa,
-                                                               'm': 4,
-                                                               'separate':sep
-                                                               },
-                                                'estimator': model, #ones, 'NCE'
-                                                'runs': runs,
-                                                'cuda': True,
-                                                'sanity_exp': False,
-                                            }
-                                            save_obj(args,f'job_{counter}',directory+'/')
-                                            counter+=1
+
+
+    # theta_vec = [16.0]
+    # phi_vec = [2.0]
+    # d_X=[8]
+    # d_Y=[8]
+    # d_Z=[50]
+    # bz_list=[0.0,0.05,0.1,0.15,0.20,0.25]
+    # els = list(product(*[d_X, d_Y, d_Z, theta_vec,phi_vec,bz_list]))
+    for d_X, d_Y, d_Z, theta, phi,beta_XZ in zip([2, 4, 6, 8], [2, 4, 6, 8], [2, 3, 15, 50], [2.0, 4.0, 16.0, 16.0],[2.0, 2.0, 2.0, 2.0],[0.5,0.5,0.5,0.15]):
+    # for d_X, d_Y, d_Z, theta, phi,beta_XZ in els:
+        for beta_xy in [[0, 0.0], [0, 0.05], [0, 0.1], [0, 0.15], [0, 0.2]]:
+            for n in n_list:
+                for mode in ['Q']:
+                    for width in net_width:
+                        for layers in net_layers:
+                            for model,kappa in zip(models,kappas):#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
+                                for sep in sep_list:
+                                    for br in BR:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
+                                        data_dir = f"{data_source}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz=[0.5, 0.0]_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
+                                        val_rate = 0.2
+                                        job_dir = f'{directory}_layers={layers}_width={width}_sep={sep}'
+
+                                        args = {
+                                            'job_type':job_type,
+                                            'device': -1,
+                                            'job_dir':job_dir,
+                                            'data_dir': data_dir,
+                                            'estimate': estimate,
+                                            'debug_plot': False,
+                                            'seeds_a': 0,
+                                            'seeds_b': seed_max,
+                                            'bootstrap_runs': br, #play with this (increase it!)
+                                            'mode': mode,
+                                            'split': estimate,
+                                            'q_factor':1.0,
+                                            'qdist': 2,
+                                            'n':n,
+                                            'est_params': {'lr': 1e-4, #use really small LR for TRE. Ok what the fuck is going on...
+                                                           'max_its': MAX_ITS,
+                                                           'width': width,
+                                                           'layers':layers,
+                                                           'mixed': False,
+                                                           'bs_ratio': 1e-2,
+                                                           'val_rate': val_rate,
+                                                           'n_sample': 250,
+                                                           'criteria_limit': 0.05,
+                                                           'kill_counter': 2,
+                                                            'kappa':kappa,
+                                                           'm': 4,
+                                                           'separate':sep
+                                                           },
+                                            'estimator': model, #ones, 'NCE'
+                                            'runs': runs,
+                                            'cuda': True,
+                                            'sanity_exp': False,
+                                        }
+                                        save_obj(args,f'job_{counter}',directory+'/')
+                                        counter+=1
+                                        print(args)
 
 if __name__ == '__main__':
     pass
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_ablation_rerun',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_bug_rerun_2',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_px',job_type='kc_px',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='base_jobs_kc_est_bug_rerun_rulsif',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_adaptive_test',job_type='kc_adaptive',dirname=dirname)
+    #Use mixed data to illustrate breaking point!
+    #Probably mention that exponential data can blow up at times as well, at least when estimating
 
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_2',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='random_uniform',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='random_uniform_ablation',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule',job_type='kc_rule',dirname=dirname)
-    # generate_job_paradox(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='cont_g_paradox_jobs',job_type='kc_rule',dirname='',K=10,binary_flag=False)
-    # generate_job_paradox(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='bin_g_paradox_jobs',job_type='kc_rule',dirname='',K=10,binary_flag=True)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='kc_rule_real_weights_10',job_type='kc_rule_new',dirname=dirname)
+
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='ablation_mixed_2',job_type='kc_rule_new',dirname=dirname)
+
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule_2',job_type='kc_rule_new',dirname=dirname)
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='kc_rule_real_weights_2',job_type='kc_rule_new',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule',job_type='kc_rule_new',dirname=dirname)
+
+
 
     # generate_job_binary(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_binary_all_dims_real',job_type='kc_rule_new',dirname='')
     # generate_job_binary(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_all_dims_est',job_type='kc_rule_new',dirname='')
-    generate_job_mixed(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_mixed_real_new',job_type='kc_rule_new')
-    generate_job_mixed(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_mixed_est_new',job_type='kc_rule_new')
-    # generate_job_mixed(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_mixed_real',job_type='kc_rule_new')
+    generate_job_mixed(data_source='do_null_mix_new_100',n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_mixed_est_new_2',job_type='kc_rule_new')
+    generate_job_mixed(data_source='do_null_mix_new_100',n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_mixed_real_new_2',job_type='kc_rule_new')
 
-    # generate_job_params(n_list=[10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_adaptive',job_type='kc_adaptive',dirname=dirname)
-    # generate_job_params(n_list=[1000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_test_adaptive_5',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_break_job',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='break_kchsic_jobs_kc_est_debug',job_type='kc_rule_new',dirname=dirname)
+    # generate_job_params_HSIC(n_list=[1000,5000,10000],seed_max=N,directory='ind_jobs_hsic_2',dirname=dirname)
 
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='cond_jobs_kc_est',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='cond_jobs_kc',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='cond_jobs_kc_est_rule',job_type='kc_rule_new',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='cond_jobs_kc_real_rule',job_type='kc_rule_new',dirname=dirname)
     # generate_job_params_GCM(n_list=[5000],seed_max=N,directory='cond_jobs_regression',dirname=dirname,job_type='regression')
-    # generate_job_params_HSIC(n_list=[1000,5000,10000],seed_max=N,directory='ind_jobs_hsic',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='hsic_jobs_kc_est',job_type='kc',dirname=dirname)
-    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='hsic_jobs_kc',job_type='kc',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='break_kchsic_jobs_kc_est',job_type='kc_rule_new',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='hsic_break_real',job_type='kc_rule_new',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='hsic_break_est',job_type='kc_rule_new',dirname=dirname)
+

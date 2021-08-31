@@ -1,5 +1,15 @@
 from generate_data_multivariate_non_gaussian_GCM_breaker import *
 from kgformula.utils import *
+from itertools import *
+
+def gen_job_wrapper(el):
+    X, Y, Z, w_cont = generate_data_mixed(el)
+    # X_bin, Y_bin, Z_bin, w_bin = generate_simple_null(alp=0 if el[-1] else 0.06, new_dirname=el[0], seed=el[5], d=el[7],
+    #                                                   n=el[1], null_case=el[-1])
+    # X = torch.cat([X_bin, X_cont], dim=1)
+    # Y = torch.cat([Y_bin, Y_cont], dim=1)
+    # Z = torch.cat([Z_cont, Z_bin], dim=1)
+    torch.save((X, Y, Z, w_cont.squeeze() ), el[0] + '/' + f'data_seed={el[5]}.pt')
 
 
 if __name__ == '__main__':
@@ -12,8 +22,13 @@ if __name__ == '__main__':
     fam_x = [1, 1]
     folder_name = f'ablation_100'
     sanity = False
-    for d_X,d_Y,d_Z, theta,phi in zip( [1],[1],[1],[2.0],[2.0]):
-    # for d_X,d_Y,d_Z, theta,phi in zip( [1],[1],[1],[0.1],[0.9]):
+    theta_vec = [2.0]
+    phi_vec = [2.0]
+    d_X=[2]
+    d_Y=[2]
+    d_Z=[2]
+    els = list(product(*[d_X,d_Y,d_Z,theta_vec,phi_vec]))
+    for d_X,d_Y,d_Z, theta,phi in els: #Screwed up rip
         for b_z in [0.5]:  # ,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z = (d_Z ** 2) * b_z
             beta_xz = generate_sensible_variables(d_Z, b_z, const=0)  # What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.

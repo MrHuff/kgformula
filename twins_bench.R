@@ -15,7 +15,7 @@ Z_cat <-as.matrix(read.csv(file = "twins_z_cat.csv",header = TRUE))
 
 for (i in 0:99){
   set.seed(i)
-  mask = sample(c(1:nrow(T)), size=5000, replace =F)
+  mask = sample(c(1:nrow(T)), size=2500, replace =F)
   
   x = T[mask]
   y = Y[mask] 
@@ -27,7 +27,11 @@ for (i in 0:99){
 }
 df[j,] = vec
 
-write.csv(df,"~/Documents/phd_projects/kgformula/twins_bench_1d_5000.csv", row.names = FALSE)
+write.csv(df,"~/Documents/phd_projects/kgformula/twins_bench_1d_2500.csv", row.names = FALSE)
+
+
+
 hist(vec)
+
 
 

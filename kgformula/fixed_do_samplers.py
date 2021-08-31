@@ -192,7 +192,13 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z=1,fam
         d = Normal(loc=mu, scale=theta) #ks -test uses this target distribution. KS-test on  0 centered d with scale phi...
         #might wanna consider d_X d's for more beta_XZ's
     elif fam_x[1] == 3:  # Change
-        mu = torch.exp(_x_mu+1.0) #Poisson link func? theta=phi
+        #concentration = alpha = k controls shape/mean
+        #rate = beta = 1/theta controls variance
+        mu = torch.exp(_x_mu) #Poisson link func? theta=phi
+        #marginal of X Gamma(shape=1.0*theta, rate=1/e)
+        # print(theta)
+        #
+        # print(1/mu)
         d = Gamma(concentration=theta,rate=1./mu ) #Scale everything with 1/mu so that it looks like iid samples from some gamma distribution. Then KS-test on 1/theta
     else:
         raise Exception("fam_x must be 1, 3 or 4")
@@ -230,6 +236,10 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z=1,fam
     keep_index = (torch.rand_like(wts) < wts_tmp).squeeze()
     inv_wts = 1. / p_z #Variance of the weights seems to blow up when n is large, this also causes problems for the estimator...
     X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
+
+    # plt.scatter(X.numpy(),Z.numpy())
+    # plt.savefig("debug_gamma.png")
+    # plt.clf()
     return X,Y,Z,inv_wts
 
 
@@ -345,25 +355,32 @@ def sim_mixed_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z
     if beta_xz.dim()<2:
         beta_xz = beta_xz.unsqueeze(-1)
     _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence (n x (1+d)) matmul (1+d x 1)
-    _p = torch.sigmoid(_x_mu) #XZ dependence (n x (1+d)) matmul (1+d x 1)
+    scale = 0.1 if d_Z<50 else 0.05
+    _p = torch.sigmoid(_x_mu*scale) #XZ dependence (n x (1+d)) matmul (1+d x 1)
     #Do GLM? Poisson Link function...
     # Look at X[:,0] - _x_mu[:,0]. Run KS test on that quantity for distribution with correct variance.
     # repeat for each "column". i.e. X[:,i] - _x_mu[:,i].
     # Think each of X and something to regress on Z. Think of the target distribtion. on what you expect post rejection sampling.
-
+    # Ok found the nan?!
+    bool_not_nan = ~_x_mu.isnan().squeeze()
+    X = X[bool_not_nan,:]
+    Y = Y[bool_not_nan,:]
+    Z = Z[bool_not_nan,:]
+    _x_mu = _x_mu[bool_not_nan,:]
+    _p = _p[bool_not_nan,:]
     if fam_x[1] == 4:
         mu = expit(_x_mu)
         d = Beta(concentration1=theta * mu, concentration0=theta * (1 - mu))
     elif fam_x[1] == 1: #Signal to noise ratio
-        mu = _x_mu
+        mu = _x_mu if beta_xz.sum().item()!=0 else 0
         d = Normal(loc=mu, scale=theta) #ks -test uses this target distribution. KS-test on  0 centered d with scale phi...
         #might wanna consider d_X d's for more beta_XZ's
     elif fam_x[1] == 3:  # Change
-        mu = torch.exp(_x_mu+1.0) #Poisson link func? theta=phi
+        mu = torch.exp(_x_mu) #Poisson link func? theta=phi
         d = Gamma(concentration=theta,rate=1./mu ) #Scale everything with 1/mu so that it looks like iid samples from some gamma distribution. Then KS-test on 1/theta
     else:
         raise Exception("fam_x must be 1, 3 or 4")
-    d_bin = Bernoulli(probs=_p)
+    d_bin = Bernoulli(probs=_p if beta_xz.sum().item()!=0 else 0.5)
     wts = torch.zeros(*(X.shape[0],1))
     #To make Rejectoin sampling work, principal eigenvalue of target distribution i.e. d. Should be less than theta.
     p_z  = torch.zeros(*(X.shape[0],1))
@@ -373,6 +390,7 @@ def sim_mixed_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z
         p_z += p_cond_z
         _prob = p_cond_z- qden_1(_x)
         wts = wts + _prob
+
     for i in range(d_X//2,d_X):
         _x = X[:,i].unsqueeze(-1)
         p_cond_z = d_bin.log_prob(_x)
@@ -386,8 +404,13 @@ def sim_mixed_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z
         raise Exception("Problem with weights")
     wts_tmp = wts / normalization
     keep_index = (torch.rand_like(wts) < wts_tmp).squeeze()
-    inv_wts = 1. / p_z #Variance of the weights seems to blow up when n is large, this also causes problems for the estimator...
+    inv_wts = 1. / p_z #Variance of the weights seems to blow up when n is large, this also causes problems for the estimator..
     X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
+
+    # ess_wts = wts_tmp[keep_index]
+    # eff= (ess_wts.sum()**2)/(ess_wts**2).sum()
+    # print(round(eff.item()/X.shape[0]*10000))
+
     return X,Y,Z,inv_wts
 
 

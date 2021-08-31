@@ -1,6 +1,7 @@
 from kgformula.utils import *
 from generate_job_params import *
 import os
+os.environ["CUDA_VISIBLE_DEVICES"]="5"
 
 def run_jobs(args):
     if args['job_type']=='kc':
@@ -31,9 +32,13 @@ if __name__ == '__main__':
     fold = input['job_folder']
     jobs = os.listdir(fold)
     jobs.sort()
-    print(jobs[idx])
-    job_params = load_obj(jobs[idx],folder=f'{fold}/')
-    job_params['device'] = 0
-    job_params['unique_job_idx'] = 99999
-    print(job_params)
-    run_jobs(args=job_params)
+    for el in jobs:
+        job_params = load_obj(el,folder=f'{fold}/')
+        job_params['device'] = 0
+        job_params['unique_job_idx'] = 99999
+        # if (job_params['estimator']=='rulsif') and (job_params['est_params']['separate']==False):
+        # print(job_params)
+        try:
+            run_jobs(args=job_params)
+        except Exception as e:
+            print(e)

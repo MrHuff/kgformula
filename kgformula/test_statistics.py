@@ -163,10 +163,8 @@ class density_estimator():
         if not os.path.exists(self.tmp_path):
             os.makedirs(self.tmp_path)
         if self.est_params['separate']:
-            if self.type=='rulsif':
-                self.has_cat = False
-                self.train_rulsif(self.dataset)
-            elif self.type == 'random_uniform':
+
+            if self.type == 'random_uniform':
                 self.has_cat = False
                 self.w = torch.rand(*(self.x.shape[0],1)).squeeze().cuda(self.device)
             elif self.type == 'ones':
@@ -230,12 +228,10 @@ class density_estimator():
                                              m = self.est_params['m'],cat_marker=self.cat_marker,cat_size_list=self.cat_list
                                              ).to(self.x.device)
                         self.train_classifier()
+                    elif self.type == 'rulsif':
+                        self.train_rulsif(self.dataset)
         else:
-
-            if self.type == 'rulsif':
-                self.has_cat = False
-                self.train_rulsif(self.dataset)
-            elif self.type == 'random_uniform':
+            if self.type == 'random_uniform':
                 self.has_cat = False
                 self.w = torch.rand(*(self.x.shape[0], 1)).squeeze().cuda(self.device)
             elif self.type == 'ones':
@@ -290,6 +286,9 @@ class density_estimator():
                                          m=self.est_params['m'], cat_marker=self.cat_marker, cat_size_list=self.cat_list
                                          ).to(self.x.device)
                     self.train_classifier()
+                elif self.type == 'rulsif':
+                    self.has_cat = False
+                    self.train_rulsif(self.dataset)
 
     def create_classification_data(self):
         self.kappa = self.est_params['kappa']

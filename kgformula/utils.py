@@ -14,7 +14,7 @@ import matplotlib as mpl
 from torch.distributions import *
 import os
 import random
-
+from scipy.stats import kendalltau,spearmanr,pearsonr
 print(os.environ)
 
 # from rpy2.robjects.packages import importr
@@ -554,10 +554,12 @@ class simulation_object_rule(simulation_object):
 
     def get_q_fac(self,X_org,Z_org):
         if X_org.shape[1]==1 and Z_org.shape[1]==1:
-            X = standardize_variance(X_org)
-            Z = standardize_variance(Z_org)
-            cor = one_dim_corr(X,Z)
-            return torch.sqrt( torch.clip((1-2*cor),1e-6))
+            # X = standardize_variance(X_org)
+            # Z = standardize_variance(Z_org)
+            # cor = one_dim_corr(X,Z)
+            # cor_output= kendalltau(X_org.cpu().squeeze(),Z_org.cpu().squeeze())
+            (cor,_)= spearmanr(X_org.cpu().squeeze(),Z_org.cpu().squeeze())
+            return torch.sqrt( torch.clip((1-2*cor),1e-6)) #Analytical choice doesn't fucking work for exponential data... OK sigh, the normal business might not be doing a good job
         else:
             n = X_org.shape[0]
             X = standardize_variance(X_org)
@@ -584,7 +586,7 @@ class simulation_object_rule(simulation_object):
             its=250
             #hmm keep it within 0 and 1?
             for i in range(its):
-                c_q = 0.2+ 1.8*(i)/its
+                c_q = 0.2+1.3*(i)/its
                 T_inv = torch.diag(1. / (torch.diag(I_p) * c_q))
                 T  =I_p*c_q
                 loss =(1/torch.det(T)) * (1/torch.det(2 * T_inv - subtract_term)**0.5)
@@ -661,6 +663,7 @@ class simulation_object_rule_new(simulation_object_rule):
                     concat_q.append(X_q_bin)
                 if X_cont.numel()>0:
                     q_fac = self.get_q_fac(X_train[:, ~binary_mask_X], Z_train[:, ~binary_mask_Z])
+                    print('q_fac: \n ',q_fac)
                     q_fac_list.append(q_fac)
                     Xq_class_cont = x_q_class_cont(qdist=self.qdist, q_fac=q_fac, X=X_cont)
                     X_q_cont = Xq_class_cont.sample(n=X_cont.shape[0])

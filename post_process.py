@@ -175,7 +175,7 @@ def calculate_one_row_contrast(j,base_dir):
 
 def calculate_one_row(j,base_dir):
     levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
-    theta_dict = {1: 2.0, 3: 3.0, 15: 8.0, 50: 16.0}
+    theta_dict = {1: 2.0,2:2.0, 3: 3.0, 15: 16.0, 50: 16.0}
     job_params = load_obj(j, folder=f'{base_dir}/')
     try:
         p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate,validity_pval_filename,validity_val_filename,actual_validity_fname = return_filenames(job_params)
@@ -187,8 +187,12 @@ def calculate_one_row(j,base_dir):
         b_z = generate_sensible_variables(d_Z, b_z, 0)
         snr_xz = calc_snr(b_z, theta_dict[d_Z])
         bxy = dat_param[0][1]
+        try:
+            sep = job_params['est_params']['separate']
+        except Exception as e:
+            sep = False
         row = [job_params['n'], bxz, job_params['q_factor'], job_params['qdist'], job_params['est_params']['n_sample'],
-               job_params['estimator'], d_Z, bxy, snr_xz]
+               job_params['estimator'], d_Z, bxy, snr_xz,sep]
         try:
             eff_est, corr_coeff = get_w_plot(data_path=data_dir, est=estimate, w_est_path=w_file, args=job_params,
                                              pre_path=pre_path, suffix=suffix)
@@ -245,7 +249,7 @@ def generate_csv_file(base_dir):
         if isinstance(row,list):
             df_data.append(row)
     levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
-    columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy','snr_xz','EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
+    columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy','snr_xz','sep','EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
     df = pd.DataFrame(df_data,columns=columns)
     df = df.drop_duplicates()
     df = df.sort_values('KS pval',ascending=False)
@@ -265,7 +269,7 @@ def generate_csv_file_parfor(base_dir):
     # df_data = [pool.apply(calculate_one_row, args=(row, base_dir)) for row in jobs]
     pool.close()
     levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
-    columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy','snr_xz','EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
+    columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy','snr_xz','sep','EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
     df = pd.DataFrame(df_data,columns=columns)
     df = df.drop_duplicates()
     df = df.sort_values('KS pval',ascending=False)
@@ -288,14 +292,14 @@ def generate_csv_contrast(base_dir):
     print(df.to_latex(escape=True))
 
 if __name__ == '__main__':
-    # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun')
-    # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun_2')
-    # generate_csv_file_parfor('kchsic_break')
-    generate_csv_file_parfor('kc_rule_real_weights_10')
-    # generate_csv_file_parfor('base_jobs_kc_est_bug_rerun_rulsif')
-    # generate_csv_file_parfor('kc_hsic_break_1')
-    # generate_csv_file_parfor('kc_adaptive_test')
-    # generate_csv_contrast('ind_jobs_hsic')
-    # generate_csv_contrast('cond_jobs_regression')
-    # generate_csv_file_parfor('hsic_jobs_kc')
-    # generate_csv_file_parfor('cond_jobs_kc')  
+    # generate_csv_contrast('ind_jobs_hsic_2')
+    # generate_csv_file_parfor('hsic_break_real')
+    # generate_csv_file_parfor('break_kchsic_jobs_kc_est_3')
+    # generate_csv_file_parfor('kc_rule')
+    # generate_csv_file_parfor('kc_rule_real_weights')
+    # generate_csv_file_parfor('do_null_mixed_est_new')
+    generate_csv_file_parfor('ablation_mixed_2')
+    # generate_csv_file_parfor('cond_jobs_kc_real_rule')
+    # generate_csv_file_parfor('break_kchsic_jobs_kc_real')
+    # generate_csv_file_parfor('do_null_mixed_real_new')
+    # generate_csv_file_parfor('break_kchsic_jobs_kc_est')

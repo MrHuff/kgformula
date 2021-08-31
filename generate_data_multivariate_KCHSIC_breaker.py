@@ -2,10 +2,10 @@ from generate_data_multivariate import *
 from kgformula.utils import *
 import seaborn as sns
 import sklearn
-
+from itertools import *
 
 if __name__ == '__main__':
-    seeds = 100
+    seeds = 1
     jobs=[]
     yz = [0.5, 0.0]  # Counter example
     xy_const = 0.0  # GCM breaker
@@ -14,8 +14,14 @@ if __name__ == '__main__':
     fam_x = [3, 3]
     folder_name = f'kchsic_break'
     sanity = True
-    for d_X,d_Y,d_Z, theta,phi in zip( [1],[1],[1],[1.0],[1.5]): #Screwed up rip
-        for b_z in [0.0,0.2,0.4,0.6,0.8]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
+    theta_vec = [9.0]
+    phi_vec = [1.0]
+    d_X=[1]
+    d_Y=[1]
+    d_Z=[1]
+    els = list(product(*[d_X,d_Y,d_Z,theta_vec,phi_vec]))
+    for d_X,d_Y,d_Z, theta,phi in els: #Screwed up rip
+        for b_z in [0.0,0.5]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z= (d_Z**2)*b_z
             beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
             for n in [10000]:
@@ -25,8 +31,8 @@ if __name__ == '__main__':
                         os.makedirs(f'./{data_dir}/')
                     for i in range(seeds):
                         jobs.append([data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fam_x,fam_z,fam_y,sanity])
-    import torch.multiprocessing as mp
-    pool = mp.Pool(mp.cpu_count())
-    pool.map(multiprocess_wrapper, [row for row in jobs])
-    # for el in jobs:
-    #     multiprocess_wrapper(el)
+    # import torch.multiprocessing as mp
+    # pool = mp.Pool(mp.cpu_count())
+    # pool.map(multiprocess_wrapper, [row for row in jobs])
+    for el in jobs:
+        multiprocess_wrapper(el)
