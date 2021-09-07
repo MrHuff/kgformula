@@ -6,24 +6,27 @@ from post_process import *
 from scipy.stats import kstest
 from create_plots import *
 
+dict_method = {'NCE_Q': 'NCE-Q', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF'}
 
 
 def plot_power(raw_df,dir,name,ests):
     for d in [1]:
-        for est in ests:
-            df = raw_df[raw_df['estimator']==est].sort_values(['alp'])
+        for n in [1000, 5000, 10000]:
+            df = raw_df[raw_df['n'] == n]
             # for alp in [0.00, 0.02, 0.04, 0.06, 0.08, 0.10]:
-            for n in [1000,5000,10000]:
-                subset_3 = df[df['n']==n]
+            for est in ests:
+                subset_3 = df[df['estimator'] == est].sort_values(['alp'])
+                label_name = dict_method[est] if est!='HDM' else 'HDM'
                 a,b,e = calc_error_bars(subset_3['alp=0.05'],alpha=0.05,num_samples=100)
-                plt.plot('alp','alp=0.05',data=subset_3,linestyle='--', marker='o',label=r'$n'+f'={n}$')
+                # plt.plot('alp','alp=0.05',data=subset_3,linestyle='--', marker='o',label=r'$n'+f'={n}$')
+                plt.plot('alp','alp=0.05',data=subset_3,linestyle='--', marker='o',label=f'{label_name}')
                 plt.fill_between(subset_3['alp'], a, b, alpha=0.1)
             plt.hlines(0.05, 0, 0.1)
             plt.legend(prop={'size': 10})
             plt.xticks([0.00, 0.02, 0.04, 0.06, 0.08, 0.10])
             plt.xlabel(r'$\beta_{XY}$')
             plt.ylabel(r'Power $\alpha=0.05$')
-            plt.savefig(f'{dir}/{name}_{est}.png',bbox_inches = 'tight',pad_inches = 0.05)
+            plt.savefig(f'{dir}/{name}_{n}.png',bbox_inches = 'tight',pad_inches = 0.05)
             plt.clf()
 
 def calc_power(vec, level=.05):
@@ -67,15 +70,15 @@ def post_process_jobs(bench_res_dir,job_dir,filt):
             for lvl in [0.01, 0.05, 0.1]:
                 pow = calc_power(p_vals, lvl)
                 props.append(pow)
-        else:
-            if props[-1]==f'{job_dir}_layers=1_width=32_True':
-                super_suff =  suffix + f'_{props[0]}'
-                latex_plot_structure_1.append(props+[f'{bench_res_dir}/pval_{super_suff}.jpg'])
-                # get_hist(p_vals, '/pval', bench_res_dir, super_suff, '', '', '', '', '')
-            _, p_val_ks_test = kstest(p_vals, 'uniform')
-            for i in range(3):
-                props.append(p_val_ks_test)
-        df_dat.append(props)
+        # else:
+        #     if props[-1]==f'{job_dir}_layers=1_width=32_True':
+        #         super_suff =  suffix + f'_{props[0]}'
+        #         latex_plot_structure_1.append(props+[f'{bench_res_dir}/pval_{super_suff}.jpg'])
+        #         # get_hist(p_vals, '/pval', bench_res_dir, super_suff, '', '', '', '', '')
+        #     _, p_val_ks_test = kstest(p_vals, 'uniform')
+        #     for i in range(3):
+        #         props.append(p_val_ks_test)
+        # df_dat.append(props)
 
     # df_latex_1 = pd.DataFrame(latex_plot_structure_1,columns=['alp','null','n','estimator','data_dir','path'])
     # df_latex_1 = df_latex_1[df_latex_1['alp'].isin([0.02,0.06,0.10]) & df_latex_1['estimator'].isin(['NCE_Q','real_weights'])].sort_values(['n','alp'])
@@ -108,16 +111,21 @@ def post_process_jobs(bench_res_dir,job_dir,filt):
     # doc.generate_tex()
 
 
-
+    df_hdm = pd.read_csv('1d_cat_pow/pow_and_calib.csv')
+    df_hdm['data_dir'] = None
+    df_hdm['estimator'] = 'HDM'
+    df_hdm = df_hdm[[ 'alp','null','n','estimator','data_dir','alp=0.01','alp=0.05','alp=0.1']]
     df = pd.DataFrame(df_dat,columns= [ 'alp','null','n','estimator','data_dir','alp=0.01','alp=0.05','alp=0.1'])
-    print(df)
-    subset = df[(df['null']=='False')&(df['data_dir']==filt)]
-    plot_power(subset,bench_res_dir,'power_plot_sep',df['estimator'].unique().tolist())
+    df = df[(df['data_dir']==filt)]
+    df = pd.concat([df,df_hdm],axis=0)
+
+    subset = df[(df['null']==False) | (df['null']=='False')]
+    plot_power(subset,bench_res_dir,'power_plot_sep',subset['estimator'].unique().tolist())
 
 
 
 if __name__ == '__main__':
-    post_process_jobs('1d_cat_pow_kchsic_real','do_null_binary_all_1d_real','do_null_binary_all_1d_real_layers=2_width=32_True')
+    # post_process_jobs('1d_cat_pow_kchsic_real','do_null_binary_all_1d_real','do_null_binary_all_1d_real_layers=2_width=32_True')
     post_process_jobs('1d_cat_pow_kchsic','do_null_binary_all_1d','do_null_binary_all_1d_layers=1_width=32_True')
 
 

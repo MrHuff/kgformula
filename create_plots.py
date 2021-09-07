@@ -64,7 +64,7 @@ def plot_2_true_weights(csv,dir,mixed=False):
             a,b,e = calc_error_bars(subset_2['p_a=0.05'],alpha=0.05,num_samples=100)
             plt.plot('beta_xy','p_a=0.05',data=subset_2,linestyle='--', marker='o',label=f'$n={n}$')
             plt.fill_between(subset_2['beta_xy'], a, b, alpha=0.1)
-            plt.hlines(0.05, 0, 0.5)
+            plt.hlines(0.05, 0, subset_2['beta_xy'].max())
         plt.legend(prop={'size': 10})
         plt.xlabel(r'$\beta_{XY}$')
         plt.ylabel('Power')
@@ -84,6 +84,32 @@ def plot_2_true_weights(csv,dir,mixed=False):
 
     doc.generate_tex()
 
+def plot_2_est_weights_test(csv,dir,mixed=False):
+    df = pd.read_csv(csv, index_col=0)
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+    d_list = [1,3,15,50] if not mixed else [2,3,15,50]
+    methods = df['nce_style'].unique().tolist()
+    b_Z_list = df['$/beta_{xz}$'].unique().tolist()
+    for b_Z in b_Z_list:
+        for d in d_list:
+            subset = df[(df['d_Z']==d)&(df['$/beta_{xz}$']==b_Z)].sort_values(['beta_xy'])
+            for n in [1000, 5000, 10000]:
+                subset_2 = subset[subset['n'] == n]
+                for method in methods:
+                    subset_3 = subset_2[subset_2['nce_style']==method]
+                    a,b,e = calc_error_bars(subset_3['p_a=0.05'],alpha=0.05,num_samples=100)
+                    format_string = dict_method[method]
+                    plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
+                    plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
+                plt.hlines(0.05, 0, subset_2['beta_xy'].max())
+                plt.legend(prop={'size': 10})
+                plt.xlabel(r'$\beta_{XY}$')
+                plt.ylabel('Power')
+                plt.savefig(f'{dir}/figure_{d}_{n}_{b_Z}.png',bbox_inches = 'tight',
+            pad_inches = 0.05)
+                plt.clf()
 
 def plot_2_est_weights(csv,dir,mixed=False):
     df = pd.read_csv(csv, index_col=0)
@@ -102,7 +128,7 @@ def plot_2_est_weights(csv,dir,mixed=False):
                 format_string = dict_method[method]
                 plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
                 plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
-            plt.hlines(0.05, 0, 0.5)
+            plt.hlines(0.05, 0, subset_2['beta_xy'].max())
             plt.legend(prop={'size': 10})
             plt.xlabel(r'$\beta_{XY}$')
             plt.ylabel('Power')
@@ -155,7 +181,7 @@ def plot_3_est_weights(csv,dir,mixed=True):
                     format_string = dict_method[method] + appendix_string
                     plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
                     plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
-            plt.hlines(0.05, 0, 0.5)
+            plt.hlines(0.05, 0, subset_2['beta_xy'].max())
             plt.legend(prop={'size': 10})
             plt.xlabel(r'$\beta_{XY}$')
             plt.ylabel('Power')
@@ -190,7 +216,7 @@ def plot_3_est_weights(csv,dir,mixed=True):
     doc.generate_tex()
 
 def break_plot(dir,mixed=True):
-    df = pd.read_csv('do_null_mixed_est_new_break.csv', index_col=0)
+    df = pd.read_csv('old_csvs/do_null_mixed_est_new_break.csv', index_col=0)
     if not os.path.exists(dir):
         os.makedirs(dir)
     methods = ['NCE_Q','real_TRE_Q']
@@ -233,69 +259,6 @@ def break_plot(dir,mixed=True):
 
 
 
-path_111213 = 'base_random_ablation.csv'
-nce_est = 'random_uniform'
-def plot_11_ablation():
-    all_path = 'do_null_100/'
-    small_path = 'base_random_ablation_layers=3_width=32'
-    df = pd.read_csv(path_111213,index_col=0)
-    df = df[df['beta_xy']==0.0]
-    subset = df.loc[df.groupby(["n","d_Z"])["KS pval"].idxmax()].sort_values(['n','d_Z'])
-    data_paths=[]
-    suffix_paths=[]
-    z_líst = []
-    for index,row in subset.iterrows():
-        dz = row['d_Z']
-        suffix_paths.append(build_suffix(q_fac=row['$c_q$'],required_n=row['n'],estimator=row['nce_style'],br=500))
-        data_paths.append(build_path(dx=dim_theta_phi[dz]['d_x'],
-                                     dy=dim_theta_phi[dz]['d_y'],
-                                     dz=dz,
-                                     theta=dim_theta_phi[dz]['theta'],
-                                     phi=dim_theta_phi[dz]['phi'],
-                                     bxz=0.5,
-                                     list_xy=[0,0.0],
-                                     yz=[0.5,0.0])
-                          )
-        z_líst.append(dz)
-    DIRNAME = 'plot_11_ablation'
-    if os.path.exists(DIRNAME):
-        shutil.rmtree(DIRNAME)
-        os.makedirs(DIRNAME)
-    else:
-        os.makedirs(DIRNAME)
-    plot_paths = []
-    for i in range(len(data_paths)):
-        full_file = f'{all_path}{data_paths[i]}{small_path}/pvalhsit_{suffix_paths[i]}.jpg'
-        shutil.copy(full_file,DIRNAME+f'/pvalhsit_{suffix_paths[i]}_{z_líst[i]}.jpg')
-        plot_paths.append(DIRNAME+f'/pvalhsit_{suffix_paths[i]}_{z_líst[i]}.jpg')
-
-    doc = Document(default_filepath=DIRNAME)
-    with doc.create(Figure(position='H')) as plot:
-        with doc.create(subfigure(position='t', width=NoEscape(r'\linewidth'))):
-            for i,n in enumerate([1,3,15,50]):
-                if i==0:
-                    with doc.create(subfigure(position='H', width=NoEscape(r'0.04\linewidth'))):
-                        # string_append = r'\raisebox{0cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{}}}' + '%'
-                        string_append = '\hfill'
-                        doc.append(string_append)
-                with doc.create(subfigure(position='H', width=NoEscape(r'0.24\linewidth'))):
-                    name = f'$d_Z={n}$'
-                    doc.append(Command('centering'))
-                    doc.append(r'\rotatebox{0}{\scalebox{0.75}{%s}}'%name)
-        counter=0
-        for idx,(i, j, p) in enumerate(zip(subset['d_Z'].tolist(), subset['n'].tolist(), plot_paths)):
-            if idx%4==0:
-                name = f'$n={j}$'
-
-                string_append=r'\raisebox{1.5cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{%s}}}'%name +'%\n'
-            string_append+=r'\includegraphics[width=0.24\linewidth]{%s}'%p + '%\n'
-            counter+=1
-            if counter==4:
-                with doc.create(subfigure(position='H', width=NoEscape(r'\linewidth'))):
-                    doc.append(string_append)
-                counter=0
-    doc.generate_tex()
-
 
 def plot_14_hsic(ref_file,file,savedir):
 
@@ -329,18 +292,29 @@ def plot_14_hsic(ref_file,file,savedir):
     plt.clf()
 
 def plot_15_cond(ref_file,file,savedir):
+    def calc_power(vec, level=.05):
+        n = vec.shape[0]
+        pow = np.sum(vec <= level) / n
+        return pow
 
     if not os.path.exists(savedir):
         os.makedirs(savedir)
 
     df_1 = pd.read_csv(ref_file,index_col=0)
-    df_1_sub = df_1[df_1['beta_xy']==0.0].sort_values(['n'])
-
+    df_1_sub = df_1.sort_values(['n'])
+    size = []
+    for i in range(3):
+        s = calc_power(df_1_sub.iloc[i,:].values)
+        size.append(s)
+    df_1_sub['p_a=0.05'] = size
+    df_1_sub =df_1_sub.reset_index()
     df_2 = pd.read_csv(file, index_col=0)
     df_2_sub = df_2[df_2['beta_xy'] == 0.0].sort_values(['n'])
 
+
+
     a, b, e = calc_error_bars(df_1_sub['p_a=0.05'], alpha=0.05, num_samples=100)
-    plt.plot('n', 'p_a=0.05', data=df_1_sub, linestyle='--', marker='o', label=f'Linear regression')
+    plt.plot('n', 'p_a=0.05', data=df_1_sub, linestyle='--', marker='o', label=f'Partial Copula')
     plt.fill_between(df_1_sub['n'], a, b, alpha=0.1)
 
     a, b, e = calc_error_bars(df_2_sub['p_a=0.05'], alpha=0.05, num_samples=100)
@@ -381,19 +355,22 @@ def plot_power_ablation(path,dir):
                     pad_inches=0.05)
     plt.clf()
 
-
-
-
-
-
 if __name__ == '__main__':
     pass
+    # plot_2_true_weights('kc_rule_real_weights_2.csv','plot_2_real')
+    # plot_2_true_weights('do_null_mixed_real_new_2.csv','plot_3_real',True)
+    # plot_3_est_weights('do_null_mixed_est_new_2.csv','mixed_est',True)
+    # plot_15_cond('quantile_jmlr_break_ref.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
 
-    plot_2_true_weights('kc_rule_real_weights.csv','plot_2_real')
-    plot_2_true_weights('do_null_mixed_real_new.csv','plot_3_real',True)
-    plot_2_est_weights('kc_rule.csv','plot_4')
-    plot_3_est_weights('do_null_mixed_est_new.csv','mixed_est')
-    break_plot('break_hsic')
-    plot_14_hsic('ind_jobs_hsic_2.csv','hsic_break_real.csv','plot_14')
-    plot_15_cond('cond_jobs_regression.csv','cond_jobs_kc_real_rule.csv','plot_15')
-    plot_power_ablation('ablation_mixed_2.csv','ablation_plot')
+    plot_2_est_weights_test('kc_rule_3_test_3d.csv','plot_uniform_test_3d')
+    # plot_2_true_weights('kc_rule_real_weights_3_test_2.csv','plot_real_test_2')
+
+
+    # plot_2_true_weights('kc_rule_real_weights.csv','plot_2_real')
+    # plot_2_true_weights('do_null_mixed_real_new.csv','plot_3_real',True)
+    # plot_2_est_weights('kc_rule.csv','plot_4')
+    # plot_3_est_weights('do_null_mixed_est_new.csv','mixed_est')
+    # break_plot('break_kchsic')
+    # plot_14_hsic('ind_jobs_hsic_2.csv','hsic_break_real.csv','plot_14')
+    # plot_15_cond('quantile_jmlr_break_ref.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
+    # plot_power_ablation('ablation_mixed_2.csv','ablation_plot')

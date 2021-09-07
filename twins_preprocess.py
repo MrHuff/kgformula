@@ -63,9 +63,9 @@ Z = Z.dropna()
 rows_to_keep = Z.index.tolist()
 
 X = X.iloc[rows_to_keep,:]
-T = X['dbirwt_1']-X['dbirwt_0']
+X['diff'] = X['dbirwt_1']-X['dbirwt_0']
 Y = Y.iloc[rows_to_keep,:]
-Y = Y['mort_1']-Y['mort_0']
+Y = Y['mort_0']-Y['mort_1']
 
 
 if __name__ == '__main__':
@@ -84,10 +84,10 @@ if __name__ == '__main__':
         col_stats = cat_cols.iloc[:,i].unique().tolist()
         col_stats_list.append(col_stats)
         col_counts.append(len(col_stats))
-    torch.save((torch.from_numpy(T.values).float().unsqueeze(-1), torch.from_numpy(Y.values).float().unsqueeze(-1), torch.from_numpy(Z.values).float(),{'indicator':col_index_list,'index_lists':col_stats_list}), 'twins.pt')
+    torch.save((torch.from_numpy(X.values).float(), torch.from_numpy(Y.values).float().unsqueeze(-1), torch.from_numpy(Z.values).float(),{'indicator':col_index_list,'index_lists':col_stats_list}), 'twins.pt')
     print(cat_cols)
     print(Z.values[:,col_index_list])
-    T.to_csv("twins_T.csv",index = False)
+    X.to_csv("twins_T.csv",index = False)
     cat_cols.to_csv("twins_z_cat.csv",index = False)
     cont_cols = Z.iloc[:,~np.array(col_index_list)]
     cont_cols.to_csv("twins_z_cont.csv",index = False)

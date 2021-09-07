@@ -79,14 +79,21 @@ def load_obj(name,folder):
 N=100
 BXY_const = 0
 yz=[0.5,0.0]
-b_z = [0.5]
+b_z = [0.1,0.25,0.75,1.0]
 dirname ='do_null_100'
-PHI=[2.0,2.0,2.0,2.0]
-THETA=[2.0,4.0,8.0,16.0]
-BXY_list = [0.0,0.05,0.1,0.15,0.2]
-DX= [1,3,3,3]
-DY =  [1,3,3,3]
-DZ = [1,3,15,50]
+PHI=[2.0]
+# THETA=[2.0,4.0,8.0,16.0]
+THETA=[4.0]
+# PHI=[2.0]
+# THETA=[2.0]
+# BXY_list = [0.0,0.05,0.1,0.15,0.2]
+BXY_list = [0.0,0.01,0.02,0.03,0.04,0.05]
+# DX= [1,3,3,3]
+# DY =  [1,3,3,3]
+# DZ = [1,3,15,50]
+DX= [3]
+DY =  [3]
+DZ = [3]
 Q_LIST=[1.0]
 BR = [500]
 MAX_ITS=10
@@ -115,9 +122,10 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
     counter = 0
     # els = list(product(*[DX, DY, DZ, THETA,PHI]))
     # for d_X, d_Y, d_Z, theta, phi in els:
+    # for d_X, d_Y, d_Z, theta, phi,beta_XZ in zip(DX,DY,DZ,THETA,PHI,b_z):
     for d_X, d_Y, d_Z, theta, phi in zip(DX,DY,DZ,THETA,PHI):
-        for n in n_list:
-            for beta_XZ in b_z:
+        for beta_XZ in b_z:
+            for n in n_list:
                 for q in Q_LIST:
                     for by in BXY_list: #Robin suggest: [0.0, 0.1,0.25,0.5]
                         ba = BXY_const
@@ -126,7 +134,8 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                         val_rate = 0.2
                         h_str =data_dir
                         if estimate:
-                            models_to_run = zip(['real_TRE_Q','NCE_Q','random_uniform','rulsif'],[1,10,1,1])
+                            # models_to_run = zip(['real_TRE_Q','NCE_Q','random_uniform','rulsif'],[1,10,1,1])
+                            models_to_run = zip(['random_uniform','NCE_Q'],[1,10])
                             # models_to_run = zip(['rulsif'],[1,1])
                         else:
                             models_to_run = zip(['real_weights'],[1])
@@ -162,7 +171,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
                                                                'criteria_limit': 0.05,
                                                                'kill_counter': 2,
                                                                 'kappa':kappa,
-                                                               'separate':True,
+                                                               'separate':False,
                                                                'm': 4
                                                                },
                                                 'estimator': model, #ones, 'NCE'
@@ -258,11 +267,11 @@ def generate_job_binary(n_list,net_width,net_layers,runs=1,seed_max=1000,estimat
         shutil.rmtree(directory)
         os.makedirs(directory)
     counter = 0
-    for d in [1,3,50]:
+    for d in [1]:
         for n in n_list:
             for alp in [0.0,2*1e-2,4*1e-2,6*1e-2,8*1e-2,1e-1]:
             # for alp in [4 * 1e-2]:
-                for null_case in [True,False]:
+                for null_case in [False]:
                     for sep in [True]:
                         data_dir = f'do_null_univariate_alp={alp}_null={null_case}_d={d}'
                         val_rate = 0.2
@@ -337,9 +346,10 @@ def generate_job_mixed(data_source,n_list,net_width,net_layers,runs=1,seed_max=1
     # d_Z=[50]
     # bz_list=[0.0,0.05,0.1,0.15,0.20,0.25]
     # els = list(product(*[d_X, d_Y, d_Z, theta_vec,phi_vec,bz_list]))
-    for d_X, d_Y, d_Z, theta, phi,beta_XZ in zip([2, 4, 6, 8], [2, 4, 6, 8], [2, 3, 15, 50], [2.0, 4.0, 16.0, 16.0],[2.0, 2.0, 2.0, 2.0],[0.5,0.5,0.5,0.15]):
+    for d_X, d_Y, d_Z, theta, phi,beta_XZ in zip([2, 6, 8], [2,  6, 8], [2,  15, 50], [2.0, 16.0, 16.0],[2.0,  2.0, 2.0],[0.5,0.5,0.5]):
     # for d_X, d_Y, d_Z, theta, phi,beta_XZ in els:
-        for beta_xy in [[0, 0.0], [0, 0.05], [0, 0.1], [0, 0.15], [0, 0.2]]:
+    #     for beta_xy in [[0, 0.0], [0, 0.05], [0, 0.1], [0, 0.15], [0, 0.2]]:
+        for beta_xy in [[0, 0.0], [0, 0.01], [0, 0.02], [0, 0.03], [0, 0.04],[0,0.05]]:
             for n in n_list:
                 for mode in ['Q']:
                     for width in net_width:
@@ -347,7 +357,7 @@ def generate_job_mixed(data_source,n_list,net_width,net_layers,runs=1,seed_max=1
                             for model,kappa in zip(models,kappas):#zip(['real_TRE_Q'],[1]):# zip(['TRE_Q','NCE_Q','NCE'],[1,10,10]):
                                 for sep in sep_list:
                                     for br in BR:# zip([h_0_str_mult_2_big,h_1_str_mult_2_big],[seed_max,seed_max]):
-                                        data_dir = f"{data_source}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz=[0.5, 0.0]_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
+                                        data_dir = f"{data_source}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n=10000_yz=[0.5, 0.5]_beta_XZ={beta_XZ}_theta={theta}_phi={phi}"
                                         val_rate = 0.2
                                         job_dir = f'{directory}_layers={layers}_width={width}_sep={sep}'
 
@@ -397,16 +407,16 @@ if __name__ == '__main__':
 
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='ablation_mixed_2',job_type='kc_rule_new',dirname=dirname)
 
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule_2',job_type='kc_rule_new',dirname=dirname)
-    generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='kc_rule_real_weights_2',job_type='kc_rule_new',dirname=dirname)
+    generate_job_params(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule_3_test_3d',job_type='kc_rule_new',dirname=dirname)
+    # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=False,directory='kc_rule_real_weights_3_test_2',job_type='kc_rule_new',dirname=dirname)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule',job_type='kc_rule_new',dirname=dirname)
 
 
 
     # generate_job_binary(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_binary_all_dims_real',job_type='kc_rule_new',dirname='')
     # generate_job_binary(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_binary_all_dims_est',job_type='kc_rule_new',dirname='')
-    generate_job_mixed(data_source='do_null_mix_new_100',n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_mixed_est_new_2',job_type='kc_rule_new')
-    generate_job_mixed(data_source='do_null_mix_new_100',n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_mixed_real_new_2',job_type='kc_rule_new')
+    # generate_job_mixed(data_source='do_null_mix_new_100',n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='do_null_mixed_est_new_3',job_type='kc_rule_new')
+    # generate_job_mixed(data_source='do_null_mix_new_100',n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=False,directory='do_null_mixed_real_new_3',job_type='kc_rule_new')
 
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory='break_kchsic_jobs_kc_est_debug',job_type='kc_rule_new',dirname=dirname)
     # generate_job_params_HSIC(n_list=[1000,5000,10000],seed_max=N,directory='ind_jobs_hsic_2',dirname=dirname)

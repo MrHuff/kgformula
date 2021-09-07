@@ -66,13 +66,9 @@ def rnormCopula(N,cov):
         m = cov[0].shape[0]
         mean = torch.zeros(*(N,m))
         noise = torch.randn_like(mean).unsqueeze(1)
-        if torch.cuda.is_available():
-            mean = torch.zeros(*(N, m)).cuda()
-            noise = noise.cuda()
-            cov=cov.cuda()
         L = torch.cholesky(cov,upper=True)
         samples = torch.bmm(noise, L).squeeze() + mean
-        samples = samples.cpu().numpy()
+        samples = samples.numpy()
     # for i in range(samples.shape[1]):
     #     plt.hist(norm.cdf(samples[:,i]),40)
     #     plt.savefig(f'copula_sanity_{i}.png')
@@ -106,7 +102,7 @@ def sim_multivariate_UV(dat, mv_type, par, total_d,ref_dim):
     N = dat.shape[0]
     pars = torch.cat([torch.ones(*(dat.shape[0],1)),dat],dim=1)@par# (N*(x_d+1)@ ((x_d+1)*ref_dim) )  Make depedency on X to copula between Y. Should be N x triangular size.
     pars = pars.unsqueeze(-1).repeat(1,int(ref_dim))
-    cors = torch.clip(2*torch.sigmoid(pars)-1,-0.99,0.99)
+    cors = torch.clip(2*torch.sigmoid(pars)-1,0,0.9)
     s = torch.eye(total_d)
     if mv_type==1:
         sigma = s

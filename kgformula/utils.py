@@ -554,12 +554,12 @@ class simulation_object_rule(simulation_object):
 
     def get_q_fac(self,X_org,Z_org):
         if X_org.shape[1]==1 and Z_org.shape[1]==1:
-            # X = standardize_variance(X_org)
-            # Z = standardize_variance(Z_org)
-            # cor = one_dim_corr(X,Z)
+            X = standardize_variance(X_org)
+            Z = standardize_variance(Z_org)
+            cor = one_dim_corr(X,Z)
             # cor_output= kendalltau(X_org.cpu().squeeze(),Z_org.cpu().squeeze())
-            (cor,_)= spearmanr(X_org.cpu().squeeze(),Z_org.cpu().squeeze())
-            return torch.sqrt( torch.clip((1-2*cor),1e-6)) #Analytical choice doesn't fucking work for exponential data... OK sigh, the normal business might not be doing a good job
+            # (cor,_)= spearmanr(X_org.cpu().squeeze(),Z_org.cpu().squeeze())
+            return torch.sqrt( torch.clip((1-2*cor.float()),1e-6)) #Analytical choice doesn't fucking work for exponential data... OK sigh, the normal business might not be doing a good job
         else:
             n = X_org.shape[0]
             X = standardize_variance(X_org)

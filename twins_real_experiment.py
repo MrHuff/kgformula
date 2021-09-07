@@ -1,3 +1,5 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]="5"
 import pandas as pd
 import torch
 from kgformula.utils import simulation_object_rule_new
@@ -8,7 +10,7 @@ X,Y,Z,ind_dict = torch.load('twins.pt')
 
 
 n = X.shape[0]
-for m in [1000,2500,5000]:
+for m in [1000,5000,10000]:
     for est in ['NCE_Q','real_TRE_Q']:
         for sep in [True]:
             args = {'qdist':2,
@@ -49,7 +51,7 @@ for m in [1000,2500,5000]:
                     print (e)
                 pval_list.append(pval)
             pvals = torch.tensor(pval_list)
-            torch.save({'pvals':pvals,'config':args},f'twins_pvals_{est}_{sep}_{m}.pt')
+            torch.save({'pvals':pvals,'config':args},f'twins_pvals_{est}_{sep}_{m}_2.pt')
 
 
 

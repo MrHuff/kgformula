@@ -31,8 +31,8 @@ def generate_simple_null(alp,new_dirname,seed,d,n,null_case):
 if __name__ == '__main__':
     n=10000
     seeds=100
-    for d in [1,3,50]:
-        for null_case in [True,False]:
+    for d in [1]:
+        for null_case in [False]:
             for alp in [0.0,2*1e-2,4*1e-2,6*1e-2,8*1e-2,1e-1]:
                 new_dirname = f'do_null_univariate_alp={alp}_null={null_case}_d={d}'
                 if not os.path.exists(new_dirname):

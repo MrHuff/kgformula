@@ -1,4 +1,7 @@
 library(GeneralisedCovarianceMeasure)
+library(CondIndTests)
+source('parCopCITest.R')
+
 setwd("~/Documents/phd_projects/kgformula")
 
 Ns = list(1000,5000,10000)
@@ -17,12 +20,32 @@ for (n in Ns){
     x = head(x, n)
     y =  head(y, n)
     z = head(z, n)
-    output = gcm.test(x,y,z)
-    vec[i+1]=output$p.value
+    
+    output <- test_CI(X=x, Y=y, Z=z,
+                      quantile_reg = 'B-Spline',
+                      bspline_df = 3, 
+                      poly_deg = 3,
+                      q = c(5), 
+                      tau_min = 0.01,
+                      tau_max = 0.99, 
+                      delta = 0.01)
+    vec[i+1]=output$p_value
+    
+    #output = gcm.test(x,y,z)
+    #vec[i+1]=output$p.value
+    
+    # output = CondIndTest(X, Y, Z, method = "ResidualPredictionTest")
+    # vec[i+1]=output$pvalue
+    
+    # output = CondIndTest(X, Y, Z, method = "KCI")
+    # vec[i+1]=output$pvalue
+    
   }
   df[j,] = c(n,vec)
   j=j+1
 }
-write.csv(df,"~/Documents/phd_projects/kgformula/gcm_break_ref.csv", row.names = FALSE)
+
+
+write.csv(df,"~/Documents/phd_projects/kgformula/quantile_jmlr_break_ref.csv", row.names = FALSE)
 
 

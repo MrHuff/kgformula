@@ -15,7 +15,7 @@ Z_cat <-as.matrix(read.csv(file = "twins_z_cat.csv",header = TRUE))
 
 for (i in 0:99){
   set.seed(i)
-  mask = sample(c(1:nrow(T)), size=2500, replace =F)
+  mask = sample(c(1:nrow(T)), size=1000, replace =F)
   
   x = T[mask]
   y = Y[mask] 
