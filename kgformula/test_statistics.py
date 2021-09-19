@@ -247,7 +247,7 @@ class density_estimator():
                     self.cat_marker, self.cat_list = get_binary_mask(cat_data)
                 else:
                     tmp_3, tmp_4 = torch.tensor(cat_cols_z['indicator']), cat_cols_z['index_lists']
-                    self.cat_marker = self.cat_x_marker + tmp_3
+                    self.cat_marker = torch.cat([self.cat_x_marker,tmp_3],dim=0)
                     self.cat_list = tmp_2+tmp_4
 
 
