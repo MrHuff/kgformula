@@ -22,7 +22,7 @@ if __name__ == '__main__':
     input = {
         'idx':0,#bugbug
         'ngpu':48,
-        'job_folder': 'do_null_mixed_real_new_2'
+        'job_folder': 'do_null_binary_all_1d'
     }
     listjob = os.listdir(input['job_folder'])
     # for i in range(len(listjob)):

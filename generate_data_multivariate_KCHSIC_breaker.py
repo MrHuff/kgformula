@@ -21,7 +21,7 @@ def generate_sensible_variables_old(d_Z,b_Z,const=0):
         variables[bucket_size:2*bucket_size]=[a/10. for i in range(bucket_size,2*bucket_size)]
     return [const] + variables
 if __name__ == '__main__':
-    seeds = 1
+    seeds = 10
     jobs=[]
     yz = [0.5, 0.0]  # Counter example
     xy_const = 0.0  # GCM breaker
@@ -50,8 +50,8 @@ if __name__ == '__main__':
                     for i in range(seeds):
                         # if not os.path.exists(f'./{data_dir}/data_seed={i}.pt'):
                         jobs.append([data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fam_x,fam_z,fam_y,sanity,None])
-    # import multiprocessing as mp
-    # pool = mp.Pool(mp.cpu_count())
-    # pool.map(gen_job_wrapper, [row for row in jobs])
-    for el in jobs:
-        gen_job_wrapper(el)
+    import multiprocessing as mp
+    pool = mp.Pool(mp.cpu_count())
+    pool.map(gen_job_wrapper, [row for row in jobs])
+    # for el in jobs:
+    #     gen_job_wrapper(el)

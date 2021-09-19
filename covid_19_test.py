@@ -96,18 +96,27 @@ def transform(df):
     if _cat:
         cat_data = cat_fix(df[_cat])
         df = df.drop(columns=_cat)
-        df = pd.concat([df,cat_data],axis=1)
-    return normalize(df)
+        if df.shape[1]>0:
+            df = normalize(df)
+        df = pd.concat([df, cat_data], axis=1)
+    else:
+        if df.shape[1]>0:
+            df = normalize(df)
+    return df
 
 def save_torch(X_pd,Y_pd,Z_pd,dir,filename):
     X = torch.from_numpy(X_pd.values).float()
     Y = torch.from_numpy(Y_pd.values).repeat(1, X.shape[1]).float()
     Z = torch.from_numpy(Z_pd.values).float()
-    w = torch.zeros(1).float()
     print(X.shape)
     print(Y.shape)
     print(Z.shape)
-
+    col_stats_list=[]
+    for i in range(3):
+        col_stats = Z_pd.iloc[:,i].unique().tolist()
+        col_stats_list.append(col_stats)
+    w={ 'indicator':[True]*3+14*[False],'index_lists':col_stats_list
+}
     if not os.path.exists(dir):
         os.makedirs(dir)
     torch.save((X,Y,Z,w),dir+filename)
@@ -140,29 +149,30 @@ if __name__ == '__main__':
        'Restrictions on internal movement',
          'International travel controls']
     z = [
-        'Population of Compulsory School Age',
          'Testing policy',
          'Contact tracing',
          'Masks',
+        'International support',
+        'Fiscal measures',
         'extreme_poverty',
         'physicians (per 1000)',
         'Mortality rate, adult, female (per 1,000 female adults)',
         'Mortality rate, adult, male (per 1,000 male adults)',
+        'Population of Compulsory School Age',
         'hospital_beds (per 1000)',
         'nurses (per 1000)',
         'median_age_y',
         'Population Density',
         'aged_65_older',
-        'International support',
         'gdp_per_capita',
-        'Fiscal measures',
         'new_tests_per_thousand'
          ]
 
     X_pd = df[x]
     Y_pd = df[y]
     Z_pd = df[z]
-    X_pd = transform(X_pd)
-    Y_pd = transform(Y_pd)
-    Z_pd = transform(Z_pd)
+    print(Z_pd)
+    # X_pd = transform(X_pd)
+    # Y_pd = transform(Y_pd)
+    # Z_pd = transform(Z_pd)
     save_torch(X_pd,Y_pd,Z_pd,'./covid_19_1/','data_seed=0.pt')

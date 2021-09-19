@@ -6,7 +6,7 @@ from post_process import *
 from scipy.stats import kstest
 from create_plots import *
 
-dict_method = {'NCE_Q': 'NCE-Q', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF'}
+dict_method = {'NCE_Q': 'Classifier', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF','real_weights': 'Real weights'}
 
 
 def plot_power(raw_df,dir,name,ests):
@@ -123,9 +123,7 @@ def post_process_jobs(bench_res_dir,job_dir,filt):
     plot_power(subset,bench_res_dir,'power_plot_sep',subset['estimator'].unique().tolist())
 
 
-
 if __name__ == '__main__':
-    # post_process_jobs('1d_cat_pow_kchsic_real','do_null_binary_all_1d_real','do_null_binary_all_1d_real_layers=2_width=32_True')
     post_process_jobs('1d_cat_pow_kchsic','do_null_binary_all_1d','do_null_binary_all_1d_layers=1_width=32_True')
 
 

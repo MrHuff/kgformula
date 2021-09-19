@@ -89,6 +89,7 @@ def get_hist(ref_vals,name,pre_path,suffix,args,snr,ess,bxy,ks_val):
 
 def return_filenames(args):
     estimate =  args['estimate']
+    # job_dir =  'kc_rule_3_test_3d'#args['job_dir']
     job_dir =  args['job_dir']
     data_dir =  args['data_dir']
     seeds_a =  args['seeds_a']
@@ -191,6 +192,7 @@ def calculate_one_row(j,base_dir):
             sep = job_params['est_params']['separate']
         except Exception as e:
             sep = False
+            print('no sep')
         row = [job_params['n'], bxz, job_params['q_factor'], job_params['qdist'], job_params['est_params']['n_sample'],
                job_params['estimator'], d_Z, bxy, snr_xz,sep]
         try:
@@ -219,20 +221,6 @@ def calculate_one_row(j,base_dir):
             power = get_power(alpha, pval_dist)
             results_size.append(power)
         row = row + results_size
-        try:
-            validity_pval = torch.load(validity_pval_filename).numpy()
-            get_hist(validity_pval, name='validity_pvals_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
-                     ess=eff_est, bxy=bxy, ks_val=pval)
-            validity_val = torch.load(validity_val_filename).numpy()
-            get_hist(validity_val, name='validity_val_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
-                 ess=eff_est, bxy=bxy, ks_val=pval)
-            actual_validity_pvals = torch.load(actual_validity_fname).numpy().squeeze()
-            get_hist(actual_validity_pvals, name='actual_validity_pval_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
-                 ess=eff_est, bxy=bxy, ks_val=pval)
-
-        except Exception as e:
-            print(e)
-            print('dont have validity step')
 
         print('success')
         return row
@@ -292,17 +280,4 @@ def generate_csv_contrast(base_dir):
     print(df.to_latex(escape=True))
 
 if __name__ == '__main__':
-    # generate_csv_contrast('ind_jobs_hsic_2')
-    # generate_csv_file_parfor('hsic_break_real')
-    # generate_csv_file_parfor('break_kchsic_jobs_kc_est_3')
-    generate_csv_file_parfor('kc_rule_3_test_3d')
-    # generate_csv_file_parfor('kc_rule_3_test_2')
-    # generate_csv_file_parfor('do_null_mixed_real_new_2')
-    # generate_csv_file_parfor('do_null_mixed_est_new_2')
-    # generate_csv_file_parfor('kc_rule_real_weights_2')
-    # generate_csv_file_parfor('do_null_mixed_est_new')
-    # generate_csv_file_parfor('ablation_mixed_2')
-    # generate_csv_file_parfor('cond_jobs_kc_real_rule')
-    # generate_csv_file_parfor('break_kchsic_jobs_kc_real')
-    # generate_csv_file_parfor('do_null_mixed_real_new')
-    # generate_csv_file_parfor('break_kchsic_jobs_kc_est')
+    generate_csv_file_parfor('do_null_mix_sanity_3_est')

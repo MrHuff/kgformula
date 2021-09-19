@@ -166,7 +166,7 @@ def generate_sensible_variables(d_Z,b_Z,const=0):
         if d_Z<15:
             variables[0]= a
         else:
-            for i in range(3):
+            for i in range(d_Z):
                 variables[i]= a
 
     return [const] + variables
@@ -193,13 +193,13 @@ if __name__ == '__main__':
     # for d_X,d_Y,d_Z, theta,phi in zip( [1,3,3,3],[1,3,3,3],[1,3,15,50],[2.0,4.0,8.0,16.0],[2.0,2.0,2.0,2.0]): #50,3
     # for d_X,d_Y,d_Z, theta,phi in zip( [3,3,3],[3,3,3],[3,15,50],[4.0,8.0,16.0],[2.0,2.0,2.0]): #50,3
     # for d_X,d_Y,d_Z, theta,phi in zip( [3],[3],[3],[4.0],[2.0]): #50,3
-    for d_X,d_Y,d_Z, theta,phi in zip( [3],[3],[50],[16.0],[2.0]): #50,3
-    #     for b_z in [0.75,1.0,1.5,2.0,5.0]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
-        for b_z in [0.05,0.1,0.25,0.75,1.0]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
+    for d_X,d_Y,d_Z, theta,phi in zip( [3,3],[3,3],[15,50],[8.0,16.0],[2.0,2.0]): #50,3
+    # for d_X,d_Y,d_Z, theta,phi in zip( [3,3,3],[3,3,3],[3,15,50],[4.0,8.0,16.0],[2.0,2.0,2.0]): #50,3
+        for b_z in [0.0,0.25]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z= (d_Z**2)*b_z
             beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
             for n in [10000]:
-                for beta_xy in [[0,0.0],[0,0.04],[0,0.08],[0,0.12],[0,0.16],[0,0.2]]:
+                for beta_xy in [[0,0.0],[0,0.001],[0,0.002],[0,0.003],[0,0.004],[0,0.005]]:
                 # for beta_xy in [[0,0.0],[0,0.01],[0,0.02],[0,0.03],[0,0.04],[0,0.05]]:
                     data_dir = f"{folder_name}_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z / (d_Z ** 2), 3)}_theta={theta}_phi={round(phi, 2)}"
                     if not os.path.exists(f'./{data_dir}/'):

@@ -20,3 +20,4 @@ g_env/*
 *.pkl
 *.Rhistory
 *ReadmeTwins*
+*.tex

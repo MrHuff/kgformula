@@ -175,10 +175,12 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z=1,fam
     if beta_xz.dim()<2:
         beta_xz = beta_xz.unsqueeze(-1)
     _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence (n x (1+d)) matmul (1+d x 1)
-    #Do GLM? Poisson Link function...
-    # Look at X[:,0] - _x_mu[:,0]. Run KS test on that quantity for distribution with correct variance.
-    # repeat for each "column". i.e. X[:,i] - _x_mu[:,i].
-    # Think each of X and something to regress on Z. Think of the target distribtion. on what you expect post rejection sampling.
+
+    bool_not_nan = ~_x_mu.isnan().squeeze()
+    X = X[bool_not_nan, :]
+    Y = Y[bool_not_nan, :]
+    Z = Z[bool_not_nan, :]
+    _x_mu = _x_mu[bool_not_nan, :]
 
     if fam_x[1] == 4:
         mu = expit(_x_mu)
@@ -351,7 +353,7 @@ def sim_mixed_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z
     if beta_xz.dim()<2:
         beta_xz = beta_xz.unsqueeze(-1)
     _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence (n x (1+d)) matmul (1+d x 1)
-    scale = 0.1 if d_Z<50 else 0.05
+    scale = 0.01
     _p = torch.sigmoid(_x_mu*scale) #XZ dependence (n x (1+d)) matmul (1+d x 1)
     #Do GLM? Poisson Link function...
     # Look at X[:,0] - _x_mu[:,0]. Run KS test on that quantity for distribution with correct variance.

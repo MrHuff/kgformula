@@ -64,34 +64,62 @@ class simulation_object_rule_dummy():
         return torch.tensor(mask_ls)
 
     def run(self,data_dir):
+        est_params= {'lr': 1e-4,  # use really small LR for TRE. Ok what the fuck is going on...
+                       'max_its': 10,
+                       'width': 3,
+                       'layers': 32,
+                       'mixed': False,
+                       'bs_ratio': 1e-2,
+                       'val_rate': 0.1,
+                       'n_sample': 250,
+                       'criteria_limit': 0.05,
+                       'kill_counter': 2,
+                       'kappa': 10,
+                       'm': 4,
+                       'separate': True
+                       }
         q_fac_list = []
         required_n=10000
         self.qdist=2
-        X, Y, Z, _w = torch.load(f'{data_dir}/data_seed=0.pt')
-        X, Y, Z, _w = X.cuda(self.device), Y.cuda(self.device), Z.cuda(self.device), _w.cuda(self.device)
-        X, Y, Z, _w = X[:required_n, :], Y[:required_n, :], Z[:required_n, :], _w[:required_n]
-        n_half = X.shape[0] // 2
-        X_train, X_test = split(X, n_half)
-        Z_train, Z_test = split(Z, n_half)
-        binary_mask_X = self.get_binary_mask(X)
+        n=1
+        ess=[]
+        for i in range(n):
+            X, Y, Z, _w = torch.load(f'{data_dir}/data_seed={i}.pt')
+            X, Y, Z, _w = X.cuda(self.device), Y.cuda(self.device), Z.cuda(self.device), _w.cuda(self.device)
+            X, Y, Z, _w = X[:required_n, :], Y[:required_n, :], Z[:required_n, :], _w[:required_n]
+            n_half = X.shape[0] // 2
+            X_train, X_test = split(X, n_half)
+            Z_train, Z_test = split(Z, n_half)
+            binary_mask_X = self.get_binary_mask(X)
 
-        binary_mask_Z = self.get_binary_mask(Z)
-        X_cont = X[:, ~binary_mask_X]
-        X_bin = X[:, binary_mask_X]
-        concat_q = []
-        if X_bin.numel()>0:
-            Xq_class_bin = x_q_class_bin(X=X_bin)
-            X_q_bin = Xq_class_bin.sample(n=X_bin.shape[0])
-            X_q_bin = X_q_bin.to(self.device)
-            concat_q.append(X_q_bin)
-        if X_cont.numel()>0:
-            q_fac = self.get_q_fac(X_train[:, ~binary_mask_X], Z_train[:, ~binary_mask_Z])
-            # q_fac = 1.0
-            print('q_fac: \n ',q_fac)
-            q_fac_list.append(q_fac)
-            Xq_class_cont = x_q_class_cont(qdist=self.qdist, q_fac=q_fac, X=X_cont)
-            w_q = Xq_class_cont.calc_w_q(_w)
-            print(calc_ess(w_q))
+            binary_mask_Z = self.get_binary_mask(Z)
+            X_cont = X[:, ~binary_mask_X]
+            X_bin = X[:, binary_mask_X]
+            concat_q = []
+            if X_bin.numel()>0:
+                Xq_class_bin = x_q_class_bin(X=X_bin)
+                X_q_bin = Xq_class_bin.sample(n=X_bin.shape[0])
+                X_q_bin = X_q_bin.to(self.device)
+                concat_q.append(X_q_bin)
+            if X_cont.numel()>0:
+                q_fac = self.get_q_fac(X_train[:, ~binary_mask_X], Z_train[:, ~binary_mask_Z])
+                # q_fac = 1.0
+                print('q_fac: \n ',q_fac)
+                q_fac_list.append(q_fac)
+                Xq_class_cont = x_q_class_cont(qdist=self.qdist, q_fac=q_fac, X=X_cont)
+                X_q_cont = Xq_class_cont.sample(n=X_cont.shape[0])
+                X_q_cont = X_q_cont.to(self.device)
+                concat_q.append(X_q_cont)
+            X_q = torch.cat(concat_q,dim=1)
+            X_q = X_q.to(self.device)
+            X_q_train, X_q_test = split(X_q, n_half)
+            X = torch.cat([X_bin, X_cont], dim=1)
+            X_train, X_test = split(X, n_half)
+            d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=True,
+                                  est_params=est_params, type='NCE_Q', device='cuda:0',
+                                  secret_indx=99999, x_full=X, z_full=Z)
+            w = d.return_weights(X_test, Z_test, X_q_test)
+            print(calc_ess(w))
 if __name__ == '__main__':
     c = simulation_object_rule_dummy()
     for bxz in [0.0,0.05,0.1,0.15,0.2,0.25]:

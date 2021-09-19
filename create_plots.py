@@ -1,13 +1,12 @@
 import pandas as pd
 
-from post_processing_utils.plot_builder import *
 from post_processing_utils.latex_plots import *
 from pylatex import Document, Section, Figure, SubFigure, NoEscape,Command
 from pylatex.base_classes import Environment
 from pylatex.package import Package
 import itertools
 
-dict_method = {'NCE_Q': 'NCE-Q', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF'}
+dict_method = {'NCE_Q': 'NCE-Q', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF','real_weights':'Real'}
 
 font_size = 24
 plt.rcParams['font.size'] = font_size
@@ -52,7 +51,10 @@ dim_theta_phi_gcm = {
 }
 
 def plot_2_true_weights(csv,dir,mixed=False):
-    df = pd.read_csv(csv, index_col=0)
+    if isinstance(csv, str):
+        df = pd.read_csv(csv, index_col=0)
+    else:
+        df = csv
     if not os.path.exists(dir):
         os.makedirs(dir)
 
@@ -85,7 +87,11 @@ def plot_2_true_weights(csv,dir,mixed=False):
     doc.generate_tex()
 
 def plot_2_est_weights_test(csv,dir,mixed=False):
-    df = pd.read_csv(csv, index_col=0)
+
+    if isinstance(csv,str):
+        df = pd.read_csv(csv, index_col=0)
+    else:
+        df = csv
     if not os.path.exists(dir):
         os.makedirs(dir)
 
@@ -112,7 +118,11 @@ def plot_2_est_weights_test(csv,dir,mixed=False):
                 plt.clf()
 
 def plot_2_est_weights(csv,dir,mixed=False):
-    df = pd.read_csv(csv, index_col=0)
+    if isinstance(csv,str):
+        df = pd.read_csv(csv, index_col=0)
+    else:
+        df = csv
+
     if not os.path.exists(dir):
         os.makedirs(dir)
 
@@ -163,22 +173,32 @@ def plot_2_est_weights(csv,dir,mixed=False):
     doc.generate_tex()
 
 def plot_3_est_weights(csv,dir,mixed=True):
-    df = pd.read_csv(csv, index_col=0)
+    if isinstance(csv, str):
+        df = pd.read_csv(csv, index_col=0)
+    else:
+        df = csv
     if not os.path.exists(dir):
         os.makedirs(dir)
 
-    d_list = [1,3,15,50] if not mixed else [2,3,15,50]
+    d_list = [1,3,15,50] if not mixed else [2,15,50]
     methods = df['nce_style'].unique().tolist()
     for d in d_list:
         subset = df[df['d_Z']==d].sort_values(['beta_xy'])
         for n in [1000, 5000, 10000]:
             subset_2 = subset[subset['n'] == n]
             for method in methods:
-                for sep in [True,False]:
+                if method in ['real_weights','random_uniform']:
+                    sep_list=[False]
+                else:
+                    sep_list=[True,False]
+                for sep in sep_list:
                     subset_3 = subset_2[ (subset_2['nce_style']==method) & (subset_2['sep']==sep) ]
                     a,b,e = calc_error_bars(subset_3['p_a=0.05'],alpha=0.05,num_samples=100)
                     appendix_string  = ' prod' if sep else ' mix'
-                    format_string = dict_method[method] + appendix_string
+                    if method not in ['real_weights','random_uniform']:
+                        format_string = dict_method[method] + appendix_string
+                    else:
+                        format_string = dict_method[method]
                     plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
                     plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
             plt.hlines(0.05, 0, subset_2['beta_xy'].max())
@@ -191,25 +211,25 @@ def plot_3_est_weights(csv,dir,mixed=True):
     doc = Document(default_filepath=dir)
     with doc.create(Figure(position='H')) as plot:
         with doc.create(subfigure(position='t', width=NoEscape(r'\linewidth'))):
-            for i, n in enumerate([1, 3, 15, 50]):
+            for i, n in enumerate(d_list):
                 if i == 0:
                     with doc.create(subfigure(position='H', width=NoEscape(r'0.04\linewidth'))):
                         # string_append = r'\raisebox{0cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{}}}' + '%'
                         string_append = '\hfill'
                         doc.append(string_append)
-                with doc.create(subfigure(position='H', width=NoEscape(r'0.24\linewidth'))):
+                with doc.create(subfigure(position='H', width=NoEscape(r'0.32\linewidth'))):
                     name = f'$d_Z={n}$'
                     doc.append(Command('centering'))
                     doc.append(r'\rotatebox{0}{\scalebox{0.75}{%s}}' % name)
         counter = 0
-        for idx, (i, j) in enumerate(itertools.product([1000, 5000, 10000], [1, 3, 15, 50])):
-            if idx % 4 == 0:
+        for idx, (i, j) in enumerate(itertools.product([1000, 5000, 10000], d_list)):
+            if idx % len(d_list) == 0:
                 name = f'$n={i}$'
                 string_append = r'\raisebox{1.5cm}{\rotatebox[origin=c]{90}{\scalebox{0.75}{%s}}}' % name + '%\n'
             p = f'{dir}/figure_{j}_{i}.png'
-            string_append += r'\includegraphics[width=0.24\linewidth]{%s}' % p + '%\n'
+            string_append += r'\includegraphics[width=0.32\linewidth]{%s}' % p + '%\n'
             counter += 1
-            if counter == 4:
+            if counter == len(d_list):
                 with doc.create(subfigure(position='H', width=NoEscape(r'\linewidth'))):
                     doc.append(string_append)
                 counter = 0
@@ -359,17 +379,37 @@ if __name__ == '__main__':
     pass
     # plot_2_true_weights('kc_rule_real_weights_2.csv','plot_2_real')
     # plot_2_true_weights('do_null_mixed_real_new_2.csv','plot_3_real',True)
-    # plot_3_est_weights('do_null_mixed_est_new_2.csv','mixed_est',True)
+    # plot_3_est_weights('do_null_mixed_est_3d_2.csv','mixed_est_3d_2',True)
     # plot_15_cond('quantile_jmlr_break_ref.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
 
-    plot_2_est_weights_test('kc_rule_3_test_3d.csv','plot_uniform_test_3d')
+    """
+    Cont business
+    """
+    # df_1 = pd.read_csv('kc_rule_3_test_3d.csv',index_col=0)
+    # df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv',index_col=0)
+    # df_3 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
+    # # df_4 = pd.read_csv('kc_rule_real_weights_3_test.csv',index_col=0)
+    # # df_4 = df_4[df_4['$/beta_{xz}$']==0.75]
+    # # df = pd.concat([df_1,df_2,df_3,df_4],axis=0)
+    # df = pd.concat([df_1,df_2,df_3],axis=0)
+    #
+    # df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+    #
+    # plot_2_est_weights(df,'cont_plots_est')
+    # df = df[df['nce_style']=='real_weights']
+    # plot_2_true_weights(df,'real_cont_plots')
+    
+
+
+    # plot_2_est_weights_test('kc_rule_3_test_3d_2.csv','plot_uniform_test_3d_2')
     # plot_2_true_weights('kc_rule_real_weights_3_test_2.csv','plot_real_test_2')
 
 
     # plot_2_true_weights('kc_rule_real_weights.csv','plot_2_real')
     # plot_2_true_weights('do_null_mixed_real_new.csv','plot_3_real',True)
     # plot_2_est_weights('kc_rule.csv','plot_4')
-    # plot_3_est_weights('do_null_mixed_est_new.csv','mixed_est')
+    # plot_3_est_weights('do_null_mixed_est_3d.csv','mixed_est')
+    plot_3_est_weights('do_null_mix_sanity_3_est.csv','mixed_sanity_3_est',mixed=True)
     # break_plot('break_kchsic')
     # plot_14_hsic('ind_jobs_hsic_2.csv','hsic_break_real.csv','plot_14')
     # plot_15_cond('quantile_jmlr_break_ref.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')

@@ -586,7 +586,7 @@ class simulation_object_rule(simulation_object):
             its=250
             #hmm keep it within 0 and 1?
             for i in range(its):
-                c_q = 0.2+1.3*(i)/its
+                c_q = 0.0+1.5*(i)/its
                 T_inv = torch.diag(1. / (torch.diag(I_p) * c_q))
                 T  =I_p*c_q
                 loss =(1/torch.det(T)) * (1/torch.det(2 * T_inv - subtract_term)**0.5)
@@ -613,7 +613,7 @@ class simulation_object_rule_new(simulation_object_rule):
         for i in range(dim):
             x = X[:,i]
             un_el = x.unique()
-            mask_ls[i] = un_el.numel()==2
+            mask_ls[i] = un_el.numel()<10
         return torch.tensor(mask_ls)
 
     def run(self):
@@ -676,7 +676,7 @@ class simulation_object_rule_new(simulation_object_rule):
                 X = torch.cat([X_bin,X_cont],dim=1)
                 X_train, X_test = split(X, n_half)
 
-                if estimate:
+                if estimate and (estimator!='real_weights'):
                     d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
                                           est_params=est_params, type=estimator, device=self.device,
                                           secret_indx=self.args['unique_job_idx'],x_full=X,z_full=Z)
@@ -711,7 +711,7 @@ class simulation_object_rule_new(simulation_object_rule):
                 print(f'seed {i} pval={p}')
                 p_value_list.append(p)
                 reference_metric_list.append(reference_metric)
-                if estimate:
+                if estimate and (estimator != 'real_weights'):
                     del d, X, Y, Z, _w, w, X_q
                 else:
                     del X, Y, Z, _w, w, X_q
@@ -780,6 +780,7 @@ class simulation_object_rule_new(simulation_object_rule):
                               secret_indx=self.args['unique_job_idx'],x_full=X,z_full=Z,cat_cols_z=cat_cols_z)
         w = d.return_weights(X_test, Z_test, X_q_test)
         p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0)
+        print(p,reference_metric)
         return p, reference_metric
 
 
