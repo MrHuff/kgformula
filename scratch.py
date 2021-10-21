@@ -110,6 +110,9 @@ class simulation_object_rule_dummy():
                 X_q_cont = Xq_class_cont.sample(n=X_cont.shape[0])
                 X_q_cont = X_q_cont.to(self.device)
                 concat_q.append(X_q_cont)
+                weights = Xq_class_cont.calc_w_q(_w)
+                # print(calc_ess(weights))
+
             X_q = torch.cat(concat_q,dim=1)
             X_q = X_q.to(self.device)
             X_q_train, X_q_test = split(X_q, n_half)
@@ -119,8 +122,8 @@ class simulation_object_rule_dummy():
                                   est_params=est_params, type='NCE_Q', device='cuda:0',
                                   secret_indx=99999, x_full=X, z_full=Z)
             w = d.return_weights(X_test, Z_test, X_q_test)
-            print(calc_ess(w))
+            print('ESS: ',calc_ess(w))
 if __name__ == '__main__':
     c = simulation_object_rule_dummy()
     for bxz in [0.0,0.05,0.1,0.15,0.2,0.25]:
-        c.run(f'kchsic_breaker/beta_xy=[0.0, 0.0]_d_X=8_d_Y=8_d_Z=50_n=10000_yz=[0.5, 0.0]_beta_XZ={bxz}_theta=16.0_phi=2.0')
+        c.run(f'kchsic_breaker_100/beta_xy=[0, 0.0]_d_X=3_d_Y=3_d_Z=50_n=10000_yz=[0.5, 0.0]_beta_XZ={bxz}_theta=16.0_phi=2.0')

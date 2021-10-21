@@ -10,7 +10,7 @@ Z = torch.from_numpy(df[['age','education','black','hispanic','married','nodegre
 n = X.shape[0]
 m = 100
 
-for est in ['NCE_Q']:
+for est in ['TRE_Q','real_TRE_Q']:
     for sep in [True]:
         args = {'qdist':2,
                 'bootstrap_runs':250,
@@ -32,7 +32,8 @@ for est in ['NCE_Q']:
                 'cuda': True,
                 'device': 'cuda:0',
                 'n':100,
-                'unique_job_idx':0
+                'unique_job_idx':9998,
+                'variant': 1
                 }
         pval_list = []
         for i in range(100):
@@ -50,7 +51,7 @@ for est in ['NCE_Q']:
             #     print (e)
             pval_list.append(pval)
         pvals = torch.tensor(pval_list)
-        torch.save({'pvals':pvals,'config':args},f'lalonde_pvals_{est}_{sep}.pt')
+        torch.save({'pvals':pvals,'config':args},f'lalonde_pvals_{est}_{sep}_rbf.pt')
 
 
 

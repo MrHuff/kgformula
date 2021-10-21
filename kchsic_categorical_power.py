@@ -14,15 +14,16 @@ def plot_power(raw_df,dir,name,ests):
         for n in [1000, 5000, 10000]:
             df = raw_df[raw_df['n'] == n]
             # for alp in [0.00, 0.02, 0.04, 0.06, 0.08, 0.10]:
-            for est in ests:
+            for col_index,est in enumerate(ests):
                 subset_3 = df[df['estimator'] == est].sort_values(['alp'])
                 label_name = dict_method[est] if est!='HDM' else 'HDM'
                 a,b,e = calc_error_bars(subset_3['alp=0.05'],alpha=0.05,num_samples=100)
                 # plt.plot('alp','alp=0.05',data=subset_3,linestyle='--', marker='o',label=r'$n'+f'={n}$')
-                plt.plot('alp','alp=0.05',data=subset_3,linestyle='--', marker='o',label=f'{label_name}')
-                plt.fill_between(subset_3['alp'], a, b, alpha=0.1)
+                # plt.plot('alp','alp=0.05',data=subset_3,linestyle='--', marker='o',label=f'{label_name}',c = plt.cm.rainbow(col_index/8.))
+                plt.plot('alp','alp=0.05',data=subset_3,linestyle='-',label=f'{label_name}',c = plt.cm.rainbow(col_index/8.))
+                plt.fill_between(subset_3['alp'], a, b, alpha=0.1,color=plt.cm.rainbow(col_index/8.))
             plt.hlines(0.05, 0, 0.1)
-            plt.legend(prop={'size': 10})
+            # plt.legend(prop={'size': 10})
             plt.xticks([0.00, 0.02, 0.04, 0.06, 0.08, 0.10])
             plt.xlabel(r'$\beta_{XY}$')
             plt.ylabel(r'Power $\alpha=0.05$')
@@ -125,6 +126,7 @@ def post_process_jobs(bench_res_dir,job_dir,filt):
 
 if __name__ == '__main__':
     post_process_jobs('1d_cat_pow_kchsic','do_null_binary_all_1d','do_null_binary_all_1d_layers=1_width=32_True')
+    post_process_jobs('1d_cat_pow_kchsic_linear','do_null_binary_linear_kernel','do_null_binary_linear_kernel_layers=1_width=32_True')
 
 
 

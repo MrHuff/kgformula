@@ -6,8 +6,6 @@ os.environ["CUDA_VISIBLE_DEVICES"]="5"
 def run_jobs(args):
     if args['job_type']=='kc':
         j = simulation_object(args)
-    elif args['job_type']=='kc_rule':
-        j = simulation_object_rule(args)
     elif args['job_type']=='hsic':
         j = simulation_object_hsic(args)
     elif args['job_type']=='kc_rule_new':
@@ -22,7 +20,7 @@ if __name__ == '__main__':
     input = {
         'idx':0,#bugbug
         'ngpu':48,
-        'job_folder': 'do_null_binary_all_1d'
+        'job_folder': 'kc_rule_1d_linear_0.5_3'
     }
     listjob = os.listdir(input['job_folder'])
     # for i in range(len(listjob)):

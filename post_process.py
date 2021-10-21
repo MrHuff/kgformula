@@ -4,17 +4,19 @@ from kgformula.utils import x_q_class_cont
 import ast
 from generate_data_multivariate import generate_sensible_variables,calc_snr
 from scipy.stats import kstest
-from pylab import *
+# from pylab import *
 import os
 import pickle
-from pylatex import Document, Section, Figure, SubFigure, NoEscape,Command
-from pylatex.base_classes import Environment
-from pylatex.package import Package
+import numpy as np
+from matplotlib import pyplot as plt
+# from pylatex import Document, Section, Figure, SubFigure, NoEscape,Command
+# from pylatex.base_classes import Environment
+# from pylatex.package import Package
 
-font_size = 14
-plt.rcParams['font.size'] = font_size
-plt.rcParams['legend.fontsize'] = font_size
-plt.rcParams['axes.labelsize'] = font_size
+# font_size = 14
+# plt.rcParams['font.size'] = font_size
+# plt.rcParams['legend.fontsize'] = font_size
+# plt.rcParams['axes.labelsize'] = font_size
 
 def load_obj(name,folder):
     with open(f'{folder}' + name, 'rb') as f:
@@ -280,4 +282,19 @@ def generate_csv_contrast(base_dir):
     print(df.to_latex(escape=True))
 
 if __name__ == '__main__':
-    generate_csv_file_parfor('do_null_mix_sanity_3_est')
+    # generate_csv_file_parfor('hdm_breaker_fam_y=4_job_50')
+    generate_csv_file_parfor('ablation_3d')
+    # generate_csv_file_parfor('hdm_breaker_fam_y=1_job_50')
+    # generate_csv_file_parfor('hdm_breaker_fam_y=4_job')
+    # generate_csv_file_parfor('hdm_breaker_fam_y=1_job')
+    # generate_csv_file_parfor('kc_rule_1d_linear_2')
+    # generate_csv_file_parfor('do_null_mix_real_test_0.05')
+    # generate_csv_file_parfor('kc_rule_1d_linear_0.1')
+    # generate_csv_file_parfor('kc_rule_1d_linear_0.25')
+    # generate_csv_file_parfor('kc_rule_1d_linear_0.05')
+    # generate_csv_file_parfor('kc_rule_1d_linear')
+    # generate_csv_file_parfor('do_null_binary_linear_kernel')
+
+    # generate_csv_file_parfor('kc_hsic_breaker')
+    # generate_csv_file_parfor('do_null_mix_sanity_4_est')
+    # generate_csv_file_parfor('kchsic_breaker_fam_y=2_job')

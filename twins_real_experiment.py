@@ -10,7 +10,7 @@ X,Y,Z,ind_dict = torch.load('twins.pt')
 
 
 n = X.shape[0]
-for m in [1000,5000,10000]:
+for m in [2500]:
     for est in ['NCE_Q','real_TRE_Q']:
         for sep in [True]:
             args = {'qdist':2,
@@ -33,7 +33,8 @@ for m in [1000,5000,10000]:
                     'cuda': True,
                     'device': 'cuda:0',
                     'n':10000,
-                    'unique_job_idx':0
+                    'unique_job_idx':9999,
+                    'variant': 2
                     }
             pval_list = []
             for i in range(100):
@@ -51,7 +52,7 @@ for m in [1000,5000,10000]:
                     print (e)
                 pval_list.append(pval)
             pvals = torch.tensor(pval_list)
-            torch.save({'pvals':pvals,'config':args},f'twins_pvals_{est}_{sep}_{m}_2.pt')
+            torch.save({'pvals':pvals,'config':args},f'twins_pvals_{est}_{sep}_{m}_2_linear.pt')
 
 
 

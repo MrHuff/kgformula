@@ -11,14 +11,20 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import sklearn
+from matplotlib import rc
+rc('text', usetex=True)
+mpl.rcParams['font.size'] = 40
+
 mpl.use('Agg')
 
 def sanity_check_marginal_z(Z,fam_z,data_dir):
     if fam_z==3:
         q = Exponential(rate=1)  # Bug in code you are not sampling exponentials!!!!!
+        range = torch.from_numpy(np.linspace(0, 5, 100)) + 1e-6
+
     elif fam_z==1:
         q = Normal(loc=0, scale=1)  # This is still OK
-    range = torch.from_numpy(np.linspace(0, 5, 100))
+        range = torch.from_numpy(np.linspace(0, 5, 100))
     cdf_z = q.cdf(Z)
     pdf = torch.exp(q.log_prob(range))
     plt.hist(Z.numpy(), bins=50,density=True)
@@ -59,8 +65,15 @@ def conditional_dependence_plot_1d(X,Y,Z,data_dir):
     mask = test==50
     x_subset = X[mask]
     y_subset = Y[mask]
-    plt.scatter(x_subset.numpy(),y_subset.numpy())
-    plt.savefig(f'./{data_dir}/conditional_plot.png')
+    # plt.scatter(x_subset.numpy(),y_subset.numpy())
+    sns.scatterplot(x=x_subset,y=y_subset)
+    plt.xticks([], [])
+    plt.yticks([], [])
+    plt.xlabel(r'$X$')
+    plt.ylabel(r'$Y$')
+    plt.savefig(f'./{data_dir}/conditional_plot.png',bbox_inches = 'tight',
+    pad_inches = 0.05)
+    plt.clf()
 
 def pairs_plot(X,Y,Z,data_dir):
     data = torch.cat([X,Y,Z],dim=1).numpy()
@@ -70,7 +83,7 @@ def pairs_plot(X,Y,Z,data_dir):
     plt.clf()
 
 def gen_data_and_sanity(data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fam_x,fam_z,fam_y,sanity):
-    try:
+    # try:
 
         X, Y, Z, inv_w = simulate_xyz_multivariate(n, oversamp=10, d_Z=d_Z, beta_xz=beta_xz,
                                                    beta_xy=beta_xy, seed=i, yz=yz, d_X=d_X, d_Y=d_Y,
@@ -114,29 +127,29 @@ def gen_data_and_sanity(data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fa
                     plt.savefig(f'./{data_dir}/test_vs_dist.png')
                     plt.clf()
 
-                p_val = hsic_test(X[0:1000, :], Z[0:1000, :], 250)
-                X_class = x_q_class_cont(qdist=2, q_fac=1.0, X=X)
-                w = X_class.calc_w_q(inv_w)
-                sanity_pval = hsic_sanity_check_w(w[0:1000], X[0:1000, :], Z[0:1000, :], 250)
-                print(f'HSIC X Z: {p_val}')
-                print(f'sanity_check_w : {sanity_pval}')
-                plt.hist(w, bins=250)
-                plt.savefig(f'./{data_dir}/w.png')
-                plt.clf()
-                plt.hist(inv_w, bins=250)
-                plt.savefig(f'./{data_dir}/inv_w.png')
-                plt.clf()
-                ess_list = []
-                for q in [1.0, 0.75, 0.5]:
-                    X_class = x_q_class_cont(qdist=2, q_fac=q, X=X)
-                    w = X_class.calc_w_q(inv_w)
-                    ess = calc_ess(w)
-                    ess_list.append(ess.item())
-                max_ess = max(ess_list)
-                print('max_ess: ', max_ess)
+                # p_val = hsic_test(X[0:1000, :], Z[0:1000, :], 250)
+                # X_class = x_q_class_cont(qdist=2, q_fac=1.0, X=X)
+                # w = X_class.calc_w_q(inv_w)
+                # sanity_pval = hsic_sanity_check_w(w[0:1000], X[0:1000, :], Z[0:1000, :], 250)
+                # print(f'HSIC X Z: {p_val}')
+                # print(f'sanity_check_w : {sanity_pval}')
+                # plt.hist(w, bins=250)
+                # plt.savefig(f'./{data_dir}/w.png')
+                # plt.clf()
+                # plt.hist(inv_w, bins=250)
+                # plt.savefig(f'./{data_dir}/inv_w.png')
+                # plt.clf()
+                # ess_list = []
+                # for q in [1.0, 0.75, 0.5]:
+                #     X_class = x_q_class_cont(qdist=2, q_fac=q, X=X)
+                #     w = X_class.calc_w_q(inv_w)
+                #     ess = calc_ess(w)
+                #     ess_list.append(ess.item())
+                # max_ess = max(ess_list)
+                # print('max_ess: ', max_ess)
         torch.save((X, Y, Z, inv_w), f'./{data_dir}/data_seed={i}.pt')
-    except Exception as e:
-        print(e)
+    # except Exception as e:
+    #     print(e)
 
 def generate_data_simple(args):
     def decorator(data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fam_x,fam_z,fam_y,sanity,null):
@@ -181,7 +194,7 @@ def calc_snr(beta_xz,theta):
     return snr
 
 if __name__ == '__main__':
-    seeds = 100
+    seeds = 1
     jobs=[]
     yz = [0.5, 0.0]  # Counter example
     xy_const = 0.0  # GCM breaker
@@ -189,25 +202,28 @@ if __name__ == '__main__':
     fam_y = 1
     fam_x = [1, 1]
     folder_name = f'do_null'
-    sanity = False
+    sanity = True
     # for d_X,d_Y,d_Z, theta,phi in zip( [1,3,3,3],[1,3,3,3],[1,3,15,50],[2.0,4.0,8.0,16.0],[2.0,2.0,2.0,2.0]): #50,3
     # for d_X,d_Y,d_Z, theta,phi in zip( [3,3,3],[3,3,3],[3,15,50],[4.0,8.0,16.0],[2.0,2.0,2.0]): #50,3
     # for d_X,d_Y,d_Z, theta,phi in zip( [3],[3],[3],[4.0],[2.0]): #50,3
-    for d_X,d_Y,d_Z, theta,phi in zip( [3,3],[3,3],[15,50],[8.0,16.0],[2.0,2.0]): #50,3
+    for d_X,d_Y,d_Z, theta,phi in zip( [1],[1],[1],[2.0],[2.0]): #50,3
+    # for d_X,d_Y,d_Z, theta,phi in zip( [3,3],[3,3],[15,50],[8.0,16.0],[2.0,2.0]): #50,3
     # for d_X,d_Y,d_Z, theta,phi in zip( [3,3,3],[3,3,3],[3,15,50],[4.0,8.0,16.0],[2.0,2.0,2.0]): #50,3
-        for b_z in [0.0,0.25]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
+    #     for b_z in [0.0,0.05,0.1,0.25,0.5,0.75,1,1.5]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
+        for b_z in [0.75]: #,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z= (d_Z**2)*b_z
             beta_xz = generate_sensible_variables(d_Z,b_z,const=0)#What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
             for n in [10000]:
-                for beta_xy in [[0,0.0],[0,0.001],[0,0.002],[0,0.003],[0,0.004],[0,0.005]]:
+                # for beta_xy in [[0,0.0],[0,0.001],[0,0.002],[0,0.003],[0,0.004],[0,0.005]]:
                 # for beta_xy in [[0,0.0],[0,0.01],[0,0.02],[0,0.03],[0,0.04],[0,0.05]]:
+                for beta_xy in [[0,0.0],[0,0.5]]:
                     data_dir = f"{folder_name}_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z / (d_Z ** 2), 3)}_theta={theta}_phi={round(phi, 2)}"
                     if not os.path.exists(f'./{data_dir}/'):
                         os.makedirs(f'./{data_dir}/')
                     for i in range(seeds):
                         jobs.append([data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fam_x,fam_z,fam_y,sanity])
-    import torch.multiprocessing as mp
-    pool = mp.Pool(mp.cpu_count())
-    pool.map(multiprocess_wrapper, [row for row in jobs])
-    # for el in jobs:
-    #     multiprocess_wrapper(el)
+    # import torch.multiprocessing as mp
+    # pool = mp.Pool(mp.cpu_count())
+    # pool.map(multiprocess_wrapper, [row for row in jobs])
+    for el in jobs:
+        multiprocess_wrapper(el)

@@ -5,6 +5,8 @@ import numpy as np
 import warnings
 import math
 import matplotlib.pyplot as plt
+PI = np.pi
+
 def nCr(n,r):
     f = math.factorial
     return f(n) // f(r) // f(n-r)
@@ -160,6 +162,143 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z=1,fam
             p = Exponential(rate=torch.exp( (a + X @ b)))  #Incorrect expectation? Consider square matrix valued b.
         else:
             p = Exponential(rate=torch.exp( (a + X * b)))  # Consider square matrix valued b.
+    Y = p.icdf(Y) # Change this to exponential...
+
+    if fam_z == 1:
+        q = Normal(loc=0, scale=1) #This is still OK
+        Z = q.icdf(Z)
+    elif fam_z == 3:
+        q = Exponential(rate=1) #Bug in code you are not sampling exponentials!!!!!
+        Z = q.icdf(Z)
+    else:
+        raise Exception("fam_z must be 1, 2 or 3")
+
+    beta_xz = torch.tensor(beta_xz).float()
+    if beta_xz.dim()<2:
+        beta_xz = beta_xz.unsqueeze(-1)
+    _x_mu = torch.cat([torch.ones(*(X.shape[0],1)),Z],dim=1) @ beta_xz #XZ dependence (n x (1+d)) matmul (1+d x 1)
+
+    bool_not_nan = ~_x_mu.isnan().squeeze()
+    X = X[bool_not_nan, :]
+    Y = Y[bool_not_nan, :]
+    Z = Z[bool_not_nan, :]
+    _x_mu = _x_mu[bool_not_nan, :]
+
+    if fam_x[1] == 4:
+        mu = expit(_x_mu)
+        d = Beta(concentration1=theta * mu, concentration0=theta * (1 - mu))
+    elif fam_x[1] == 1: #Signal to noise ratio
+        mu = _x_mu
+        d = Normal(loc=mu, scale=theta) #ks -test uses this target distribution. KS-test on  0 centered d with scale phi...
+        #might wanna consider d_X d's for more beta_XZ's
+    elif fam_x[1] == 3:  # Change
+        #concentration = alpha = k controls shape/mean
+        #rate = beta = 1/theta controls variance
+        mu = torch.exp(_x_mu) #Poisson link func? theta=phi
+        #marginal of X Gamma(shape=1.0*theta, rate=1/e)
+        # print(theta)
+        #
+        # print(1/mu)
+        d = Gamma(concentration=theta,rate=1./mu ) #Scale everything with 1/mu so that it looks like iid samples from some gamma distribution. Then KS-test on 1/theta
+    else:
+        raise Exception("fam_x must be 1, 3 or 4")
+    wts = torch.zeros(*(X.shape[0],1))
+    #To make Rejectoin sampling work, principal eigenvalue of target distribution i.e. d. Should be less than theta.
+    p_z  = torch.zeros(*(X.shape[0],1))
+    for i in range(d_X):
+        _x = X[:,i].unsqueeze(-1)
+
+        # d_samp = d.sample((1,1))
+        # plt.hist(X[:,i].squeeze().numpy(),50,color='blue',alpha=0.5)
+        # plt.hist(d_samp.squeeze().numpy(),50,color='red',alpha=0.5)
+        # plt.savefig(f'density_sanity_check_{i}.png')
+        # plt.clf()
+
+        p_cond_z = d.log_prob(_x)
+        p_z += p_cond_z
+        _prob = p_cond_z- qden(_x)
+        wts = wts + _prob
+    wts = wts.exp()
+    p_z = p_z.exp()
+    if fam_x[0] == 1 and fam_x[1] == 1:
+        max_ratio_points = mu  * phi / ( phi - 1.)
+        normalization = (d_X*d.log_prob(max_ratio_points) - d_X*qden(max_ratio_points)).exp()
+    elif fam_x[0] == 3 and fam_x[1] == 3:
+        # max_ratio_points =(theta*phi-theta)/(1./torch.exp(torch.tensor(1.))-1./mu)
+        # normalization = (d_X*d.log_prob(max_ratio_points) - d_X*qden(max_ratio_points)).exp()
+        normalization = wts.max()
+    else:
+        print("Warning: No analytical solution exist for maximum density ratio using default sample max")
+        normalization = wts.max()
+    if torch.isnan(wts).all():
+        raise Exception("Problem with weights")
+    wts_tmp = wts / normalization
+    keep_index = (torch.rand_like(wts) < wts_tmp).squeeze()
+    inv_wts = 1. / p_z #Variance of the weights seems to blow up when n is large, this also causes problems for the estimator...
+    X,Y,Z,inv_wts = X[keep_index,:],Y[keep_index,:],Z[keep_index,:], inv_wts[keep_index]
+
+    # plt.scatter(X.numpy(),Z.numpy())
+    # plt.savefig("debug_gamma.png")
+    # plt.clf()
+    return X,Y,Z,inv_wts
+
+def U_func(fam_y,X,a,b):
+    if fam_y == 1:  # U-shape
+        if torch.is_tensor(b):
+            p = Normal(loc=a + (X ** 2) @ b, scale=1)  # Consider square matrix valued b.
+        else:
+            p = Normal(loc=a + (X ** 2) * b, scale=1)  # Consider square matrix valued b.
+    if fam_y == 2:  # V-shape
+        if torch.is_tensor(b):
+            p = Normal(loc=a + torch.abs(X) @ b, scale=1)  # Consider square matrix valued b.
+        else:
+            p = Normal(loc=a + torch.abs(X) * b, scale=1)  # Consider square matrix valued b.
+    if fam_y == 3:  # V-shape
+        if torch.is_tensor(b):
+            p = Normal(loc=a + X @ b, scale=1)  # Consider square matrix valued b.
+        else:
+            p = Normal(loc=a + X * b, scale=1)  # Consider square matrix valued b.
+    if fam_y == 4:  # Sin shape
+        trans_x = torch.exp(-(X ** 2) / 10) * torch.cos(X * PI)
+        if torch.is_tensor(b):
+            var = 1.0 if b[0]==0 else b[0]/5
+            p = Normal(loc=a + trans_x @ b, scale=var)  # Consider square matrix valued b.
+        else:
+            var = 1.0 if b==0 else b/5
+            p = Normal(loc=a + trans_x * b, scale=var)  # Consider square matrix valued b.
+
+    return p
+
+def sim_multivariate_XYZ_U_shape(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z=1,fam_x=[1,1],phi=1,theta=1,d_Y=1,d_X=1,fam_y=1):
+    # torch.manual_seed(seed)
+    # np.random.seed(seed)
+    if oversamp < 1:
+        warnings.warn("Oversampling rate must be at least 1... changing")
+        oversamp = 1
+    N = round(oversamp*n)
+    if len(yz)==((d_X+d_Z+d_Y)**2-(d_X+d_Z+d_Y))/2:
+        dat = sim_UVW(N,d_X+d_Z+d_Y,yz)
+        x_tmp = sim_inv_cdf_X(X=dat[:,0:d_X],dist=fam_x[0],theta=theta,phi=phi)
+        X = x_tmp['data']
+        qden = x_tmp['density']
+    else:
+        cor = torch.tensor([yz[0]] + [yz[1]] * d_X)
+        if yz[1]==0.0: #no dependency on x in cupola
+            mv_type=1
+            ref_dim = 1
+        else:
+            mv_type=2
+            ref_dim = ((d_Z+d_Y)**2-(d_Z+d_Y))/2
+        tmp = sim_X(n=N,dist=fam_x[0],theta=theta,d_X=d_X,phi=phi) #nxd_X
+        dat = tmp['data']
+        qden = tmp['density']
+        dat = sim_multivariate_UV(dat,mv_type,cor,d_Z+d_Y,ref_dim)
+        X = dat[:, 0:d_X]
+    Y = dat[:, d_X:(d_X + d_Y), ]
+    Z = dat[:, (d_X + d_Y):(d_X + d_Y + d_Z)]
+    a = beta_xy[0]
+    b = beta_xy[1]  # Controls X y dependence
+    p = U_func(fam_y,X,a,b)
     Y = p.icdf(Y) # Change this to exponential...
 
     if fam_z == 1:
@@ -466,6 +605,57 @@ def simulate_xyz_multivariate(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=
 
     return X[0:n,:],Y[0:n,:],Z[0:n,:],w[0:n].squeeze()
 
+def simulate_xyz_multivariate_U_shape(n, oversamp,d_Z,beta_xy,beta_xz,yz,seed,d_Y=1,d_X=1,phi=2,theta=2,fam_x=[1,1],fam_z=1,fam_y=1):
+    """
+    beta_xz has dim (d_Z+1) list
+    beta_xy has dim 2 list
+    """
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    X,Y,Z,w = sim_multivariate_XYZ_U_shape(oversamp=oversamp,
+                                   d_Z=d_Z,
+                                   n=n,
+                                   beta_xy=beta_xy,
+                                   beta_xz=beta_xz,
+                                   yz=yz,
+                                   fam_z=fam_z,
+                                   fam_x=fam_x,
+                                   phi=phi,
+                                   theta=theta,
+                                   d_X=d_X,
+                                   d_Y=d_Y,
+                                   fam_y=fam_y,
+                                   )
+    while X.shape[0]<n:
+        print(f'Undersampled: {X.shape[0]}')
+        oversamp = oversamp*1.01
+        X_new,Y_new,Z_new, w_new= sim_multivariate_XYZ_U_shape(oversamp=oversamp,
+                                                       d_Z=d_Z,
+                                                       n=n,
+                                                       beta_xy=beta_xy,
+                                                       beta_xz=beta_xz,
+                                                       yz=yz,
+                                                       fam_z=fam_z,
+                                                       fam_x=fam_x,
+                                                       phi=phi,
+                                                       theta=theta,
+                                                       d_X=d_X,
+                                                       d_Y=d_Y,
+                                                       fam_y=fam_y,
+                                                       )
+        X = torch.cat([X,X_new],dim=0)
+        Y = torch.cat([Y,Y_new],dim=0)
+        Z = torch.cat([Z,Z_new],dim=0)
+        w = torch.cat([w,w_new],dim=0)
 
+    print(f'Ok: {X.shape[0]}')
 
+    if X.dim()<2:
+        X=X.unsqueeze(-1)
+    if Y.dim()<2:
+        Y=Y.unsqueeze(-1)
+    if Z.dim()<2:
+        Z=Z.unsqueeze(-1)
+
+    return X[0:n,:],Y[0:n,:],Z[0:n,:],w[0:n].squeeze()
 

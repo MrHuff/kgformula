@@ -6,7 +6,9 @@ from pylatex.base_classes import Environment
 from pylatex.package import Package
 import itertools
 
-dict_method = {'NCE_Q': 'NCE-Q', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF','real_weights':'Real'}
+dict_method = {'NCE_Q': 'NCE-Q', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF','real_weights':'True weights','hdm':'HDM',
+               'NCE_Q_linear':'NCE-Q, linear','random_uniform_linear': 'random uniform linear','rulsif_linear':'RuLSIF linear',
+               'real_TRE_Q_linear': 'TRE-Q linear','real_weights_linear': 'True weights linear'}
 
 font_size = 24
 plt.rcParams['font.size'] = font_size
@@ -132,14 +134,18 @@ def plot_2_est_weights(csv,dir,mixed=False):
         subset = df[df['d_Z']==d].sort_values(['beta_xy'])
         for n in [1000, 5000, 10000]:
             subset_2 = subset[subset['n'] == n]
-            for method in methods:
+            for col_index,method in enumerate(methods):
                 subset_3 = subset_2[subset_2['nce_style']==method]
                 a,b,e = calc_error_bars(subset_3['p_a=0.05'],alpha=0.05,num_samples=100)
                 format_string = dict_method[method]
-                plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
-                plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
+                # plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
+                print(format_string)
+                plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='-',label=rf'{format_string}',c = plt.cm.rainbow(col_index/8.))
+
+                # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
+                plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1,color=plt.cm.rainbow(col_index/8.))
             plt.hlines(0.05, 0, subset_2['beta_xy'].max())
-            plt.legend(prop={'size': 10})
+            # plt.legend(prop={'size': 10})
             plt.xlabel(r'$\beta_{XY}$')
             plt.ylabel('Power')
             plt.savefig(f'{dir}/figure_{d}_{n}.png',bbox_inches = 'tight',
@@ -186,7 +192,8 @@ def plot_3_est_weights(csv,dir,mixed=True):
         subset = df[df['d_Z']==d].sort_values(['beta_xy'])
         for n in [1000, 5000, 10000]:
             subset_2 = subset[subset['n'] == n]
-            for method in methods:
+            col_index=0
+            for _,method in enumerate(methods):
                 if method in ['real_weights','random_uniform']:
                     sep_list=[False]
                 else:
@@ -194,15 +201,21 @@ def plot_3_est_weights(csv,dir,mixed=True):
                 for sep in sep_list:
                     subset_3 = subset_2[ (subset_2['nce_style']==method) & (subset_2['sep']==sep) ]
                     a,b,e = calc_error_bars(subset_3['p_a=0.05'],alpha=0.05,num_samples=100)
-                    appendix_string  = ' prod' if sep else ' mix'
+                    appendix_string  = ' prod' if sep else ''
                     if method not in ['real_weights','random_uniform']:
                         format_string = dict_method[method] + appendix_string
                     else:
                         format_string = dict_method[method]
-                    plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
-                    plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
+                    plt.plot('beta_xy', 'p_a=0.05', data=subset_3, linestyle='-', label=rf'{format_string}',
+                             c=plt.cm.rainbow(col_index / 8.))
+
+                    # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
+                    plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1, color=plt.cm.rainbow(col_index / 8.))
+                    # plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--',label=rf'{format_string}')
+                    # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
+                    col_index+=1
             plt.hlines(0.05, 0, subset_2['beta_xy'].max())
-            plt.legend(prop={'size': 10})
+            # plt.legend(prop={'size': 10})
             plt.xlabel(r'$\beta_{XY}$')
             plt.ylabel('Power')
             plt.savefig(f'{dir}/figure_{d}_{n}.png',bbox_inches = 'tight',
@@ -235,37 +248,44 @@ def plot_3_est_weights(csv,dir,mixed=True):
                 counter = 0
     doc.generate_tex()
 
-def break_plot(dir,mixed=True):
-    df = pd.read_csv('old_csvs/do_null_mixed_est_new_break.csv', index_col=0)
+def break_plot(df,dir,mixed=True):
     if not os.path.exists(dir):
         os.makedirs(dir)
-    methods = ['NCE_Q','real_TRE_Q']
+    methods = ['NCE_Q','real_weights','real_TRE_Q']
 
     for n in [1000,5000,10000]:
-        for method in methods:
-            for sep in [True,False]:
-                subset_3 = df[ (df['nce_style']==method) & (df['sep']==sep)  & (df['n']==n)].sort_values(['$/beta_{xz}$'])
-                a,b,e = calc_error_bars(subset_3['p_a=0.05'],alpha=0.05,num_samples=100)
-                appendix_string  = ' prod' if sep else ' mix'
-                format_string = dict_method[method] + appendix_string
-                plt.plot('$/beta_{xz}$','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
-                plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1)
-        plt.hlines(0.05, 0, 0.25)
-        plt.legend(prop={'size': 10})
-        plt.xlabel(r'$\beta_{xz}$')
+        for col_index,method in enumerate(methods):
+            # for sep in [True,False]:
+            # subset_3 = df[ (df['nce_style']==method) & (df['sep']==sep)  & (df['n']==n)].sort_values(['$/beta_{xz}$'])
+            subset_3 = df[ (df['nce_style']==method)  & (df['n']==n)].sort_values(['$/beta_{xz}$'])
+            a,b,e = calc_error_bars(subset_3['p_a=0.05'],alpha=0.05,num_samples=100)
+                # appendix_string  = ' prod' if sep else ' mix'
+                # format_string = dict_method[method] + appendix_string
+            format_string = dict_method[method]
+            plt.plot('$/beta_{xz}$', 'p_a=0.05', data=subset_3, linestyle='--', marker='o', label=rf'{format_string}',
+                     c=plt.cm.rainbow(col_index / 8.))
+
+            # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
+            plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1, color=plt.cm.rainbow(col_index / 8.))
+            # plt.plot('$/beta_{xz}$','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
+            # plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1)
+        plt.hlines(0.05, 0, df['$/beta_{xz}$'].max())
+        # plt.legend(prop={'size': 10})
+        plt.xlabel(r'$\beta_{XZ}$')
         plt.ylabel('Size')
         plt.savefig(f'{dir}/figure_{n}.png',bbox_inches = 'tight',
     pad_inches = 0.05)
         plt.clf()
     for n in [1000,5000,10000]:
         for method in methods:
-            for sep in [True,False]:
-                subset_3 = df[ (df['nce_style']==method) & (df['sep']==sep)  & (df['n']==n)].sort_values(['$/beta_{xz}$'])
-                a,b,e = calc_error_bars(subset_3['p_a=0.05'],alpha=0.05,num_samples=100)
-                appendix_string  = ' prod' if sep else ' mix'
-                format_string = method.replace("_"," ") + appendix_string
-                plt.plot('$/beta_{xz}$','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
-                plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1)
+            # for sep in [True,False]:
+            subset_3 = df[(df['nce_style'] == method) & (df['n'] == n)].sort_values(['$/beta_{xz}$'])
+            a, b, e = calc_error_bars(subset_3['p_a=0.05'], alpha=0.05, num_samples=100)
+            # appendix_string  = ' prod' if sep else ' mix'
+            # format_string = dict_method[method] + appendix_string
+            format_string = dict_method[method]
+            plt.plot('$/beta_{xz}$', 'p_a=0.05', data=subset_3, linestyle='--', marker='o', label=rf'{format_string}')
+            plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1)
         plt.hlines(0.05, 0, 0.25)
         plt.legend(prop={'size': 10})
         plt.xlabel(r'ESS')
@@ -295,15 +315,15 @@ def plot_14_hsic(ref_file,file,savedir):
     df_2_sub = df_2[df_2['beta_xy'] == 0.0].sort_values(['n'])
 
     a, b, e = calc_error_bars(df_1_sub['p_a=0.05'], alpha=0.05, num_samples=100)
-    plt.plot('n', 'p_a=0.05', data=df_1_sub, linestyle='--', marker='o', label=f'HSIC')
-    plt.fill_between(df_1_sub['n'], a, b, alpha=0.1)
+    plt.plot('n', 'p_a=0.05', data=df_1_sub, linestyle='--', marker='o', label=f'HSIC',c=plt.cm.rainbow(0 / 8.))
+    plt.fill_between(df_1_sub['n'], a, b, alpha=0.1,color=plt.cm.rainbow(0 / 8.))
 
     a, b, e = calc_error_bars(df_2_sub['p_a=0.05'], alpha=0.05, num_samples=100)
-    plt.plot('n', 'p_a=0.05', data=df_2_sub, linestyle='--', marker='o', label=f'KC-HSIC')
-    plt.fill_between(df_2_sub['n'], a, b, alpha=0.1)
+    plt.plot('n', 'p_a=0.05', data=df_2_sub, linestyle='--', marker='o', label=f'KC-HSIC',c=plt.cm.rainbow(1 / 8.))
+    plt.fill_between(df_2_sub['n'], a, b, alpha=0.1,color=plt.cm.rainbow(1 / 8.))
 
     plt.hlines(0.05, 1000, 10000)
-    plt.legend(prop={'size': 10})
+    # plt.legend(prop={'size': 10})
     plt.xticks([1000,5000,10000])
     plt.xlabel(r'$n$')
     plt.ylabel(r'Size')
@@ -334,15 +354,16 @@ def plot_15_cond(ref_file,file,savedir):
 
 
     a, b, e = calc_error_bars(df_1_sub['p_a=0.05'], alpha=0.05, num_samples=100)
-    plt.plot('n', 'p_a=0.05', data=df_1_sub, linestyle='--', marker='o', label=f'Partial Copula')
-    plt.fill_between(df_1_sub['n'], a, b, alpha=0.1)
+    plt.plot('n', 'p_a=0.05', data=df_1_sub, linestyle='--', marker='o', label=f'partial copula',c=plt.cm.rainbow(0 / 8.))
+    plt.fill_between(df_1_sub['n'], a, b, alpha=0.1,color=plt.cm.rainbow(0 / 8.))
 
     a, b, e = calc_error_bars(df_2_sub['p_a=0.05'], alpha=0.05, num_samples=100)
-    plt.plot('n', 'p_a=0.05', data=df_2_sub, linestyle='--', marker='o', label=f'KC-HSIC')
-    plt.fill_between(df_2_sub['n'], a, b, alpha=0.1)
+    plt.plot('n', 'p_a=0.05', data=df_2_sub, linestyle='--', marker='o', label=f'KC-HSIC',c=plt.cm.rainbow(1 / 8.))
+    plt.fill_between(df_2_sub['n'], a, b, alpha=0.1,color=plt.cm.rainbow(1 / 8.))
+
 
     plt.hlines(0.05, 1000, 10000)
-    plt.legend(prop={'size': 10})
+    # plt.legend(prop={'size': 10})
     plt.xticks([1000,5000,10000])
     plt.xlabel(r'$n$')
     plt.ylabel(r'Size')
@@ -350,67 +371,97 @@ def plot_15_cond(ref_file,file,savedir):
                 pad_inches=0.05)
     plt.clf()
 
-def plot_power_ablation(path,dir):
-    df = pd.read_csv(path, index_col=0)
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-    n = 10000
-    methods = df['nce_style'].unique().tolist()
-    df = df[(df['n'] == n) & (df['sep'] == True)].sort_values(['beta_xy'])
-
-    for m in methods:
-        subset_3 = df[(df['nce_style'] == m)].sort_values(
-            ['beta_xy'])
-        a, b, e = calc_error_bars(subset_3['p_a=0.05'], alpha=0.05, num_samples=100)
-        appendix_string = ' prod'
-        format_string = dict_method[m] + appendix_string
-        plt.plot('beta_xy', 'p_a=0.05', data=subset_3, linestyle='--', marker='o', label=rf'{format_string}')
-        plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
-    plt.hlines(0.05, 0.01, 0.09)
-    plt.legend(prop={'size': 10})
-    plt.xticks( [0.01,0.03,0.05,0.07,0.09])
-    plt.xlabel(r'$\beta_{XY}$')
-    plt.ylabel(r'Power $\alpha=0.05$')
-    plt.savefig(f'{dir}/figure_{n}.png', bbox_inches='tight',
-                    pad_inches=0.05)
-    plt.clf()
-
 if __name__ == '__main__':
     pass
-    # plot_2_true_weights('kc_rule_real_weights_2.csv','plot_2_real')
-    # plot_2_true_weights('do_null_mixed_real_new_2.csv','plot_3_real',True)
-    # plot_3_est_weights('do_null_mixed_est_3d_2.csv','mixed_est_3d_2',True)
-    # plot_15_cond('quantile_jmlr_break_ref.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
-
-    """
-    Cont business
-    """
+    # # plot_2_true_weights('kc_rule_real_weights_2.csv','plot_2_real')
+    # # plot_2_true_weights('do_null_mixed_real_new_2.csv','plot_3_real',True)
+    # # plot_3_est_weights('do_null_mixed_est_3d_2.csv','mixed_est_3d_2',True)
+    # # plot_15_cond('quantile_jmlr_break_ref.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
+    #
+    # # """
+    # # Cont business
+    # # """
     # df_1 = pd.read_csv('kc_rule_3_test_3d.csv',index_col=0)
     # df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv',index_col=0)
     # df_3 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
-    # # df_4 = pd.read_csv('kc_rule_real_weights_3_test.csv',index_col=0)
-    # # df_4 = df_4[df_4['$/beta_{xz}$']==0.75]
-    # # df = pd.concat([df_1,df_2,df_3,df_4],axis=0)
+    # # df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
+    #
     # df = pd.concat([df_1,df_2,df_3],axis=0)
-    #
     # df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
-    #
+    # # df = pd.concat([df,df_4],axis=0)
     # plot_2_est_weights(df,'cont_plots_est')
-    # df = df[df['nce_style']=='real_weights']
-    # plot_2_true_weights(df,'real_cont_plots')
-    
+    # #
+    # # """
+    # # 1d cont business linear
+    # # """
+    # df_1 = pd.read_csv("kc_rule_1d_linear_0.5_3.csv",index_col=0)
+    # df_1['nce_style'] = df_1['nce_style'].apply(lambda x: x+'_linear')
+    # # df_2 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
+    # df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
+    # # df = pd.concat([df_1,df_2,df_4],axis=0)
+    # df = pd.concat([df_1,df_4],axis=0)
+    # df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+    # plot_2_est_weights(df,'cont_plots_est_1D_linear')
+    # # """
+    # # 1d cont business
+    # # """
+    #
+    # df_1 = pd.read_csv('kc_rule_3_test_3d.csv', index_col=0)
+    # df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv', index_col=0)
+    # df_3 = pd.read_csv('kc_rule_3_test_2.csv', index_col=0)
+    # df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
+    # df = pd.concat([df_1, df_2, df_3], axis=0)
+    # df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
+    # df = pd.concat([df,df_4],axis=0)
+    # plot_2_est_weights(df, 'cont_plots_est_1D')
+    #
+    #
+    #
+    # #
+    # y_index = 1
+    # hdm_break = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job.csv',index_col=0)
+    # hdm_break = hdm_break.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+    # df_4 = pd.read_csv(f'break_hdm_pow_{y_index}.csv',index_col=0)
+    # hdm_break = pd.concat([hdm_break,df_4],axis=0)
+    # plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}')
+    #
+    # hdm_break = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_50.csv',index_col=0)
+    # hdm_break = hdm_break.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+    # # hdm_break = pd.concat([hdm_break,df_4],axis=0)
+    # plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}_50')
+    #
+    # """
+    # MIXED PLOTS
+    # """
+    # mixed_df = pd.read_csv('do_null_mix_sanity_3_est.csv',index_col=0)
+    # bool_keep = (mixed_df['nce_style']=='real_weights') &  (mixed_df['d_Z']==50)
+    # mixed_df = mixed_df[~bool_keep]
+    # bool_keep = (mixed_df['nce_style']=='real_weights') &  (mixed_df['d_Z']==15)
+    # mixed_df = mixed_df[~bool_keep]
+    # fixed_reals = pd.read_csv('do_null_mix_real_test_0.05.csv',index_col=0)
+    # df = pd.concat([mixed_df,fixed_reals],axis=0)
+    # plot_3_est_weights(df,'mixed_sanity_3_est',mixed=True)
+    """
+    Linear break plot
+    """
+    df_1 = pd.read_csv('kc_rule_1d_linear_0.1.csv',index_col=0)
+    df_2 = pd.read_csv('kc_rule_1d_linear_0.05.csv',index_col=0)
+    df_3 = pd.read_csv('kc_rule_1d_linear_0.25.csv',index_col=0)
+    df_4 = pd.read_csv('kc_rule_1d_linear_0.5.csv',index_col=0)
+    df_5 = pd.read_csv('kc_rule_1d_linear_0.5_3.csv',index_col=0)
+    df = pd.concat([df_1,df_2,df_3,df_4,df_5],axis=0)
+    df = df[(df['beta_xy']==0.0)&(df['d_Z']==1)]
+    break_plot(df,'linear_break')
 
+    """
+    General break plot
+    """
+    ablation_3d = pd.read_csv('ablation_3d.csv',index_col=0)
 
-    # plot_2_est_weights_test('kc_rule_3_test_3d_2.csv','plot_uniform_test_3d_2')
-    # plot_2_true_weights('kc_rule_real_weights_3_test_2.csv','plot_real_test_2')
+    break_plot(ablation_3d,'bd_hsic_breaker')
 
-
-    # plot_2_true_weights('kc_rule_real_weights.csv','plot_2_real')
-    # plot_2_true_weights('do_null_mixed_real_new.csv','plot_3_real',True)
-    # plot_2_est_weights('kc_rule.csv','plot_4')
-    # plot_3_est_weights('do_null_mixed_est_3d.csv','mixed_est')
-    plot_3_est_weights('do_null_mix_sanity_3_est.csv','mixed_sanity_3_est',mixed=True)
-    # break_plot('break_kchsic')
-    # plot_14_hsic('ind_jobs_hsic_2.csv','hsic_break_real.csv','plot_14')
-    # plot_15_cond('quantile_jmlr_break_ref.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
-    # plot_power_ablation('ablation_mixed_2.csv','ablation_plot')
+    """
+    hsic and quantile plot
+    """
+    plot_14_hsic('old_csvs/ind_jobs_hsic_2.csv','old_csvs/hsic_break_real.csv','plot_14')
+    plot_15_cond('quantile_jmlr_break_ref.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')

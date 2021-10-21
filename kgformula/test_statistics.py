@@ -570,9 +570,14 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
             self.X_q = self.X_q.unsqueeze(-1)
 
         with torch.no_grad():
-            self.kernel_X_X_q = RBFKernel().cuda(device)
-            _ls = self.get_median_ls(self.X,self.X_q) #This is critical, figure out way to get the right lr
-            self.kernel_X_X_q._set_lengthscale(_ls)
+            if self.variant==1:
+                self.kernel_X_X_q = RBFKernel().cuda(device)
+                _ls = self.get_median_ls(self.X,self.X_q) #This is critical, figure out way to get the right lr
+                self.kernel_X_X_q._set_lengthscale(_ls)
+            elif self.variant==2:
+                self.kernel_X_X_q = LinearKernel().cuda(device)
+                self.kernel_X_X_q._set_lengthscale(1.0)
+
             self.k_X_X_q = self.kernel_X_X_q(self.X, self.X_q).evaluate()
             for name, data in zip(['X', 'Y','X_q'], [self.X, self.Y,self.X_q]):
                 self.kernel_ls_init(name, data)
@@ -614,11 +619,17 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
                 return self.n * (a_1 + a_2 - 2 * a_3)
 
     def kernel_ls_init(self, name, data):
-        setattr(self, f'ker_obj_{name}',
-                RBFKernel().cuda(self.device) if self.cuda else RBFKernel())
-        ls = self.get_median_ls(data)
-        getattr(self, f'ker_obj_{name}')._set_lengthscale(ls)
-        setattr(self, f'kernel_{name}', getattr(self, f'ker_obj_{name}')(data).evaluate())
+        if self.variant == 1:
+            setattr(self, f'ker_obj_{name}',
+                    RBFKernel().cuda(self.device) if self.cuda else RBFKernel())
+            ls = self.get_median_ls(data)
+            getattr(self, f'ker_obj_{name}')._set_lengthscale(ls)
+            setattr(self, f'kernel_{name}', getattr(self, f'ker_obj_{name}')(data).evaluate())
+        elif self.variant==2:
+            setattr(self, f'ker_obj_{name}',
+                    LinearKernel().cuda(self.device) if self.cuda else LinearKernel())
+            getattr(self, f'ker_obj_{name}')._set_lengthscale(1.0)
+            setattr(self, f'kernel_{name}', getattr(self, f'ker_obj_{name}')(data).evaluate())
 
     def get_median_ls(self, X,Y=None):
         kernel_base = Kernel().cuda(self.device)
@@ -631,194 +642,6 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
             if ret.item()==0:
                 ret = torch.tensor(1.0)
             return ret
-
-class weighted_HSIC():
-    def __init__(self,X,Y,w,device=0,perm='Y',variant =1):
-        torch.cuda.set_device(device)
-        self.cuda= True
-        self.device = device
-        self.X = X
-        self.Y = Y
-        self.perm = perm
-        self.w = w.unsqueeze(-1)
-        self.variant  = variant
-        self.n = self.X.shape[0]
-        self.H_w = torch.diag(self.w.squeeze())-1/self.n *self.w.expand(-1,self.n)
-        self.W = self.w@self.w.t()
-        self.H = torch.eye(self.n).cuda(device) - 1/self.n * torch.ones_like(self.W)
-
-        with torch.no_grad():
-            for name, data in zip(['X', 'Y'], [self.X, self.Y]):
-                self.kernel_ls_init(name, data)
-            if self.variant == 1:
-                self.const_var_1_X = self.kernel_Y@self.w
-                self.const_var_1_Y = self.kernel_X.sum(dim=1,keepdim=True)
-                self.const_sum_Y = self.kernel_X.sum()
-                self.a_2 = self.const_sum_Y*(self.w.t()@self.const_var_1_X)/self.n**4
-
-            elif self.variant == 2:
-                self.const_var_2 = self.H_w@self.kernel_X@self.H_w.t()
-            elif self.variant == 3:
-                self.const_var_3 = self.H_w.t() @ self.kernel_Y @ self.H_w
-            elif self.variant == 4:
-                self.M = self.W * self.kernel_Y
-                self.const_var_4_X = self.H@self.M@self.H
-
-    def get_permuted2d(self,ker):
-        idx = torch.randperm(self.n)
-        kernel_X = ker[:,idx]
-        kernel_X = kernel_X[idx,:]
-        return kernel_X,idx
-
-    def get_permuted1d(self,ker):
-        idx = torch.randperm(self.n)
-        kernel_X = ker[idx,:]
-        return kernel_X,idx
-
-    def calculate_weighted_statistic(self):
-        with torch.no_grad():
-            if self.variant ==1:
-                a_1  =  self.w.t()@(self.kernel_X*self.kernel_Y)@self.w/self.n**2
-                a_3 = self.w.t()@(self.const_var_1_Y*(self.const_var_1_X))/self.n**3
-                return self.n*(a_1+self.a_2-2*a_3)
-            elif self.variant == 2:
-                return 1/self.n * torch.sum(self.const_var_2 * self.kernel_Y)
-            elif self.variant ==3:
-                return 1 / self.n * torch.sum(self.const_var_3 * self.kernel_X)
-            elif self.variant ==4:
-                return 1 / self.n * torch.sum(self.kernel_X *self.const_var_4_X)
-
-    def permutation_calculate_weighted_statistic(self):
-        with torch.no_grad():
-            if self.perm=='X':
-                kernel_X,idx = self.get_permuted2d(self.kernel_X)
-                if self.variant == 1:
-                    a_1 = self.w.t() @ (kernel_X * self.kernel_Y) @ self.w / self.n ** 2
-                    a_3 = self.w.t() @ (self.const_var_1_Y[idx,:] * self.const_var_1_X) / self.n ** 3
-                    return self.n * (a_1 + self.a_2 - 2 * a_3)
-                elif self.variant == 2:
-                    return 1 / self.n * torch.sum(self.H_w @ kernel_X @ self.H_w.t() * self.kernel_Y)
-                elif self.variant == 3:
-                    return 1 / self.n * torch.sum(self.const_var_3  * kernel_X)
-                elif self.variant == 4:
-                    return 1 / self.n * torch.sum(kernel_X * self.const_var_4_X)
-            else:
-                if self.variant == 1:
-                    kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
-                    a_1 = self.w.t() @ (self.kernel_X * kernel_Y) @ self.w / self.n ** 2
-                    a_3 = self.w.t() @ (self.const_var_1_Y * self.const_var_1_X[idx,:]) / self.n ** 3
-                    a_2 = self.const_sum_Y*(self.w.t()@self.const_var_1_X[idx,:])/self.n**4
-                    return self.n * (a_1 + a_2 - 2 * a_3)
-                elif self.variant == 2:
-                    kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
-                    return 1 / self.n * torch.sum(self.const_var_2 * kernel_Y)
-                elif self.variant == 3:
-                    kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
-                    return 1 / self.n * torch.sum( self.H_w.t() @ kernel_Y @ self.H_w* self.kernel_X)
-                elif self.variant == 4:
-                    M, idx = self.get_permuted2d(self.M)
-                    return 1 / self.n * torch.sum(self.kernel_X * self.H@M@self.H)
-
-
-    def kernel_ls_init(self, name, data):
-        setattr(self, f'ker_obj_{name}',
-                RBFKernel().cuda(self.device) if self.cuda else RBFKernel())
-        ls = self.get_median_ls(data)
-        getattr(self, f'ker_obj_{name}')._set_lengthscale(ls)
-        setattr(self, f'kernel_{name}', getattr(self, f'ker_obj_{name}')(data).evaluate())
-
-    def get_median_ls(self, X,Y=None):
-        kernel_base = Kernel().cuda(self.device)
-        with torch.no_grad():
-            if Y is None:
-                d = kernel_base.covar_dist(x1=X, x2=X)
-            else:
-                d = kernel_base.covar_dist(x1=X, x2=Y)
-            ret = torch.sqrt(torch.median(d[d > 0])) # print this value, should be increasing with d
-            return ret
-
-
-
-class weighted_stat():
-    def __init__(self,X,Y,w,do_null = True,cuda=False,device=0,half_mode=False):
-        with torch.no_grad():
-            self.device = device
-            self.cuda = cuda
-            self.n = X.shape[0]
-            self.one_n_1 = torch.ones(*(self.n,1))
-            self.half_mode = half_mode
-            if cuda:
-                self.one_n_1 = self.one_n_1.cuda(device)
-            else:
-                self.device = 'cpu'
-            self.X = X
-            self.Y = Y
-            self.w = w.unsqueeze(-1)
-            self.W = self.w@self.w.t()
-            self.W = self.W/self.n**2
-            self.do_null=do_null
-            self.kernel_base = Kernel().cuda(self.device)
-            for name,data in zip(['X','Y'],[self.X,self.Y]):
-                self.kernel_ls_init(name,data)
-            if self.half_mode:
-                self.H = self.H.half()
-                self.w = self.w.half()
-                self.W = self.W.half()
-
-    def kernel_ls_init(self,name,data):
-        setattr(self, f'ker_obj_{name}', RBFKernel().cuda(self.device) if self.cuda else RBFKernel())
-        ls = self.get_median_ls(data)
-        getattr(self,f'ker_obj_{name}')._set_lengthscale(ls)
-        if self.half_mode:
-            setattr(self,f'kernel_{name}',getattr(self,f'ker_obj_{name}')(data).evaluate().half())
-        else:
-            setattr(self,f'kernel_{name}',getattr(self,f'ker_obj_{name}')(data).evaluate())
-
-    def get_median_ls(self,X):
-        with torch.no_grad():
-            d = self.kernel_base.covar_dist(x1=X,x2=X)
-            ret = torch.sqrt(torch.median(d[d > 0]))
-            return ret
-
-class weighted_statistic_new(weighted_stat):
-    def __init__(self,X,Y,w,do_null = True,cuda=False,device=0):
-        super(weighted_statistic_new, self).__init__(X, Y, w, do_null, cuda, device)
-        with torch.no_grad():
-            self.sum_mean_X = self.kernel_X.mean()
-            self.X_ker_n_1 = self.kernel_X @ self.one_n_1 / self.n
-            self.X_ker_ones = self.X_ker_n_1.repeat(1,self.n)
-            self.X_ker_H_2= self.kernel_X - self.X_ker_ones * 2
-
-            self.sum_mean_Y = self.kernel_Y.mean()
-            self.Y_ker_n_1 = self.kernel_Y @ self.one_n_1 / self.n
-            self.Y_ker_ones =self.Y_ker_n_1.repeat(1,self.n)
-            self.Y_ker_H_2= self.kernel_Y - 2 * self.Y_ker_ones
-
-            self.term_1 = self.W*self.X_ker_H_2*self.n
-            self.term_2 = 2*self.W*self.kernel_X*self.n
-            self.term_3 = 2*self.W*self.X_ker_ones*self.n
-            self.term_4 = 2*self.W*self.n
-            self.term_5 = self.W*self.sum_mean_X*self.n
-            self.term_6 = (self.W*self.sum_mean_Y*self.X_ker_H_2).sum()*self.n
-            self.term_7 = (self.W*self.sum_mean_Y*self.sum_mean_X).sum()*self.n
-
-    def permutation_calculate_weighted_statistic(self):
-        with torch.no_grad():
-            idx = torch.randperm(self.n)
-            Y_ker = self.kernel_Y[idx, :]
-            Y_ker = Y_ker[:,idx]
-            Y_ker_n_1 = self.Y_ker_n_1[idx,:]
-            Y_ker_ones =Y_ker_n_1.repeat(1,self.n)
-            Y_ker_H_2 = Y_ker - 2*Y_ker_ones
-            test_stat = self.term_1 * Y_ker - self.term_2 * Y_ker_ones + self.term_3 * Y_ker_ones + self.term_4 * (
-                        self.X_ker_n_1 @ Y_ker_n_1.t()) + self.term_5 * Y_ker_H_2
-            return test_stat.sum() + self.term_6 + self.term_7
-
-    def calculate_weighted_statistic(self):
-        with torch.no_grad():
-            test_stat = self.term_1 * self.kernel_Y - self.term_2 * self.Y_ker_ones + self.term_3 * self.Y_ker_ones + self.term_4 * (
-                    self.X_ker_n_1 @ self.Y_ker_n_1.t()) + self.term_5 * self.Y_ker_H_2
-            return test_stat.sum() + self.term_6 + self.term_7
 
 
 

@@ -285,11 +285,6 @@ class x_q_class_cont():
     def calc_w_q(self,inv_wts):
         if self.qdist!=1:
             self.q = Normal(self.X.mean(dim=0).squeeze(), self.q_fac * self.theta)
-            sample = self.q.sample(torch.Size([self.X.shape[0]]))
-            # plt.hist(sample.numpy(), bins=50, alpha=0.5, color='b')
-            # plt.hist(self.X.numpy(), bins=50, alpha=0.5, color='r')
-            # plt.savefig('RIP.png')
-            # plt.clf()
         q_dens = self.q.log_prob(self.X).sum(dim=1)
         q_dens = q_dens.exp()
 
@@ -334,6 +329,19 @@ class x_q_class_bin():
         x_q = self.q.sample((n,self.dim))
         return x_q
 
+    def calc_w_q(self,inv_wts):
+        q_dens = self.q.log_prob(self.X).sum(dim=1)
+        q_dens = q_dens.exp()
+
+        # plt.hist(q_dens.numpy(), bins=50, alpha=0.5, color='b')
+        # plt.savefig('q_dens.png')
+        # plt.clf()
+
+        w_q = inv_wts * q_dens.squeeze()
+        # plt.hist(w_q.numpy(), bins=50, alpha=0.5, color='b')
+        # plt.savefig('RIP_2.png')
+        # plt.clf()
+        return w_q
 
 def derange(s):
     d=s[:]
@@ -347,6 +355,7 @@ class simulation_object():
         self.device = self.args['device']
         self.validation_chunks = 10
         self.validation_over_samp = 10
+        self.variant = self.args['variant']
         self.max_validation_samples =  self.args['n']//4
     @staticmethod
     def reject_outliers(data, m=2):
@@ -364,7 +373,7 @@ class simulation_object():
         return p_values
 
     def perm_Q_test(self,X,Y,X_q,w,i):
-        c = Q_weighted_HSIC(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i)
+        c = Q_weighted_HSIC(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i,variant=self.variant)
         reference_metric = c.calculate_weighted_statistic().cpu().item()
         list_of_metrics = []
         for i in range(self.bootstrap_runs):
@@ -548,10 +557,9 @@ def standardize_variance(input):
 
     return output[:,boolean]
 
-class simulation_object_rule(simulation_object):
+class simulation_object_rule_new(simulation_object):
     def __init__(self,args):
-        super(simulation_object_rule, self).__init__(args)
-
+        super(simulation_object_rule_new, self).__init__(args)
     def get_q_fac(self,X_org,Z_org):
         if X_org.shape[1]==1 and Z_org.shape[1]==1:
             X = standardize_variance(X_org)
@@ -601,12 +609,6 @@ class simulation_object_rule(simulation_object):
             # plt.savefig('plt_det_obj.png')
 
             return best_c_q
-            # return best_c_q
-
-class simulation_object_rule_new(simulation_object_rule):
-    def __init__(self,args):
-        super(simulation_object_rule_new, self).__init__(args)
-
     def get_binary_mask(self,X):
         dim = X.shape[1]
         mask_ls = [0]*dim
@@ -633,7 +635,7 @@ class simulation_object_rule_new(simulation_object_rule):
         suffix = f'_qf=rule_qd={self.qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={self.bootstrap_runs}_n={required_n}'
         if not os.path.exists(f'./{data_dir}/{job_dir}'):
             os.makedirs(f'./{data_dir}/{job_dir}')
-        if os.path.exists(f'./{data_dir}/{job_dir}/df{suffix}.csv'):
+        if os.path.exists(f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt'):
             return
         p_value_list = []
         reference_metric_list = []
@@ -655,33 +657,54 @@ class simulation_object_rule_new(simulation_object_rule):
                 binary_mask_Z = self.get_binary_mask(Z)
                 X_cont = X[:, ~binary_mask_X]
                 X_bin = X[:, binary_mask_X]
-                concat_q = []
-                if X_bin.numel()>0:
-                    Xq_class_bin = x_q_class_bin(X=X_bin)
-                    X_q_bin = Xq_class_bin.sample(n=X_bin.shape[0])
-                    X_q_bin = X_q_bin.to(self.device)
-                    concat_q.append(X_q_bin)
-                if X_cont.numel()>0:
-                    q_fac = self.get_q_fac(X_train[:, ~binary_mask_X], Z_train[:, ~binary_mask_Z])
-                    print('q_fac: \n ',q_fac)
-                    q_fac_list.append(q_fac)
-                    Xq_class_cont = x_q_class_cont(qdist=self.qdist, q_fac=q_fac, X=X_cont)
-                    X_q_cont = Xq_class_cont.sample(n=X_cont.shape[0])
-                    X_q_cont = X_q_cont.to(self.device)
-                    w_q = Xq_class_cont.calc_w_q(_w)
-                    concat_q.append(X_q_cont)
-                X_q = torch.cat(concat_q,dim=1)
-                X_q = X_q.to(self.device)
-                X_q_train, X_q_test = split(X_q, n_half)
-                X = torch.cat([X_bin,X_cont],dim=1)
-                X_train, X_test = split(X, n_half)
 
                 if estimate and (estimator!='real_weights'):
+                    concat_q = []
+                    if X_bin.numel() > 0:
+                        Xq_class_bin = x_q_class_bin(X=X_bin)
+                        X_q_bin = Xq_class_bin.sample(n=X_bin.shape[0])
+                        X_q_bin = X_q_bin.to(self.device)
+                        concat_q.append(X_q_bin)
+                    if X_cont.numel() > 0:
+                        q_fac = self.get_q_fac(X_train[:, ~binary_mask_X], Z_train[:, ~binary_mask_Z])
+                        print('q_fac: \n ', q_fac)
+                        q_fac_list.append(q_fac)
+                        Xq_class_cont = x_q_class_cont(qdist=self.qdist, q_fac=q_fac, X=X_cont)
+                        X_q_cont = Xq_class_cont.sample(n=X_cont.shape[0])
+                        X_q_cont = X_q_cont.to(self.device)
+                        concat_q.append(X_q_cont)
+                    X_q = torch.cat(concat_q, dim=1)
+                    X_q = X_q.to(self.device)
+                    X_q_train, X_q_test = split(X_q, n_half)
+                    X = torch.cat([X_bin, X_cont], dim=1)
+                    X_train, X_test = split(X, n_half)
+
                     d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
                                           est_params=est_params, type=estimator, device=self.device,
                                           secret_indx=self.args['unique_job_idx'],x_full=X,z_full=Z)
                     w = d.return_weights(X_test, Z_test, X_q_test)
                 else:
+                    concat_q = []
+                    if X_bin.numel() > 0:
+                        Xq_class_bin = x_q_class_bin(X=X_bin)
+                        X_q_bin = Xq_class_bin.sample(n=X_bin.shape[0])
+                        X_q_bin = X_q_bin.to(self.device)
+                        concat_q.append(X_q_bin)
+                    if X_cont.numel() > 0:
+                        q_fac = 1.0
+                        print('q_fac: \n ', q_fac)
+                        q_fac_list.append(q_fac)
+                        Xq_class_cont = x_q_class_cont(qdist=self.qdist, q_fac=q_fac, X=X_cont)
+                        X_q_cont = Xq_class_cont.sample(n=X_cont.shape[0])
+                        X_q_cont = X_q_cont.to(self.device)
+                        w_q = Xq_class_cont.calc_w_q(_w)
+                        concat_q.append(X_q_cont)
+                    X_q = torch.cat(concat_q, dim=1)
+                    X_q = X_q.to(self.device)
+                    X_q_train, X_q_test = split(X_q, n_half)
+                    X = torch.cat([X_bin, X_cont], dim=1)
+                    X_train, X_test = split(X, n_half)
+
                     if X_cont.numel() > 0:
                         _, w_q = split(w_q, n_half)
                         w = w_q

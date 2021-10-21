@@ -104,24 +104,43 @@ def transform(df):
             df = normalize(df)
     return df
 
-def save_torch(X_pd,Y_pd,Z_pd,dir,filename):
+def save_torch(X_pd,Y_pd,Z_cat,Z_cont,dir,filename):
     X = torch.from_numpy(X_pd.values).float()
-    Y = torch.from_numpy(Y_pd.values).repeat(1, X.shape[1]).float()
-    Z = torch.from_numpy(Z_pd.values).float()
+    Y = torch.from_numpy(Y_pd.values).float()
+    Z = torch.cat([torch.from_numpy(Z_cat.values).float(),torch.from_numpy(Z_cont.values).float()],dim=1)
     print(X.shape)
     print(Y.shape)
     print(Z.shape)
     col_stats_list=[]
-    for i in range(3):
-        col_stats = Z_pd.iloc[:,i].unique().tolist()
+    for i in range(Z_cat.shape[1]):
+        col_stats = Z_cat.iloc[:,i].unique().tolist()
         col_stats_list.append(col_stats)
-    w={ 'indicator':[True]*3+14*[False],'index_lists':col_stats_list
+    w={ 'indicator':[True]*Z_cat.shape[1]+Z_cont.shape[1]*[False],'index_lists':col_stats_list
 }
     if not os.path.exists(dir):
         os.makedirs(dir)
     torch.save((X,Y,Z,w),dir+filename)
 
+def save_torch_mult(X_pd,Y_pd,Z_cont,dir,filename):
+    X = torch.from_numpy(X_pd.values).float()
+    Y = torch.from_numpy(Y_pd.values).float()
+    Z = torch.from_numpy(Z_cont.values).float()
+    print(X.shape)
+    print(Y.shape)
+    print(Z.shape)
+    col_stats_list=[]
+    w={ 'indicator':Z_cont.shape[1]*[False],'index_lists':col_stats_list
+}
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    torch.save((X,Y,Z,w),dir+filename)
+
+
 if __name__ == '__main__':
+    # df = pd.read_csv(
+    #     'https://raw.githubusercontent.com/rs-delve/covid19_datasets/master/dataset/combined_dataset_latest.csv',
+    #     parse_dates=['DATE'])
+    #
     df = pd.read_csv("combined_dataset_latest.csv")
     df = df.drop(columns=['StringencyIndex',
                           'ISO',
@@ -137,21 +156,25 @@ if __name__ == '__main__':
     print(set(cl_2)-set(country_list))
     df = df[df['CountryName'].isin(country_list)]
     print(df.shape)
-
-    y = ['new_cases_per_million'] #Need to consider repeating case... Confounder against testing policy. new_deaths_per_million
-
-    x = ['School closing',
+    print(df.columns)
+    #new_deaths_per_million
+    #
+    y = ['new_cases_per_million','new_deaths_per_million'] #Need to consider repeating case... Confounder against testing policy. new_deaths_per_million
+    x = [
+        'School closing',
         'Workplace closing',
-       'Cancel public events',
+        'Cancel public events',
         'Restrictions on gatherings',
-       'Close public transport',
+        'Close public transport',
         'Stay at home requirements',
-       'Restrictions on internal movement',
-         'International travel controls']
+        'Restrictions on internal movement',
+        'International travel controls',
+        'Testing policy',
+        'Contact tracing',
+        'Masks',
+    ]
+
     z = [
-         'Testing policy',
-         'Contact tracing',
-         'Masks',
         'International support',
         'Fiscal measures',
         'extreme_poverty',
@@ -166,13 +189,31 @@ if __name__ == '__main__':
         'aged_65_older',
         'gdp_per_capita',
         'new_tests_per_thousand'
-         ]
-
-    X_pd = df[x]
+    ]
     Y_pd = df[y]
-    Z_pd = df[z]
-    print(Z_pd)
-    # X_pd = transform(X_pd)
-    # Y_pd = transform(Y_pd)
-    # Z_pd = transform(Z_pd)
-    save_torch(X_pd,Y_pd,Z_pd,'./covid_19_1/','data_seed=0.pt')
+    Z_cont = df[z]
+    Y_pd.to_csv(f"./covid_19_1/covid_Y.csv", index=False)
+    Z_cont.to_csv(f"./covid_19_1/covid_Z_cont.csv", index=False)
+
+    X_mult = df[x]
+    Z_mult = Z_cont
+    Z_cat = []
+
+    save_torch_mult(X_mult, Y_pd, Z_mult, './covid_19_1/', f'data_treatment_mult.pt')
+
+    # treatment_indices = [0,1,2,3,4,-1]
+    # for i in treatment_indices:
+    #     x_treat = [x[i]]
+    #     z_cat=[]
+    #     for el in x:
+    #         if el!=x[i]:
+    #             z_cat.append(el)
+    #
+    #     X_pd = df[x_treat]
+    #     Z_cat = df[z_cat]
+    #     X_pd.to_csv(f"./covid_19_1/covid_T={x[i]}.csv",index = False)
+    #     Z_cat.to_csv(f"./covid_19_1/covid_Z_cat={x[i]}.csv",index = False)
+    #     # X_pd = transform(X_pd)
+    #     # Y_pd = transform(Y_pd)
+    #     # Z_pd = transform(Z_pd)
+    #     save_torch(X_pd,Y_pd,Z_cat,Z_cont,'./covid_19_1/',f'data_treatment={x[i]}.pt')
