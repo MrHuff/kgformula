@@ -13,7 +13,7 @@ g_env/*
 *checkpoints*
 *idea*
 *.pt
-*.csv
+#*.csv
 *.zip
 *.txt
 *.jpg
@@ -21,3 +21,12 @@ g_env/*
 *.Rhistory
 *ReadmeTwins*
 *.tex
+natl2017.csv
+wvs.csv
+do_null_univariate_*
+TWINS
+do_null_100
+exp_gcm_break_100
+exp_hsic_break_100
+covid_19_1
+hdm_breaker*

@@ -5,6 +5,8 @@ from pylatex import Document, Section, Figure, SubFigure, NoEscape,Command
 from pylatex.base_classes import Environment
 from pylatex.package import Package
 import itertools
+import seaborn as sns
+
 
 dict_method = {'NCE_Q': 'NCE-Q', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF','real_weights':'True weights','hdm':'HDM',
                'NCE_Q_linear':'NCE-Q, linear','random_uniform_linear': 'random uniform linear','rulsif_linear':'RuLSIF linear',
@@ -51,7 +53,14 @@ dim_theta_phi_hsic = {
 dim_theta_phi_gcm = {
     1:{'d_x':1,'d_y':1,'d_z':1,'theta':1.0,'phi':2.0},
 }
-
+def hex_to_rgb(value):
+    value = value.lstrip('#')
+    lv = len(value)
+    tup = [int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3)]
+    return [t/255. for t in tup]
+color_palette = ["#3f90da", "#ffa90e", "#bd1f01", "#94a4a2", "#832db6", "#a96b59", "#e76300", "#b9ac70", "#717581", "#92dadd"]
+rgb_vals =  [hex_to_rgb(el) for el in color_palette]
+print(rgb_vals)
 def plot_2_true_weights(csv,dir,mixed=False):
     if isinstance(csv, str):
         df = pd.read_csv(csv, index_col=0)
@@ -140,10 +149,10 @@ def plot_2_est_weights(csv,dir,mixed=False):
                 format_string = dict_method[method]
                 # plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
                 print(format_string)
-                plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='-',label=rf'{format_string}',c = plt.cm.rainbow(col_index/8.))
+                plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='-',label=rf'{format_string}',c = color_palette[col_index])
 
                 # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
-                plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1,color=plt.cm.rainbow(col_index/8.))
+                plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1,color=color_palette[col_index])
             plt.hlines(0.05, 0, subset_2['beta_xy'].max())
             # plt.legend(prop={'size': 10})
             plt.xlabel(r'$\beta_{XY}$')
@@ -207,10 +216,10 @@ def plot_3_est_weights(csv,dir,mixed=True):
                     else:
                         format_string = dict_method[method]
                     plt.plot('beta_xy', 'p_a=0.05', data=subset_3, linestyle='-', label=rf'{format_string}',
-                             c=plt.cm.rainbow(col_index / 8.))
+                             c=color_palette[col_index])
 
                     # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
-                    plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1, color=plt.cm.rainbow(col_index / 8.))
+                    plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1, color=color_palette[col_index])
                     # plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--',label=rf'{format_string}')
                     # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
                     col_index+=1
@@ -262,11 +271,11 @@ def break_plot(df,dir,mixed=True):
                 # appendix_string  = ' prod' if sep else ' mix'
                 # format_string = dict_method[method] + appendix_string
             format_string = dict_method[method]
-            plt.plot('$/beta_{xz}$', 'p_a=0.05', data=subset_3, linestyle='--', marker='o', label=rf'{format_string}',
-                     c=plt.cm.rainbow(col_index / 8.))
+            plt.plot('$/beta_{xz}$', 'p_a=0.05', data=subset_3, linestyle='-', label=rf'{format_string}',
+                     c=color_palette[col_index])
 
             # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
-            plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1, color=plt.cm.rainbow(col_index / 8.))
+            plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1, color=color_palette[col_index])
             # plt.plot('$/beta_{xz}$','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
             # plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1)
         plt.hlines(0.05, 0, df['$/beta_{xz}$'].max())
@@ -315,12 +324,12 @@ def plot_14_hsic(ref_file,file,savedir):
     df_2_sub = df_2[df_2['beta_xy'] == 0.0].sort_values(['n'])
 
     a, b, e = calc_error_bars(df_1_sub['p_a=0.05'], alpha=0.05, num_samples=100)
-    plt.plot('n', 'p_a=0.05', data=df_1_sub, linestyle='--', marker='o', label=f'HSIC',c=plt.cm.rainbow(0 / 8.))
-    plt.fill_between(df_1_sub['n'], a, b, alpha=0.1,color=plt.cm.rainbow(0 / 8.))
+    plt.plot('n', 'p_a=0.05', data=df_1_sub, linestyle='--', marker='o', label=f'HSIC',c=color_palette[0])
+    plt.fill_between(df_1_sub['n'], a, b, alpha=0.1,color=color_palette[0])
 
     a, b, e = calc_error_bars(df_2_sub['p_a=0.05'], alpha=0.05, num_samples=100)
-    plt.plot('n', 'p_a=0.05', data=df_2_sub, linestyle='--', marker='o', label=f'KC-HSIC',c=plt.cm.rainbow(1 / 8.))
-    plt.fill_between(df_2_sub['n'], a, b, alpha=0.1,color=plt.cm.rainbow(1 / 8.))
+    plt.plot('n', 'p_a=0.05', data=df_2_sub, linestyle='--', marker='o', label=f'KC-HSIC',c=color_palette[1])
+    plt.fill_between(df_2_sub['n'], a, b, alpha=0.1,color=color_palette[1])
 
     plt.hlines(0.05, 1000, 10000)
     # plt.legend(prop={'size': 10})
@@ -354,12 +363,12 @@ def plot_15_cond(ref_file,file,savedir):
 
 
     a, b, e = calc_error_bars(df_1_sub['p_a=0.05'], alpha=0.05, num_samples=100)
-    plt.plot('n', 'p_a=0.05', data=df_1_sub, linestyle='--', marker='o', label=f'partial copula',c=plt.cm.rainbow(0 / 8.))
-    plt.fill_between(df_1_sub['n'], a, b, alpha=0.1,color=plt.cm.rainbow(0 / 8.))
+    plt.plot('n', 'p_a=0.05', data=df_1_sub, linestyle='--', marker='o', label=f'partial copula',c=color_palette[0])
+    plt.fill_between(df_1_sub['n'], a, b, alpha=0.1,color=color_palette[0])
 
     a, b, e = calc_error_bars(df_2_sub['p_a=0.05'], alpha=0.05, num_samples=100)
-    plt.plot('n', 'p_a=0.05', data=df_2_sub, linestyle='--', marker='o', label=f'KC-HSIC',c=plt.cm.rainbow(1 / 8.))
-    plt.fill_between(df_2_sub['n'], a, b, alpha=0.1,color=plt.cm.rainbow(1 / 8.))
+    plt.plot('n', 'p_a=0.05', data=df_2_sub, linestyle='--', marker='o', label=f'KC-HSIC',c=color_palette[1])
+    plt.fill_between(df_2_sub['n'], a, b, alpha=0.1,color=color_palette[1])
 
 
     plt.hlines(0.05, 1000, 10000)
@@ -381,66 +390,66 @@ if __name__ == '__main__':
     # # """
     # # Cont business
     # # """
-    # df_1 = pd.read_csv('kc_rule_3_test_3d.csv',index_col=0)
-    # df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv',index_col=0)
-    # df_3 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
-    # # df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
+    df_1 = pd.read_csv('kc_rule_3_test_3d.csv',index_col=0)
+    df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv',index_col=0)
+    df_3 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
+    # df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
+
+    df = pd.concat([df_1,df_2,df_3],axis=0)
+    df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+    # df = pd.concat([df,df_4],axis=0)
+    plot_2_est_weights(df,'cont_plots_est')
     #
-    # df = pd.concat([df_1,df_2,df_3],axis=0)
-    # df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
-    # # df = pd.concat([df,df_4],axis=0)
-    # plot_2_est_weights(df,'cont_plots_est')
-    # #
     # # """
     # # 1d cont business linear
     # # """
-    # df_1 = pd.read_csv("kc_rule_1d_linear_0.5_3.csv",index_col=0)
-    # df_1['nce_style'] = df_1['nce_style'].apply(lambda x: x+'_linear')
-    # # df_2 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
-    # df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
-    # # df = pd.concat([df_1,df_2,df_4],axis=0)
-    # df = pd.concat([df_1,df_4],axis=0)
-    # df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
-    # plot_2_est_weights(df,'cont_plots_est_1D_linear')
+    df_1 = pd.read_csv("kc_rule_1d_linear_0.5_3.csv",index_col=0)
+    df_1['nce_style'] = df_1['nce_style'].apply(lambda x: x+'_linear')
+    # df_2 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
+    df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
+    # df = pd.concat([df_1,df_2,df_4],axis=0)
+    df = pd.concat([df_1,df_4],axis=0)
+    df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+    plot_2_est_weights(df,'cont_plots_est_1D_linear')
     # # """
     # # 1d cont business
     # # """
     #
-    # df_1 = pd.read_csv('kc_rule_3_test_3d.csv', index_col=0)
-    # df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv', index_col=0)
-    # df_3 = pd.read_csv('kc_rule_3_test_2.csv', index_col=0)
-    # df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
-    # df = pd.concat([df_1, df_2, df_3], axis=0)
-    # df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
-    # df = pd.concat([df,df_4],axis=0)
-    # plot_2_est_weights(df, 'cont_plots_est_1D')
+    df_1 = pd.read_csv('kc_rule_3_test_3d.csv', index_col=0)
+    df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv', index_col=0)
+    df_3 = pd.read_csv('kc_rule_3_test_2.csv', index_col=0)
+    df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
+    df = pd.concat([df_1, df_2, df_3], axis=0)
+    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
+    df = pd.concat([df,df_4],axis=0)
+    plot_2_est_weights(df, 'cont_plots_est_1D')
     #
     #
     #
     # #
-    # y_index = 1
-    # hdm_break = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job.csv',index_col=0)
-    # hdm_break = hdm_break.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
-    # df_4 = pd.read_csv(f'break_hdm_pow_{y_index}.csv',index_col=0)
-    # hdm_break = pd.concat([hdm_break,df_4],axis=0)
-    # plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}')
-    #
-    # hdm_break = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_50.csv',index_col=0)
-    # hdm_break = hdm_break.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
-    # # hdm_break = pd.concat([hdm_break,df_4],axis=0)
-    # plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}_50')
+    for y_index in [1,4]:
+        hdm_break = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job.csv',index_col=0)
+        hdm_break = hdm_break.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+        df_4 = pd.read_csv(f'break_hdm_pow_{y_index}.csv',index_col=0)
+        hdm_break = pd.concat([hdm_break,df_4],axis=0)
+        plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}')
+
+        hdm_break = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_50.csv',index_col=0)
+        hdm_break = hdm_break.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+        # hdm_break = pd.concat([hdm_break,df_4],axis=0)
+        plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}_50')
     #
     # """
     # MIXED PLOTS
     # """
-    # mixed_df = pd.read_csv('do_null_mix_sanity_3_est.csv',index_col=0)
-    # bool_keep = (mixed_df['nce_style']=='real_weights') &  (mixed_df['d_Z']==50)
-    # mixed_df = mixed_df[~bool_keep]
-    # bool_keep = (mixed_df['nce_style']=='real_weights') &  (mixed_df['d_Z']==15)
-    # mixed_df = mixed_df[~bool_keep]
-    # fixed_reals = pd.read_csv('do_null_mix_real_test_0.05.csv',index_col=0)
-    # df = pd.concat([mixed_df,fixed_reals],axis=0)
-    # plot_3_est_weights(df,'mixed_sanity_3_est',mixed=True)
+    mixed_df = pd.read_csv('do_null_mix_sanity_3_est.csv',index_col=0)
+    bool_keep = (mixed_df['nce_style']=='real_weights') &  (mixed_df['d_Z']==50)
+    mixed_df = mixed_df[~bool_keep]
+    bool_keep = (mixed_df['nce_style']=='real_weights') &  (mixed_df['d_Z']==15)
+    mixed_df = mixed_df[~bool_keep]
+    fixed_reals = pd.read_csv('do_null_mix_real_test_0.05.csv',index_col=0)
+    df = pd.concat([mixed_df,fixed_reals],axis=0)
+    plot_3_est_weights(df,'mixed_sanity_3_est',mixed=True)
     """
     Linear break plot
     """

@@ -86,26 +86,13 @@ if __name__ == '__main__':
     for fam_y in [1,4]:
         fam_x = [1, 1]
         folder_name = f'hdm_breaker_fam_y={fam_y}'
-        # theta_vec = [16.0]
-        # phi_vec = [2.0]
-        # d_X=[3]
-        # d_Y=[3]
-        # d_Z=[50]
-        theta_vec = [2.0]
-        phi_vec = [2.0]
-        d_X=[1]
-        d_Y=[1]
-        d_Z=[1]
-        els = list(product(*[d_X,d_Y,d_Z,theta_vec,phi_vec]))
-        for d_X,d_Y,d_Z, theta,phi in els: #Screwed up rip
-            for b_z in [0.75]:  # ,1e-3,1e-2,0.05,0.1,0.25,0.5,1
+
+        for d_X,d_Y,d_Z, theta,phi in zip( [1,3],[1,3],[1,50],[2.0,16.0],[2.0,2.0]): #50,3: #Screwed up rip
+            for b_z in [0.25,0.075]:  # ,1e-3,1e-2,0.05,0.1,0.25,0.5,1
                 b_z = (d_Z ** 2) * b_z
                 beta_xz = generate_sensible_variables_old(d_Z, b_z, const=0)  # What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
                 for n in [10000]:
-                    # for beta_xy in [[0,0.0],[0,0.01],[0,0.02],[0,0.03],[0,0.04],[0,0.05]]:
-                    for beta_xy in [[0,0.0],[0,0.5]]:
-
-                    # for beta_xy in [[0,0.1]]:
+                    for beta_xy in [[0,0.0],[0,0.01],[0,0.02],[0,0.03],[0,0.04],[0,0.05]]:
                         data_dir = f"{folder_name}_{seeds}/beta_xy={beta_xy}_d_X={d_X}_d_Y={d_Y}_d_Z={d_Z}_n={n}_yz={yz}_beta_XZ={round(b_z / (d_Z ** 2), 3)}_theta={theta}_phi={round(phi, 2)}"
                         if not os.path.exists(f'./{data_dir}/'):
                             os.makedirs(f'./{data_dir}/')

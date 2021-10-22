@@ -22,8 +22,8 @@ if __name__ == '__main__':
         X,Y,Z,ind_dict = torch.load(f'covid_19_1/data_treatment={treatments[t]}.pt')
         n = X.shape[0]
         for m in [2500]:
-            for est in ['NCE_Q']:
-                for sep in [True]:
+            for est in ['NCE_Q','real_TRE_Q']:
+                for sep in [False]:
                     args = {'qdist':2,
                             'bootstrap_runs':250,
                             'est_params': {'lr': 1e-3, #use really small LR for TRE. Ok what the fuck is going on...

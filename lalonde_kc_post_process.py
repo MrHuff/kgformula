@@ -53,7 +53,7 @@ if __name__ == '__main__':
             # plt.clf()
             for treat_idx in treatment_indices:
                 treat = treatments[treat_idx]
-                for est in ['NCE_Q']:
+                for est in ['real_TRE_Q']:
                     for sep in [True]:
                         res = torch.load(f'{dname}_pvals_{est}_{sep}_{m}_{treat}_.pt')
                         pvals = res['pvals'].numpy()

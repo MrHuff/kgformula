@@ -21,8 +21,8 @@ if __name__ == '__main__':
     X,Y,Z,ind_dict = torch.load(f'covid_19_1/data_treatment_mult.pt')
     n = X.shape[0]
     for m in [2500]:
-        for est in ['NCE_Q']:
-            for sep in [True]:
+        for est in ['NCE_Q','real_TRE_Q']:
+            for sep in [False]:
                 args = {'qdist':2,
                         'bootstrap_runs':250,
                         'est_params': {'lr': 1e-3, #use really small LR for TRE. Ok what the fuck is going on...
@@ -43,7 +43,7 @@ if __name__ == '__main__':
                         'cuda': True,
                         'device': 'cuda:0',
                         'n':10000,
-                        'unique_job_idx':0,
+                        'unique_job_idx':9999,
                         'variant':1,
                         }
                 pval_list = []
@@ -62,7 +62,7 @@ if __name__ == '__main__':
                         print (e)
                     pval_list.append(pval)
                 pvals = torch.tensor(pval_list)
-                torch.save({'pvals':pvals,'config':args},f'covid_pvals_{est}_{sep}_{m}_mult.pt')
+                torch.save({'pvals':pvals,'config':args},f'covid_pvals_{est}_{sep}_{m}_mult_.pt')
 
 
 

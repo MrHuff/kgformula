@@ -8,6 +8,7 @@ from create_plots import *
 
 dict_method = {'NCE_Q': 'Classifier', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF','real_weights': 'Real weights'}
 
+color_palette = ["#3f90da", "#ffa90e", "#bd1f01", "#94a4a2", "#832db6", "#a96b59", "#e76300", "#b9ac70", "#717581", "#92dadd"]
 
 def plot_power(raw_df,dir,name,ests):
     for d in [1]:
@@ -20,8 +21,8 @@ def plot_power(raw_df,dir,name,ests):
                 a,b,e = calc_error_bars(subset_3['alp=0.05'],alpha=0.05,num_samples=100)
                 # plt.plot('alp','alp=0.05',data=subset_3,linestyle='--', marker='o',label=r'$n'+f'={n}$')
                 # plt.plot('alp','alp=0.05',data=subset_3,linestyle='--', marker='o',label=f'{label_name}',c = plt.cm.rainbow(col_index/8.))
-                plt.plot('alp','alp=0.05',data=subset_3,linestyle='-',label=f'{label_name}',c = plt.cm.rainbow(col_index/8.))
-                plt.fill_between(subset_3['alp'], a, b, alpha=0.1,color=plt.cm.rainbow(col_index/8.))
+                plt.plot('alp','alp=0.05',data=subset_3,linestyle='-',label=f'{label_name}',c = color_palette[col_index])
+                plt.fill_between(subset_3['alp'], a, b, alpha=0.1,color=color_palette[col_index])
             plt.hlines(0.05, 0, 0.1)
             # plt.legend(prop={'size': 10})
             plt.xticks([0.00, 0.02, 0.04, 0.06, 0.08, 0.10])
