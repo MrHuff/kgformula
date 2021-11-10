@@ -1,10 +1,10 @@
 library(hdm)
 library(ggplot2)
 setwd("~/Documents/phd_projects/kgformula")
-alphas = list("0.0",0.02,0.04,0.06,0.08,0.1)
+alphas = list("0.0",0.005,0.01,0.02,0.04,0.06,0.08,0.1)
 Ns = list(1000,5000,10000)
 d = list(1)
-null_case = list("True","False")
+null_case = list("False")
 df = as.data.frame(matrix(nrow = 1, ncol = 104))
 names(df)<-c("alp","null","d","n",c(1:100))
 j=1

@@ -33,7 +33,7 @@ if __name__ == '__main__':
     seeds=100
     for d in [1]:
         for null_case in [False]:
-            for alp in [0.0,2*1e-2,4*1e-2,6*1e-2,8*1e-2,1e-1]:
+            for alp in [0.0,0.005,0.01,2*1e-2,4*1e-2,6*1e-2,8*1e-2,1e-1]:
                 new_dirname = f'do_null_univariate_alp={alp}_null={null_case}_d={d}'
                 if not os.path.exists(new_dirname):
                     os.makedirs(new_dirname)

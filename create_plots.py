@@ -387,9 +387,9 @@ if __name__ == '__main__':
     # # plot_3_est_weights('do_null_mixed_est_3d_2.csv','mixed_est_3d_2',True)
     # # plot_15_cond('quantile_jmlr_break_ref.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
     #
-    # # """
-    # # Cont business
-    # # """
+    """
+    Cont business
+    """
     df_1 = pd.read_csv('kc_rule_3_test_3d.csv',index_col=0)
     df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv',index_col=0)
     df_3 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
@@ -400,9 +400,9 @@ if __name__ == '__main__':
     # df = pd.concat([df,df_4],axis=0)
     plot_2_est_weights(df,'cont_plots_est')
     #
-    # # """
-    # # 1d cont business linear
-    # # """
+    """
+    1d cont business linear
+    # """
     df_1 = pd.read_csv("kc_rule_1d_linear_0.5_3.csv",index_col=0)
     df_1['nce_style'] = df_1['nce_style'].apply(lambda x: x+'_linear')
     # df_2 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
@@ -411,9 +411,9 @@ if __name__ == '__main__':
     df = pd.concat([df_1,df_4],axis=0)
     df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
     plot_2_est_weights(df,'cont_plots_est_1D_linear')
-    # # """
-    # # 1d cont business
-    # # """
+    """
+    1d cont business
+    # """
     #
     df_1 = pd.read_csv('kc_rule_3_test_3d.csv', index_col=0)
     df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv', index_col=0)
@@ -434,14 +434,19 @@ if __name__ == '__main__':
         hdm_break = pd.concat([hdm_break,df_4],axis=0)
         plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}')
 
-        hdm_break = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_50.csv',index_col=0)
-        hdm_break = hdm_break.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+        hdm_break_1 = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_50.csv',index_col=0)
+        hdm_break_1 = hdm_break_1.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+        hdm_break_1 = hdm_break_1[hdm_break_1['beta_xy']==0.001]
+
+        hdm_break_2 = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_50_2.csv',index_col=0)
+        hdm_break_2 = hdm_break_2.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
         # hdm_break = pd.concat([hdm_break,df_4],axis=0)
-        plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}_50')
+        hdm_break = pd.concat([hdm_break_1,hdm_break_2],axis=0)
+        plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}_50_2')
     #
-    # """
-    # MIXED PLOTS
-    # """
+    """
+    MIXED PLOTS
+    """
     mixed_df = pd.read_csv('do_null_mix_sanity_3_est.csv',index_col=0)
     bool_keep = (mixed_df['nce_style']=='real_weights') &  (mixed_df['d_Z']==50)
     mixed_df = mixed_df[~bool_keep]
@@ -473,4 +478,5 @@ if __name__ == '__main__':
     hsic and quantile plot
     """
     plot_14_hsic('old_csvs/ind_jobs_hsic_2.csv','old_csvs/hsic_break_real.csv','plot_14')
-    plot_15_cond('quantile_jmlr_break_ref.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
+    plot_15_cond('rcit.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
+    plot_15_cond('rcot.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15_b')

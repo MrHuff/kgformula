@@ -282,9 +282,9 @@ def generate_csv_contrast(base_dir):
     print(df.to_latex(escape=True))
 
 if __name__ == '__main__':
-    # generate_csv_file_parfor('hdm_breaker_fam_y=4_job_50')
-    generate_csv_file_parfor('ablation_3d')
-    # generate_csv_file_parfor('hdm_breaker_fam_y=1_job_50')
+    generate_csv_file_parfor('hdm_breaker_fam_y=4_job_50_2')
+    # generate_csv_file_parfor('ablation_3d')
+    generate_csv_file_parfor('hdm_breaker_fam_y=1_job_50_2')
     # generate_csv_file_parfor('hdm_breaker_fam_y=4_job')
     # generate_csv_file_parfor('hdm_breaker_fam_y=1_job')
     # generate_csv_file_parfor('kc_rule_1d_linear_2')
