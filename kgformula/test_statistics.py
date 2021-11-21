@@ -1,5 +1,5 @@
 import torch.nn
-
+import random
 from kgformula.networks import *
 from kgformula.kernels import *
 import os
@@ -643,8 +643,45 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
                 ret = torch.tensor(1.0)
             return ret
 
+class time_series_Q_hsic(Q_weighted_HSIC):
+    def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,within_perm_vec=None):
+        super(time_series_Q_hsic, self).__init__(X,Y,w,X_q,cuda,device,half_mode,perm,variant,1)
+        if within_perm_vec is not None: #shape is [a ,b] (chunk of chukns)
+            self.within_block = True
+            idx = torch.arange(X.shape[0])
+            self.big_chunk_list = []
+            for el in within_perm_vec:
+                sub_vec = idx[el[0]:el[1]]
+                n_blocks = max(X.shape[0] // 20, 20)
+                sub_chunks = torch.chunk(sub_vec,n_blocks)
+                self.big_chunk_list.append(sub_chunks)
+        else:
+            self.within_block = False
+            self.n_blocks =  max(X.shape[0]//20,20)
+            self.chunked_indices = torch.chunk(torch.arange(X.shape[0]),self.n_blocks)
+            self.len_chunked = len(self.chunked_indices)
 
+    def within_block_permute(self):
+        cat_indices = []
+        for el in self.big_chunk_list:
+            sampled_elements = random.sample(el, len(el))
+            cat_indices.append(torch.cat(sampled_elements))
+        idx = torch.cat(cat_indices)
+        return idx
 
+    def block_permute(self):
+        sampled_elements = random.sample(self.chunked_indices,self.len_chunked)
+        block_permute = torch.cat(sampled_elements)
+        return block_permute
+
+    def get_permuted2d(self,ker):
+        if self.within_block:
+            idx = self.within_block_permute()
+        else:
+            idx = self.block_permute()
+        kernel_X = ker[:,idx]
+        kernel_X = kernel_X[idx,:]
+        return kernel_X,idx
 
 
 

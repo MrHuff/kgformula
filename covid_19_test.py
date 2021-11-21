@@ -2,71 +2,13 @@ import pandas as pd
 import torch
 from sklearn.preprocessing import StandardScaler,MinMaxScaler,RobustScaler
 import os
+from sklearn.impute import KNNImputer
+import random
+import numpy as np
+import pickle
 pd.options.display.max_rows = 10000
 pd.options.display.max_columns = 1000
-categorical = [
-        'School closing',
-        'Workplace closing',
-       'Cancel public events',
-        'Restrictions on gatherings',
-       'Close public transport',
-        'Stay at home requirements',
-       'Restrictions on internal movement',
-        'International travel controls',
-       'Income support',
-        'Debt/contract relief',
-        'Testing policy',
-        'Contact tracing',
-        'Masks',
-        'Public information campaigns',
-        'ISO'
-    ]
-float = ['Emergency investment in healthcare',
-             'new_cases',
-             'Population Density',
-             'Population',
-             'aged_70_older',
-             'median_age_y',
-             'total_cases',
-             'International support',
-             'hospital_beds_per_100k',
-             'total_deaths_per_million',
-             'hospital_beds (per 1000)',
-             'new_deaths',
-             'female_smokers',
-             'Population Male',
-             'extreme_poverty',
-             'population_density',
-             'Population Female',
-             'new_deaths_per_million',
-             'total_cases_per_million',
-             'nurses (per 1000)',
-             'new_tests',
-             'total_tests_per_thousand',
-             'days_since_first_death',
-             'population',
-             'total_tests',
-             'median_age_x',
-             'aged_65_older',
-             'Smoking prevalence, total, ages 15+',
-             'Population in Urban Agglomerations',
-             'diabetes_prevalence',
-             'male_smokers',
-             'days_since_first_case',
-             'total_deaths',
-             'cvd_death_rate',
-             'Investment in vaccines',
-             'new_cases_per_million',
-             'Fiscal measures',
-             'Population of Compulsory School Age',
-             'physicians (per 1000)',
-             'Mortality rate, adult, female (per 1,000 female adults)',
-             'new_tests_per_thousand',
-             'Mortality rate, adult, male (per 1,000 male adults)',
-             'handwashing_facilities',
-             'gdp_per_capita'
-         ]
-
+columns_of_interest = ['DATE', 'country_name', 'npi_school_closing', 'npi_workplace_closing', 'npi_cancel_public_events', 'npi_gatherings_restrictions', 'npi_close_public_transport', 'npi_stay_at_home', 'npi_internal_movement_restrictions', 'npi_international_travel_controls', 'npi_income_support', 'npi_debt_relief', 'npi_fiscal_measures', 'npi_international_support', 'npi_public_information', 'npi_testing_policy', 'npi_contact_tracing', 'npi_healthcare_investment', 'npi_vaccine_investment', 'npi_masks', 'cases_total', 'cases_new', 'deaths_total', 'deaths_new', 'cases_total_per_million', 'cases_new_per_million', 'deaths_total_per_million', 'deaths_new_per_million', 'tests_total', 'tests_new', 'tests_total_per_thousand', 'tests_new_per_thousand', 'stats_population', 'stats_population_density', 'stats_median_age', 'stats_gdp_per_capita', 'cases_days_since_first', 'deaths_days_since_first', 'mobility_retail_recreation', 'mobility_grocery_pharmacy', 'mobility_parks', 'mobility_transit_stations', 'mobility_workplaces', 'mobility_residential', 'mobility_travel_driving', 'mobility_travel_transit', 'mobility_travel_walking', 'stats_hospital_beds_per_1000', 'stats_smoking', 'stats_population_urban', 'stats_population_school_age', 'deaths_excess_daily_avg', 'deaths_excess_weekly', 'weather_precipitation_mean', 'weather_humidity_mean', 'weather_sw_radiation_mean', 'weather_temperature_mean', 'weather_temperature_min', 'weather_temperature_max', 'weather_wind_speed_mean']
 def cat_fix(df):
     df = df.astype("category")
     return pd.get_dummies(df,drop_first=True)
@@ -79,30 +21,13 @@ def normalize(df):
     return pd.DataFrame(x,columns=col_names.tolist())
 
 def filter_nan_countries(df):
-    list = df['CountryName'].unique().tolist()
+    list = df['country_name'].unique().tolist()
     ret_list = []
     for el in list:
-        subset = df[df['CountryName']==el]
+        subset = df[df['country_name']==el]
         if not subset.isnull().values.any():
             ret_list.append(el)
     return ret_list
-
-def transform(df):
-    col_names = df.columns.tolist()
-    _cat = []
-    for el in col_names:
-        if el in categorical:
-            _cat.append(el)
-    if _cat:
-        cat_data = cat_fix(df[_cat])
-        df = df.drop(columns=_cat)
-        if df.shape[1]>0:
-            df = normalize(df)
-        df = pd.concat([df, cat_data], axis=1)
-    else:
-        if df.shape[1]>0:
-            df = normalize(df)
-    return df
 
 def save_torch(X_pd,Y_pd,Z_cat,Z_cont,dir,filename):
     X = torch.from_numpy(X_pd.values).float()
@@ -115,8 +40,7 @@ def save_torch(X_pd,Y_pd,Z_cat,Z_cont,dir,filename):
     for i in range(Z_cat.shape[1]):
         col_stats = Z_cat.iloc[:,i].unique().tolist()
         col_stats_list.append(col_stats)
-    w={ 'indicator':[True]*Z_cat.shape[1]+Z_cont.shape[1]*[False],'index_lists':col_stats_list
-}
+    w={ 'indicator':[True]*Z_cat.shape[1]+Z_cont.shape[1]*[False],'index_lists':col_stats_list}
     if not os.path.exists(dir):
         os.makedirs(dir)
     torch.save((X,Y,Z,w),dir+filename)
@@ -135,85 +59,110 @@ def save_torch_mult(X_pd,Y_pd,Z_cont,dir,filename):
         os.makedirs(dir)
     torch.save((X,Y,Z,w),dir+filename)
 
+def shuffle_by_country(df):
+    groups = [df for _, df in df.groupby('country_name')]
+    random.shuffle(groups)
+    df = pd.concat(groups).reset_index(drop=True)
+
+    return df
+
+def filter_quarter(df):
+    indices = []
+    for i,row in df.iterrows():
+        month = row['DATE'].month
+        day = row['DATE'].day
+        if day==1 and month in [1,4,7,10]:
+            indices.append(i)
+    return df.iloc[indices,:]
+
+def filter_week(df):
+    indices = []
+    for i,row in df.iterrows():
+        # month = row['DATE'].month
+        day = row['DATE'].day
+        if day in  [1,7,14,21,28]:
+            indices.append(i)
+    return df.iloc[indices,:]
+
+def generate_autocorrelated_treatment(df):
+    n = df.shape[0]
+    auto_cor = 0.5
+    arr = [np.random.rand(1)]
+    for i in range(1,n+1):
+        arr.append( arr[i-1]*auto_cor + np.random.randn(1))
+    ts = np.array(arr)
+    df['auto_corr_ref'] = ts[1:]
+    return df
 
 if __name__ == '__main__':
-    # df = pd.read_csv(
-    #     'https://raw.githubusercontent.com/rs-delve/covid19_datasets/master/dataset/combined_dataset_latest.csv',
-    #     parse_dates=['DATE'])
-    #
-    df = pd.read_csv("combined_dataset_latest.csv")
-    df = df.drop(columns=['StringencyIndex',
-                          'ISO',
-                          'Retail and Recreation',
-                          'Grocery and Pharmacy',
-                          'Parks',
-                          'Transit Stations',
-                          'Workplaces',
-                          'Residential'])
-    cols_1 = df.columns.tolist()
-    country_list = filter_nan_countries(df)
-    cl_2 = df['CountryName'].unique().tolist()
-    print(set(cl_2)-set(country_list))
-    df = df[df['CountryName'].isin(country_list)]
-    print(df.shape)
-    print(df.columns)
-    #new_deaths_per_million
-    #
-    y = ['new_cases_per_million','new_deaths_per_million'] #Need to consider repeating case... Confounder against testing policy. new_deaths_per_million
-    x = [
-        'School closing',
-        'Workplace closing',
-        'Cancel public events',
-        'Restrictions on gatherings',
-        'Close public transport',
-        'Stay at home requirements',
-        'Restrictions on internal movement',
-        'International travel controls',
-        'Testing policy',
-        'Contact tracing',
-        'Masks',
-    ]
+    if not os.path.exists('covid_19_1'):
+        os.makedirs('covid_19_1')
 
-    z = [
-        'International support',
-        'Fiscal measures',
-        'extreme_poverty',
-        'physicians (per 1000)',
-        'Mortality rate, adult, female (per 1,000 female adults)',
-        'Mortality rate, adult, male (per 1,000 male adults)',
-        'Population of Compulsory School Age',
-        'hospital_beds (per 1000)',
-        'nurses (per 1000)',
-        'median_age_y',
-        'Population Density',
-        'aged_65_older',
-        'gdp_per_capita',
-        'new_tests_per_thousand'
-    ]
+    df = pd.read_csv(
+        'https://raw.githubusercontent.com/rs-delve/covid19_datasets/master/dataset/combined_dataset_latest.csv',
+        parse_dates=['DATE'])
+
+    df = df[columns_of_interest]
+    df = shuffle_by_country(df)
+
+
+    cols_1 = df.columns.tolist()
+
+    df = filter_quarter(df)
+    # df = filter_week(df)
+
+
+    df = df.dropna(axis=1, how='all')
+    counts  = df['country_name'].value_counts().tolist()
+    counts.insert(0,0)
+    counts_cum = np.cumsum(counts)
+    index_list = [[counts_cum[i-1],counts_cum[i]] for i in range(1,len(counts_cum))]
+    with open("covid_19_1/within_grouping.txt", "wb") as fp:
+        pickle.dump(index_list, fp)
+    dataset_colums =df.columns.tolist()[2:]
+
+    imputer = KNNImputer(n_neighbors=1, weights="uniform")
+    vals  = imputer.fit_transform(df.values[:,2:])
+    df = pd.DataFrame(vals,columns=dataset_colums)
+    df = generate_autocorrelated_treatment(df)
+
+
+    # df = df.drop(['npi_healthcare_investment','npi_vaccine_investment','npi_fiscal_measures','npi_international_support'],axis=1)
+    x = [ ]
+    z = df.columns.tolist()[28:]
+    for el in df.columns.tolist():
+        if 'npi' in el:
+            x.append(el)
+    for el in ['npi_healthcare_investment','npi_vaccine_investment','npi_fiscal_measures','npi_international_support']:
+        x.remove(el)
+    x.append('auto_corr_ref')
+    z.append('cases_total_per_million')
+    z = z+['npi_healthcare_investment','npi_vaccine_investment','npi_fiscal_measures','npi_international_support'] #lag cases to previous variables
+    y = ['cases_new_per_million']
+    print(x)
+    print(y)
+    print(z)
     Y_pd = df[y]
     Z_cont = df[z]
     Y_pd.to_csv(f"./covid_19_1/covid_Y.csv", index=False)
     Z_cont.to_csv(f"./covid_19_1/covid_Z_cont.csv", index=False)
-
     X_mult = df[x]
     Z_mult = Z_cont
-    Z_cat = []
+    print(Z_cont.columns.tolist())
+    # save_torch_mult(X_mult, Y_pd, Z_mult, './covid_19_1/', f'data_treatment_mult.pt')
+    df = generate_autocorrelated_treatment(df)
+    treatment_indices = [0,1,2,3,4,-2,-1]
+    for i in treatment_indices:
+        x_treat = [x[i]]
+        z_cat=[]
+        for el in x:
+            if el == 'auto_corr_ref':
+                continue
+            elif el!=x[i]:
+                z_cat.append(el)
 
-    save_torch_mult(X_mult, Y_pd, Z_mult, './covid_19_1/', f'data_treatment_mult.pt')
-
-    # treatment_indices = [0,1,2,3,4,-1]
-    # for i in treatment_indices:
-    #     x_treat = [x[i]]
-    #     z_cat=[]
-    #     for el in x:
-    #         if el!=x[i]:
-    #             z_cat.append(el)
-    #
-    #     X_pd = df[x_treat]
-    #     Z_cat = df[z_cat]
-    #     X_pd.to_csv(f"./covid_19_1/covid_T={x[i]}.csv",index = False)
-    #     Z_cat.to_csv(f"./covid_19_1/covid_Z_cat={x[i]}.csv",index = False)
-    #     # X_pd = transform(X_pd)
-    #     # Y_pd = transform(Y_pd)
-    #     # Z_pd = transform(Z_pd)
-    #     save_torch(X_pd,Y_pd,Z_cat,Z_cont,'./covid_19_1/',f'data_treatment={x[i]}.pt')
+        X_pd = df[x_treat]
+        Z_cat = df[z_cat]
+        X_pd.to_csv(f"./covid_19_1/covid_T={x[i]}.csv",index = False)
+        Z_cat.to_csv(f"./covid_19_1/covid_Z_cat={x[i]}.csv",index = False)
+        save_torch(X_pd,Y_pd,Z_cat,Z_cont,'./covid_19_1/',f'data_treatment={x[i]}.pt')

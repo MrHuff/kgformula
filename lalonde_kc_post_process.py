@@ -26,21 +26,15 @@ if __name__ == '__main__':
                     plt.savefig(f'{dname}_pvals_{est}_{sep}_{m}_linear.jpg', bbox_inches='tight',
                                 pad_inches=0.05)
                     plt.clf()
-    treatment_indices = [0, 1, 2, 3, 4, -2,-1]
-    treatments = [
-    'School closing',
-    'Workplace closing',
-    'Cancel public events',
-    'Restrictions on gatherings',
-    'Close public transport',
-    'Stay at home requirements',
-    'Restrictions on internal movement',
-    'International travel controls',
-    'Testing policy',
-    'Contact tracing',
-    'Masks','mult' ]
+    treatment_indices = [0, 1, 2, 3, 4,-1]
+    treatments = ['npi_school_closing', 'npi_workplace_closing', 'npi_cancel_public_events',
+                  'npi_gatherings_restrictions', 'npi_close_public_transport', 'npi_stay_at_home',
+                  'npi_internal_movement_restrictions', 'npi_international_travel_controls', 'npi_income_support',
+                  'npi_debt_relief', 'npi_fiscal_measures', 'npi_international_support', 'npi_public_information',
+                  'npi_testing_policy', 'npi_contact_tracing', 'npi_masks']
+
     dataset_names = ['covid']
-    for m in [2500]:
+    for m in [250]:
         for dname in dataset_names:
             # bench = pd.read_csv(f"{dname}_bench_1d_{m}.csv").values.squeeze()
             # power = round(calc_power(bench, 0.05), 3)
@@ -53,8 +47,8 @@ if __name__ == '__main__':
             # plt.clf()
             for treat_idx in treatment_indices:
                 treat = treatments[treat_idx]
-                for est in ['real_TRE_Q']:
-                    for sep in [True]:
+                for est in ['NCE_Q','real_TRE_Q']:
+                    for sep in [False]:
                         res = torch.load(f'{dname}_pvals_{est}_{sep}_{m}_{treat}_.pt')
                         pvals = res['pvals'].numpy()
                         power = round(calc_power(pvals,0.05),3)

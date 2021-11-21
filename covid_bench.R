@@ -2,14 +2,9 @@ library(hdm)
 library(ggplot2)
 setwd("~/Documents/phd_projects/kgformula")
 treatments =c(
-  'School closing',
-  'Workplace closing',
-  'Cancel public events',
-  'Restrictions on gatherings',
-  'Close public transport',
-  'Masks'
+  'npi_school_closing', 'npi_workplace_closing', 'npi_cancel_public_events', 'npi_gatherings_restrictions', 'npi_close_public_transport','npi_masks'
   )
-n=2500
+n=400
 Y <-as.matrix(read.csv(file = "covid_19_1/covid_Y.csv",header = TRUE))
 Z_cont <-as.matrix(read.csv(file = "covid_19_1/covid_Z_cont.csv",header = TRUE))
 for (treatment_string in treatments){
@@ -24,14 +19,14 @@ for (treatment_string in treatments){
   Z_cat <-as.matrix(read.csv(file = z_cat_file,header = TRUE))
   for (i in 0:99){
     set.seed(i)
-    mask = sample(c(1:nrow(T)), size=2500, replace =F)
+    mask = sample(c(1:nrow(T)), size=n, replace =F)
     
     x = T[mask,]
     y = Y[mask] 
     z_1 = Z_cont[mask,]
     z_2 = Z_cat[mask,]
     data <- cbind(x,z_1,z_2)
-    mod = rlassoEffects(data, y, index=c(1,2,3,4,5,6,7,8),joint=TRUE)
+    mod = rlassoEffects(data, y, index=c(1),joint=TRUE)
     vec[i+1]=mod$pval
   }
   df[j,] = vec

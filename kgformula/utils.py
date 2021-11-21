@@ -372,8 +372,12 @@ class simulation_object():
             p_values.append(p)
         return p_values
 
-    def perm_Q_test(self,X,Y,X_q,w,i):
-        c = Q_weighted_HSIC(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i,variant=self.variant)
+    def perm_Q_test(self,X,Y,X_q,w,i,time_series_data=False,within_perm_vec=None):
+
+        if time_series_data:
+            c = time_series_Q_hsic(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y',variant=self.variant,within_perm_vec=within_perm_vec)
+        else:
+            c = Q_weighted_HSIC(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i,variant=self.variant)
         reference_metric = c.calculate_weighted_statistic().cpu().item()
         list_of_metrics = []
         for i in range(self.bootstrap_runs):
@@ -763,7 +767,30 @@ class simulation_object_rule_new(simulation_object):
         s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
         return
 
-    def run_data(self, X, Y, Z,cat_cols_z={}):
+    def transform_data(self,x, y, z, country_subsets):
+        x_list = []
+        y_list = []
+        z_list = []
+        reindexed_subsets = [0]
+        for i, intervals in enumerate(country_subsets):
+            diff = intervals[1] - intervals[0]
+            x_sub = x[intervals[0]:intervals[1], :]
+            y_sub = y[intervals[0]:intervals[1], :]
+            z_sub = z[intervals[0]:intervals[1], :]
+            x_list.append(x_sub)
+            y_list.append(y_sub)
+            z_list.append(z_sub)
+            reindexed_subsets.append(diff)
+        x_new = torch.cat(x_list, 0)
+        y_new = torch.cat(y_list, 0)
+        z_new = torch.cat(z_list, 0)
+        cum_sum = np.cumsum(reindexed_subsets)
+        new_list = []
+        for i in range(1, cum_sum.shape[0]):
+            new_list.append([cum_sum[i - 1], cum_sum[i]])
+        return x_new, y_new, z_new, new_list
+
+    def run_data(self, X, Y, Z,cat_cols_z={},time_series_data=False,within_perm_vec=None):
         self.qdist = self.args['qdist']
         self.bootstrap_runs = self.args['bootstrap_runs']
         est_params = self.args['est_params']
@@ -771,9 +798,20 @@ class simulation_object_rule_new(simulation_object):
         q_fac_list = []
         X, Y, Z = X.cuda(self.device), Y.cuda(self.device), Z.cuda(self.device)
         n_half = X.shape[0] // 2
-        X_train, X_test = split(X, n_half)
-        Y_train, Y_test = split(Y, n_half)
-        Z_train, Z_test = split(Z, n_half)
+
+        if within_perm_vec is None:
+            X_train, X_test = split(X, n_half)
+            Y_train, Y_test = split(Y, n_half)
+            Z_train, Z_test = split(Z, n_half)
+            new_list =None
+        else:
+            train_chunk,test_chunk=np.array_split(within_perm_vec,2)
+            X_train,Y_train,Z_train,_=self.transform_data(X,Y,Z,train_chunk)
+            X_test,Y_test,Z_test,new_list=self.transform_data(X,Y,Z,test_chunk)
+
+
+
+
         binary_mask_X = self.get_binary_mask(X)
         if len(cat_cols_z)==0:
 
@@ -802,7 +840,7 @@ class simulation_object_rule_new(simulation_object):
                               est_params=est_params, type=estimator, device=self.device,
                               secret_indx=self.args['unique_job_idx'],x_full=X,z_full=Z,cat_cols_z=cat_cols_z)
         w = d.return_weights(X_test, Z_test, X_q_test)
-        p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0)
+        p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0,time_series_data=time_series_data,within_perm_vec=new_list)
         print(p,reference_metric)
         return p, reference_metric
 

@@ -12,8 +12,9 @@ def get_biggest_bin(dat):
     return vals[max_ind],vals.tolist()
 if __name__ == '__main__':
     s = StandardScaler()
-    for treatment in ['Masks','Cancel public events']:
+    for treatment in ['npi_masks']:
         X, Y, Z, ind_dict = torch.load(f'covid_19_1/data_treatment={treatment}.pt')
+        treatment = treatment.replace('_',' ')
         plt.scatter(X.numpy(),Y.numpy())
         plt.xlabel(treatment)
         plt.ylabel('New cases per million')

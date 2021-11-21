@@ -6,7 +6,7 @@ from kchsic_categorical_power import *
 if __name__ == '__main__':
     for t in treatment_indices:
         treat = treatments[t]
-        pval_plot_data = pd.read_csv(f"covid_bench_T={treat}_n=2500.csv",index_col=0)
+        pval_plot_data = pd.read_csv(f"covid_bench_T={treat}_n=400.csv",index_col=0)
         pvals = pval_plot_data.values.squeeze()
         power = round(calc_power(pvals, 0.05), 3)
         plt.hist(pvals, bins=[i / 25 for i in range(0, 26)])
