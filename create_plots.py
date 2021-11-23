@@ -59,6 +59,11 @@ def hex_to_rgb(value):
     tup = [int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3)]
     return [t/255. for t in tup]
 color_palette = ["#3f90da", "#ffa90e", "#bd1f01", "#94a4a2", "#832db6", "#a96b59", "#e76300", "#b9ac70", "#717581", "#92dadd"]
+col_dict_1 = {'NCE_Q': "#3f90da", 'real_TRE_Q': "#ffa90e", 'random_uniform': "#bd1f01", 'rulsif': "#94a4a2",'real_weights':"#832db6",'hdm':"#a96b59"}
+col_dict_2 = {'NCE_Q_linear': "#3f90da", 'real_TRE_Q_linear': "#ffa90e", 'random_uniform_linear': "#bd1f01", 'rulsif_linear': "#94a4a2",'real_weights_linear':"#832db6"}
+col_dict_3 = {'NCE-Q prod': "#e76300", 'TRE-Q prod': "#b9ac70",  'RuLSIF prod': "#717581"}
+col_dict = {**col_dict_1,**col_dict_2,**col_dict_3}
+print(col_dict)
 rgb_vals =  [hex_to_rgb(el) for el in color_palette]
 print(rgb_vals)
 def plot_2_true_weights(csv,dir,mixed=False):
@@ -149,10 +154,10 @@ def plot_2_est_weights(csv,dir,mixed=False):
                 format_string = dict_method[method]
                 # plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
                 print(format_string)
-                plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='-',label=rf'{format_string}',c = color_palette[col_index])
+                plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='-',label=rf'{format_string}',c = col_dict[method])
 
                 # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
-                plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1,color=color_palette[col_index])
+                plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1,color=col_dict[method])
             plt.hlines(0.05, 0, subset_2['beta_xy'].max())
             # plt.legend(prop={'size': 10})
             plt.xlabel(r'$\beta_{XY}$')
@@ -213,13 +218,19 @@ def plot_3_est_weights(csv,dir,mixed=True):
                     appendix_string  = ' prod' if sep else ''
                     if method not in ['real_weights','random_uniform']:
                         format_string = dict_method[method] + appendix_string
+                        if appendix_string==' prod':
+                            col_string = format_string
+                        else:
+                            col_string = method
                     else:
                         format_string = dict_method[method]
+                        col_string=method
+
                     plt.plot('beta_xy', 'p_a=0.05', data=subset_3, linestyle='-', label=rf'{format_string}',
-                             c=color_palette[col_index])
+                             c=col_dict[col_string])
 
                     # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
-                    plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1, color=color_palette[col_index])
+                    plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1, color=col_dict[col_string])
                     # plt.plot('beta_xy','p_a=0.05',data=subset_3,linestyle='--',label=rf'{format_string}')
                     # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
                     col_index+=1
@@ -272,10 +283,10 @@ def break_plot(df,dir,mixed=True):
                 # format_string = dict_method[method] + appendix_string
             format_string = dict_method[method]
             plt.plot('$/beta_{xz}$', 'p_a=0.05', data=subset_3, linestyle='-', label=rf'{format_string}',
-                     c=color_palette[col_index])
+                     c=col_dict[method])
 
             # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
-            plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1, color=color_palette[col_index])
+            plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1, color=col_dict[method])
             # plt.plot('$/beta_{xz}$','p_a=0.05',data=subset_3,linestyle='--', marker='o',label=rf'{format_string}')
             # plt.fill_between(subset_3['$/beta_{xz}$'], a, b, alpha=0.1)
         plt.hlines(0.05, 0, df['$/beta_{xz}$'].max())
@@ -432,6 +443,7 @@ if __name__ == '__main__':
         hdm_break = hdm_break.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
         df_4 = pd.read_csv(f'break_hdm_pow_{y_index}.csv',index_col=0)
         hdm_break = pd.concat([hdm_break,df_4],axis=0)
+        print(hdm_break)
         plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}')
 
         hdm_break_1 = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_50.csv',index_col=0)
@@ -441,8 +453,9 @@ if __name__ == '__main__':
         hdm_break_2 = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_50_2.csv',index_col=0)
         hdm_break_2 = hdm_break_2.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
         # hdm_break = pd.concat([hdm_break,df_4],axis=0)
-        hdm_break = pd.concat([hdm_break_1,hdm_break_2],axis=0)
-        plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}_50_2')
+        hdm_break_50 = pd.concat([hdm_break_1,hdm_break_2],axis=0)
+        print(hdm_break_50)
+        plot_2_est_weights(hdm_break_50,f'hdm_break_y={y_index}_50_2')
     #
     """
     MIXED PLOTS

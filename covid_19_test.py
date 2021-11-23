@@ -8,7 +8,10 @@ import numpy as np
 import pickle
 pd.options.display.max_rows = 10000
 pd.options.display.max_columns = 1000
-columns_of_interest = ['DATE', 'country_name', 'npi_school_closing', 'npi_workplace_closing', 'npi_cancel_public_events', 'npi_gatherings_restrictions', 'npi_close_public_transport', 'npi_stay_at_home', 'npi_internal_movement_restrictions', 'npi_international_travel_controls', 'npi_income_support', 'npi_debt_relief', 'npi_fiscal_measures', 'npi_international_support', 'npi_public_information', 'npi_testing_policy', 'npi_contact_tracing', 'npi_healthcare_investment', 'npi_vaccine_investment', 'npi_masks', 'cases_total', 'cases_new', 'deaths_total', 'deaths_new', 'cases_total_per_million', 'cases_new_per_million', 'deaths_total_per_million', 'deaths_new_per_million', 'tests_total', 'tests_new', 'tests_total_per_thousand', 'tests_new_per_thousand', 'stats_population', 'stats_population_density', 'stats_median_age', 'stats_gdp_per_capita', 'cases_days_since_first', 'deaths_days_since_first', 'mobility_retail_recreation', 'mobility_grocery_pharmacy', 'mobility_parks', 'mobility_transit_stations', 'mobility_workplaces', 'mobility_residential', 'mobility_travel_driving', 'mobility_travel_transit', 'mobility_travel_walking', 'stats_hospital_beds_per_1000', 'stats_smoking', 'stats_population_urban', 'stats_population_school_age', 'deaths_excess_daily_avg', 'deaths_excess_weekly', 'weather_precipitation_mean', 'weather_humidity_mean', 'weather_sw_radiation_mean', 'weather_temperature_mean', 'weather_temperature_min', 'weather_temperature_max', 'weather_wind_speed_mean']
+columns_of_interest = ['DATE', 'country_name', 'npi_school_closing', 'npi_workplace_closing', 'npi_cancel_public_events', 'npi_gatherings_restrictions', 'npi_close_public_transport', 'npi_stay_at_home', 'npi_internal_movement_restrictions', 'npi_international_travel_controls', 'npi_income_support', 'npi_debt_relief', 'npi_fiscal_measures', 'npi_international_support', 'npi_public_information', 'npi_testing_policy', 'npi_contact_tracing', 'npi_healthcare_investment', 'npi_vaccine_investment', 'npi_masks', 'cases_total', 'cases_new', 'deaths_total', 'deaths_new', 'cases_total_per_million', 'cases_new_per_million', 'deaths_total_per_million', 'deaths_new_per_million', 'tests_total', 'tests_new', 'tests_total_per_thousand', 'tests_new_per_thousand', 'stats_population', 'stats_population_density', 'stats_median_age', 'stats_gdp_per_capita', 'cases_days_since_first', 'deaths_days_since_first', 'stats_hospital_beds_per_1000', 'stats_smoking', 'stats_population_urban', 'stats_population_school_age', 'deaths_excess_daily_avg', 'deaths_excess_weekly']
+print(len(columns_of_interest))
+
+
 def cat_fix(df):
     df = df.astype("category")
     return pd.get_dummies(df,drop_first=True)
@@ -108,8 +111,8 @@ if __name__ == '__main__':
 
     cols_1 = df.columns.tolist()
 
-    df = filter_quarter(df)
-    # df = filter_week(df)
+    # df = filter_quarter(df)
+    df = filter_week(df)
 
 
     df = df.dropna(axis=1, how='all')

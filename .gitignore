@@ -13,6 +13,7 @@ g_env/*
 *checkpoints*
 *idea*
 *.pt
+covid_hdm_data
 #*.csv
 *.zip
 *.txt

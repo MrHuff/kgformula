@@ -203,13 +203,7 @@ class cat_dataset(Dataset):
             self.X = self.X_val
             self.Z = self.Z_val
         ref_bs = int(round(self.bs_perc * self.X.shape[0]))
-        if self.X.shape[0]%ref_bs!=0:
-            for i in range(8,2*ref_bs):
-                if self.X.shape[0]%i==0:
-                    self.bs=i
-                    break
-        else:
-            self.bs =ref_bs
+        self.bs =ref_bs
 class classification_dataset(Dataset):
     def __init__(self,X,Z,bs=1.0,kappa=1,val_rate = 0.01):
         super(classification_dataset, self).__init__()
@@ -248,13 +242,7 @@ class classification_dataset(Dataset):
             self.Z = self.Z_val
         self.divide_data()
         ref_bs = int(round(self.bs_perc * self.X_joint.shape[0]))
-        if self.X_joint.shape[0]%ref_bs!=0:
-            for i in range(8,2*ref_bs):
-                if self.X_joint.shape[0]%i==0:
-                    self.bs=i
-                    break
-        else:
-            self.bs =ref_bs
+        self.bs =ref_bs
 
 
 class classification_dataset_Q(classification_dataset):
@@ -287,13 +275,7 @@ class classification_dataset_Q(classification_dataset):
         self.divide_data()
 
         ref_bs = int(round(self.bs_perc * self.X_joint.shape[0]))
-        if self.X_joint.shape[0]%ref_bs!=0:
-            for i in range(8,2*ref_bs):
-                if self.X_joint.shape[0]%i==0:
-                    self.bs=i
-                    break
-        else:
-            self.bs =ref_bs
+        self.bs =ref_bs
 
 class dataset_MI_TRE(Dataset):
     def __init__(self,X,Z,m,p=1,bs=1.0,val_rate = 0.01):
@@ -337,13 +319,7 @@ class dataset_MI_TRE(Dataset):
 
         self.divide_data()
         ref_bs = int(round(self.bs_perc * self.X_joint.shape[0]))
-        if self.X_joint.shape[0]%ref_bs!=0:
-            for i in range(8,2*ref_bs):
-                if self.X_joint.shape[0]%i==0:
-                    self.bs=i
-                    break
-        else:
-            self.bs =ref_bs
+        self.bs =ref_bs
 
 class dataset_rulsif(Dataset):
     def __init__(self,X,X_q,Z):
@@ -525,13 +501,13 @@ class dataset_MI_TRE_Q(Dataset):
 
         self.divide_data()
         ref_bs = int(round(self.bs_perc * self.X_joint.shape[0]))
-        if self.X_joint.shape[0]%ref_bs!=0:
-            for i in range(8,2*ref_bs):
-                if self.X_joint.shape[0]%i==0:
-                    self.bs=i
-                    break
-        else:
-            self.bs =ref_bs
+        # if self.X_joint.shape[0]%ref_bs!=0:
+        #     for i in range(8,2*ref_bs):
+        #         if self.X_joint.shape[0]%i==0:
+        #             self.bs=i
+        #             break
+        # else:
+        self.bs =ref_bs
 class chunk_iterator(): #joint = pos, pom = neg
     def __init__(self,X_joint,Z_joint,X_pom,Z_pom,shuffle,batch_size,kappa=10,TRE=False,a_0=[],a_m=[],mode='train'):
         self.mode = mode
@@ -545,16 +521,15 @@ class chunk_iterator(): #joint = pos, pom = neg
         self.batch_size = batch_size
         self.n_joint = self.X_joint.shape[0]
         self.n_pom = self.X_pom.shape[0]
-        self.chunks_joint = self.n_joint // batch_size + 1
+        self.chunks_joint = self.n_joint // batch_size + 2
         self.perm_joint = torch.randperm(self.n_joint)
         self.kappa=kappa
         if self.shuffle:
             self.X_joint = self.X_joint[self.perm_joint,:]
             self.Z_joint = self.Z_joint[self.perm_joint,:]
-
         if self.mode=='train':
-            self.it_X = torch.chunk(self.X_joint,self.chunks_joint)
-            self.it_Z = torch.chunk(self.Z_joint,self.chunks_joint)
+            self.it_X = torch.chunk(self.X_joint,self.chunks_joint)[:-1]
+            self.it_Z = torch.chunk(self.Z_joint,self.chunks_joint)[:-1]
         elif self.mode=='val':
             val_n = min(self.n_joint,self.n_pom)
             self.chunks_joint = val_n // batch_size + 1
@@ -581,7 +556,7 @@ class chunk_iterator(): #joint = pos, pom = neg
             if self._index < self.true_chunks:
                 a,b = self.it_X[self._index],self.it_Z[self._index]
                 n_ = a.shape[0]*self.kappa
-                pom_perm = torch.randperm(self.n_pom)[:n_]
+                pom_perm = torch.randperm(n_)
                 c,d = self.X_pom[pom_perm,:],self.Z_pom[:n_]
                 data_out = [torch.cat([c, d], dim=1)]
                 if self.TRE:
@@ -704,7 +679,7 @@ class NCE_dataloader():
     def __init__(self,dataset,bs_ratio,shuffle=False,kappa=10,TRE=False):
         self.dataset = dataset
         self.dataset.set_mode('train')
-        self.batch_size = dataset.bs
+        self.batch_size = self.dataset.bs
         self.shuffle = shuffle
         self.n = self.dataset.X_joint.shape[0]
         self.len=self.n//self.batch_size+1

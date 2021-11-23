@@ -9,7 +9,10 @@ from create_plots import *
 dict_method = {'NCE_Q': 'Classifier', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF','real_weights': 'Real weights'}
 
 color_palette = ["#3f90da", "#ffa90e", "#bd1f01", "#94a4a2", "#832db6", "#a96b59", "#e76300", "#b9ac70", "#717581", "#92dadd"]
-
+col_dict_1 = {'NCE_Q': "#3f90da", 'real_TRE_Q': "#ffa90e", 'random_uniform': "#bd1f01", 'rulsif': "#94a4a2",'real_weights':"#832db6",'HDM':"#a96b59"}
+col_dict_2 = {'NCE_Q_linear': "#3f90da", 'real_TRE_Q_linear': "#ffa90e", 'random_uniform_linear': "#bd1f01", 'rulsif_linear': "#94a4a2",'real_weights_linear':"#832db6"}
+col_dict_3 = {'NCE-Q prod': "#e76300", 'TRE-Q prod': "#b9ac70",  'RuLSIF prod': "#717581"}
+col_dict = {**col_dict_1,**col_dict_2,**col_dict_3}
 def plot_power(raw_df,dir,name,ests):
     for d in [1]:
         for n in [1000, 5000, 10000]:
@@ -21,8 +24,8 @@ def plot_power(raw_df,dir,name,ests):
                 a,b,e = calc_error_bars(subset_3['alp=0.05'],alpha=0.05,num_samples=100)
                 # plt.plot('alp','alp=0.05',data=subset_3,linestyle='--', marker='o',label=r'$n'+f'={n}$')
                 # plt.plot('alp','alp=0.05',data=subset_3,linestyle='--', marker='o',label=f'{label_name}',c = plt.cm.rainbow(col_index/8.))
-                plt.plot('alp','alp=0.05',data=subset_3,linestyle='-',label=f'{label_name}',c = color_palette[col_index])
-                plt.fill_between(subset_3['alp'], a, b, alpha=0.1,color=color_palette[col_index])
+                plt.plot('alp','alp=0.05',data=subset_3,linestyle='-',label=f'{label_name}',c = col_dict[est])
+                plt.fill_between(subset_3['alp'], a, b, alpha=0.1,color=col_dict[est])
             plt.hlines(0.05, 0, 0.1)
             # plt.legend(prop={'size': 10})
             plt.xticks(rotation=90)

@@ -644,7 +644,7 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
             return ret
 
 class time_series_Q_hsic(Q_weighted_HSIC):
-    def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,within_perm_vec=None):
+    def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,within_perm_vec=None,n_blocks=20):
         super(time_series_Q_hsic, self).__init__(X,Y,w,X_q,cuda,device,half_mode,perm,variant,1)
         if within_perm_vec is not None: #shape is [a ,b] (chunk of chukns)
             self.within_block = True
@@ -652,12 +652,11 @@ class time_series_Q_hsic(Q_weighted_HSIC):
             self.big_chunk_list = []
             for el in within_perm_vec:
                 sub_vec = idx[el[0]:el[1]]
-                n_blocks = max(X.shape[0] // 20, 20)
                 sub_chunks = torch.chunk(sub_vec,n_blocks)
                 self.big_chunk_list.append(sub_chunks)
         else:
             self.within_block = False
-            self.n_blocks =  max(X.shape[0]//20,20)
+            self.n_blocks =  n_blocks
             self.chunked_indices = torch.chunk(torch.arange(X.shape[0]),self.n_blocks)
             self.len_chunked = len(self.chunked_indices)
 

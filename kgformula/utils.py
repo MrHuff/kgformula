@@ -372,10 +372,10 @@ class simulation_object():
             p_values.append(p)
         return p_values
 
-    def perm_Q_test(self,X,Y,X_q,w,i,time_series_data=False,within_perm_vec=None):
+    def perm_Q_test(self,X,Y,X_q,w,i,time_series_data=False,within_perm_vec=None,n_blocks=20):
 
         if time_series_data:
-            c = time_series_Q_hsic(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y',variant=self.variant,within_perm_vec=within_perm_vec)
+            c = time_series_Q_hsic(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y',variant=self.variant,within_perm_vec=within_perm_vec,n_blocks=n_blocks)
         else:
             c = Q_weighted_HSIC(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i,variant=self.variant)
         reference_metric = c.calculate_weighted_statistic().cpu().item()
@@ -835,12 +835,17 @@ class simulation_object_rule_new(simulation_object):
             concat_q.append(X_q_bin)
         X_q = torch.cat(concat_q, dim=1)
         X_q = X_q.to(self.device)
-        X_q_train, X_q_test = split(X_q, n_half)
+        if within_perm_vec is None:
+            X_q_train, X_q_test = split(X_q, n_half)
+        else:
+            train_chunk,test_chunk=np.array_split(within_perm_vec,2)
+            X_q_train,_,_,_=self.transform_data(X_q,Y,Z,train_chunk)
+            X_q_test,_,_,_=self.transform_data(X_q,Y,Z,test_chunk)
         d = density_estimator(x=X_train, z=Z_train, x_q=X_q_train, cuda=self.cuda,
                               est_params=est_params, type=estimator, device=self.device,
                               secret_indx=self.args['unique_job_idx'],x_full=X,z_full=Z,cat_cols_z=cat_cols_z)
         w = d.return_weights(X_test, Z_test, X_q_test)
-        p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0,time_series_data=time_series_data,within_perm_vec=new_list)
+        p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0,time_series_data=time_series_data,within_perm_vec=new_list,n_blocks=self.args['n_blocks'])
         print(p,reference_metric)
         return p, reference_metric
 
