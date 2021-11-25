@@ -69,6 +69,8 @@ class nn_node(torch.nn.Module): #Add dropout layers, Do embedding layer as well!
             cat_vals = [X]
             _dev = X.device
             for i,f in enumerate(seq):
+                # print(i,f)
+                # print(x_cat)
                 f=f.cpu()
                 ts_dict = getattr(self,f'translate_dict_{i}')
                 f.apply_(lambda x: ts_dict[x])
@@ -518,10 +520,10 @@ class chunk_iterator(): #joint = pos, pom = neg
         self.x_binary = get_binary_mask(self.X_joint)
         self.z_binary = get_binary_mask(self.Z_joint)
         self.shuffle = shuffle
-        self.batch_size = batch_size
+        self.batch_size = batch_size if batch_size!=0 else self.X_joint.shape[0]
         self.n_joint = self.X_joint.shape[0]
         self.n_pom = self.X_pom.shape[0]
-        self.chunks_joint = self.n_joint // batch_size + 2
+        self.chunks_joint = int(round(self.n_joint / self.batch_size)) + 2
         self.perm_joint = torch.randperm(self.n_joint)
         self.kappa=kappa
         if self.shuffle:
@@ -532,7 +534,7 @@ class chunk_iterator(): #joint = pos, pom = neg
             self.it_Z = torch.chunk(self.Z_joint,self.chunks_joint)[:-1]
         elif self.mode=='val':
             val_n = min(self.n_joint,self.n_pom)
-            self.chunks_joint = val_n // batch_size + 1
+            self.chunks_joint = int(round(val_n / self.batch_size)) + 1
             self.perm_pom = torch.randperm(self.n_pom)
             self.X_pom = self.X_pom[self.perm_pom,:]
             self.X_pom = self.X_pom[:val_n,:]

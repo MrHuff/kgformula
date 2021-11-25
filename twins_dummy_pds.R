@@ -11,14 +11,14 @@ Y <-as.matrix(read.csv(file = "twins_Y.csv",header = TRUE))
 Z_cont <-as.matrix(read.csv(file = "twins_z_cont.csv",header = TRUE))
 Z_cat <-as.matrix(read.csv(file = "twins_z_cat.csv",header = TRUE))
 
-
 n=5000
+
 for (i in 0:99){
   set.seed(i)
   mask = sample(c(1:nrow(T)), size=n, replace =F)
   
   x = T[mask]
-  y = Y[mask] 
+  y = rnorm(n) 
   z_1 = Z_cont[mask,]
   z_2 = Z_cat[mask,]
   data <- cbind(x,z_1,z_2)
@@ -27,7 +27,7 @@ for (i in 0:99){
 }
 df[j,] = vec
 
-write.csv(df,"~/Documents/phd_projects/kgformula/twins_bench_1d_5000.csv", row.names = FALSE)
+write.csv(df,"~/Documents/phd_projects/kgformula/twins_bench_1d_5000_dummy.csv", row.names = FALSE)
 
 
 

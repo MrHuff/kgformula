@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import torch
+import matplotlib.pyplot as plt
+from sklearn import preprocessing
 
 types = {'adequacy': 'cat',
  'alcohol': 'bin',
@@ -84,6 +86,15 @@ if __name__ == '__main__':
         col_stats = cat_cols.iloc[:,i].unique().tolist()
         col_stats_list.append(col_stats)
         col_counts.append(len(col_stats))
+
+
+    plt.hist(X.values)
+    plt.show()
+    plt.clf()
+    X = (X-X.mean(0))/X.std(0)
+    plt.hist(X.values)
+    plt.show()
+
     torch.save((torch.from_numpy(X.values).float(), torch.from_numpy(Y.values).float().unsqueeze(-1), torch.from_numpy(Z.values).float(),{'indicator':col_index_list,'index_lists':col_stats_list}), 'twins.pt')
     print(cat_cols)
     print(Z.values[:,col_index_list])

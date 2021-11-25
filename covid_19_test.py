@@ -98,8 +98,9 @@ def generate_autocorrelated_treatment(df):
     return df
 
 if __name__ == '__main__':
-    if not os.path.exists('covid_19_1'):
-        os.makedirs('covid_19_1')
+    save_dir = 'covid_19_2'
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
     df = pd.read_csv(
         'https://raw.githubusercontent.com/rs-delve/covid19_datasets/master/dataset/combined_dataset_latest.csv',
@@ -120,7 +121,7 @@ if __name__ == '__main__':
     counts.insert(0,0)
     counts_cum = np.cumsum(counts)
     index_list = [[counts_cum[i-1],counts_cum[i]] for i in range(1,len(counts_cum))]
-    with open("covid_19_1/within_grouping.txt", "wb") as fp:
+    with open(f"{save_dir}/within_grouping.txt", "wb") as fp:
         pickle.dump(index_list, fp)
     dataset_colums =df.columns.tolist()[2:]
 
@@ -141,18 +142,18 @@ if __name__ == '__main__':
     x.append('auto_corr_ref')
     z.append('cases_total_per_million')
     z = z+['npi_healthcare_investment','npi_vaccine_investment','npi_fiscal_measures','npi_international_support'] #lag cases to previous variables
-    y = ['cases_new_per_million']
+    y = ['auto_corr_ref']
     print(x)
     print(y)
     print(z)
     Y_pd = df[y]
     Z_cont = df[z]
-    Y_pd.to_csv(f"./covid_19_1/covid_Y.csv", index=False)
-    Z_cont.to_csv(f"./covid_19_1/covid_Z_cont.csv", index=False)
+    Y_pd.to_csv(f"./{save_dir}/covid_Y.csv", index=False)
+    Z_cont.to_csv(f"./{save_dir}/covid_Z_cont.csv", index=False)
     X_mult = df[x]
     Z_mult = Z_cont
     print(Z_cont.columns.tolist())
-    # save_torch_mult(X_mult, Y_pd, Z_mult, './covid_19_1/', f'data_treatment_mult.pt')
+    # save_torch_mult(X_mult, Y_pd, Z_mult, './{save_dir}/', f'data_treatment_mult.pt')
     df = generate_autocorrelated_treatment(df)
     treatment_indices = [0,1,2,3,4,-2,-1]
     for i in treatment_indices:
@@ -166,6 +167,6 @@ if __name__ == '__main__':
 
         X_pd = df[x_treat]
         Z_cat = df[z_cat]
-        X_pd.to_csv(f"./covid_19_1/covid_T={x[i]}.csv",index = False)
-        Z_cat.to_csv(f"./covid_19_1/covid_Z_cat={x[i]}.csv",index = False)
-        save_torch(X_pd,Y_pd,Z_cat,Z_cont,'./covid_19_1/',f'data_treatment={x[i]}.pt')
+        X_pd.to_csv(f"./{save_dir}/covid_T={x[i]}.csv",index = False)
+        Z_cat.to_csv(f"./{save_dir}/covid_Z_cat={x[i]}.csv",index = False)
+        save_torch(X_pd,Y_pd,Z_cat,Z_cont,f'./{save_dir}/',f'data_treatment={x[i]}.pt')

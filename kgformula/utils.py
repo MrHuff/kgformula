@@ -845,7 +845,7 @@ class simulation_object_rule_new(simulation_object):
                               est_params=est_params, type=estimator, device=self.device,
                               secret_indx=self.args['unique_job_idx'],x_full=X,z_full=Z,cat_cols_z=cat_cols_z)
         w = d.return_weights(X_test, Z_test, X_q_test)
-        p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0,time_series_data=time_series_data,within_perm_vec=new_list,n_blocks=self.args['n_blocks'])
+        p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0,time_series_data=time_series_data,within_perm_vec=new_list,n_blocks=self.args['n_blocks'] if time_series_data else 0)
         print(p,reference_metric)
         return p, reference_metric
 

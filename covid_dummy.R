@@ -4,18 +4,18 @@ setwd("~/Documents/phd_projects/kgformula")
 treatments =c(
   'npi_school_closing', 'npi_workplace_closing', 'npi_cancel_public_events', 'npi_gatherings_restrictions', 'npi_close_public_transport','npi_masks',
   'auto_corr_ref'
-  )
-n=5000
-Y <-as.matrix(read.csv(file = "covid_19_1/covid_Y.csv",header = TRUE))
-Z_cont <-as.matrix(read.csv(file = "covid_19_1/covid_Z_cont.csv",header = TRUE))
+)
+n=2500
+Y <-as.matrix(read.csv(file = "covid_19_2/covid_Y.csv",header = TRUE))
+Z_cont <-as.matrix(read.csv(file = "covid_19_2/covid_Z_cont.csv",header = TRUE))
 for (treatment_string in treatments){
   df = as.data.frame(matrix(nrow = 1, ncol = 100))
   names(df)<-c(1:100)
   j=1
   vec<- double(100)
-  t_file = sprintf("covid_19_1/covid_T=%s.csv", treatment_string)
-  z_cat_file = sprintf("covid_19_1/covid_Z_cat=%s.csv",treatment_string)
-  save_file = sprintf("~/Documents/phd_projects/kgformula/covid_bench_T=%s_n=%s.csv",treatment_string , n)
+  t_file = sprintf("covid_19_2/covid_T=%s.csv", treatment_string)
+  z_cat_file = sprintf("covid_19_2/covid_Z_cat=%s.csv",treatment_string)
+  save_file = sprintf("~/Documents/phd_projects/kgformula/covid_bench_T=%s_n=%s_dummy.csv",treatment_string , n)
   T <-as.matrix(read.csv(file = t_file,header = TRUE))
   Z_cat <-as.matrix(read.csv(file = z_cat_file,header = TRUE))
   for (i in 0:99){

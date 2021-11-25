@@ -48,13 +48,12 @@ def load_obj(name,folder):
 
 
 if __name__ == '__main__':
-    with open("covid_19_1/within_grouping.txt", "rb") as fp:
-        index_list = pickle.load(fp)
-    JOB_NAME = 'weekly_covid_within_n_blocks'
+    JOB_NAME = 'weekly_covid_within_n_blocks_50_y'
+    dataset = 'covid_19_2'
     if not os.path.exists(JOB_NAME):
         os.makedirs(JOB_NAME)
     counter = 0
-    for n_blocks in [2,3,4,5]:
+    for n_blocks in [2,3,4]:
         for within_grouping in [True]:
             for t in treatment_indices:
                 for m in [2500]:
@@ -66,7 +65,7 @@ if __name__ == '__main__':
                                         'est_params': {'lr': 1e-3, #use really small LR for TRE. Ok what the fuck is going on...
                                                                                    'max_its': 50,
                                                                                    'width': 32,
-                                                                                   'layers':3,
+                                                                                   'layers':4,
                                                                                    'mixed': False,
                                                                                    'bs_ratio': 1e-1,
                                                                                    'val_rate': 0.1,
@@ -87,7 +86,8 @@ if __name__ == '__main__':
                                         'within_grouping':within_grouping,
                                         'treatment': treatments[t],
                                         'dir_name_jobs': JOB_NAME,
-                                        'n_blocks':n_blocks
+                                        'n_blocks':n_blocks,
+                                        'dataset_covid':dataset
                                         }
 
                                 save_obj(args,f'job_{counter}',JOB_NAME+'/')

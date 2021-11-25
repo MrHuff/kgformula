@@ -16,7 +16,7 @@ for (i in 0:99){
   mask = sample(c(1:nrow(dat)), size=n, replace =F)
   
   x = X[mask]
-  y = Y[mask] 
+  y = rnorm(n)
   z = Z[mask,]
   data <- cbind(x,z)
   mod = rlassoEffects(data, y, index=c(1))
@@ -24,7 +24,7 @@ for (i in 0:99){
 }
 df[j,] = vec
 
-write.csv(df,"~/Documents/phd_projects/kgformula/lalonde_bench_1d.csv", row.names = FALSE)
+write.csv(df,"~/Documents/phd_projects/kgformula/lalonde_bench_1d_dummy.csv", row.names = FALSE)
 hist(vec)
 
 

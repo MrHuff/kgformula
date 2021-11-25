@@ -2,30 +2,34 @@ from kchsic_categorical_power import *
 if __name__ == '__main__':
 
     # dataset_names = ['twins']
-    # for m in  [1000,2500,]:
-    #     for dname in dataset_names:
-    #         # bench = pd.read_csv(f"{dname}_bench_1d_{m}.csv").values.squeeze()
-    #         # power = round(calc_power(bench, 0.05), 3)
-    #         # plt.hist(bench, bins=[i / 25 for i in range(0, 26)])
-    #         # plt.xlabel('p-values')
-    #         # plt.ylabel('Frequency')
-    #         # plt.title(rf'Power($\alpha=0.05$) = {power}')
-    #         # plt.savefig(f'{dname}_pvals_bench_{m}.jpg', bbox_inches='tight',
-    #         #             pad_inches=0.05)
-    #         # plt.clf()
-    #         for est in ['NCE_Q','real_TRE_Q']:
-    #             for sep in [True]:
-    #                 res = torch.load(f'twins_pvals_{est}_{sep}_{m}_2_linear.pt')
-    #                 pvals = res['pvals'].numpy()
-    #                 power = round(calc_power(pvals,0.05),3)
+    # job_res_name = 'twins_exp'
     #
-    #                 plt.hist(pvals, bins=[i / 25 for i in range(0, 26)])
-    #                 plt.xlabel('p-values')
-    #                 plt.ylabel('Frequency')
-    #                 plt.title(rf'Power($\alpha=0.05$) = {power}')
-    #                 plt.savefig(f'{dname}_pvals_{est}_{sep}_{m}_linear.jpg', bbox_inches='tight',
-    #                             pad_inches=0.05)
-    #                 plt.clf()
+    # for m in  [5000]:
+    #     bench = pd.read_csv(f"twins_bench_1d_5000_dummy.csv").values.squeeze()
+    #     power = round(calc_power(bench, 0.05), 3)
+    #     plt.hist(bench, bins=[i / 25 for i in range(0, 26)])
+    #     plt.xlabel('p-values')
+    #     plt.ylabel('Frequency')
+    #     plt.title(rf'Power($\alpha=0.05$) = {power}')
+    #     plt.savefig(f'{job_res_name}/twins_bench_1d_5000_dummy.jpg', bbox_inches='tight',
+    #                 pad_inches=0.05)
+    #     plt.clf()
+    #     for use_dummy_y in [True, False]:
+    #         for m in [5000]:
+    #             for var in [1, 2]:
+    #                 for est in ['NCE_Q','real_TRE_Q']:
+    #                     for sep in [True]:
+    #                         res = torch.load(f'{job_res_name}/twins_pvals_{est}_{sep}_{m}_{use_dummy_y}_kernel={var}.pt')
+    #                         pvals = res['pvals'].numpy()
+    #                         power = round(calc_power(pvals,0.05),3)
+    #
+    #                         plt.hist(pvals, bins=[i / 25 for i in range(0, 26)])
+    #                         plt.xlabel('p-values')
+    #                         plt.ylabel('Frequency')
+    #                         plt.title(rf'Power($\alpha=0.05$) = {power}')
+    #                         plt.savefig(f'{job_res_name}/twins_pvals_{est}_{sep}_{m}_{use_dummy_y}_kernel={var}.jpg', bbox_inches='tight',
+    #                                     pad_inches=0.05)
+    #                         plt.clf()
     treatments = ['npi_school_closing', 'npi_workplace_closing', 'npi_cancel_public_events',
                   'npi_gatherings_restrictions', 'npi_close_public_transport', 'npi_stay_at_home',
                   'npi_internal_movement_restrictions', 'npi_international_travel_controls', 'npi_income_support',
@@ -33,9 +37,9 @@ if __name__ == '__main__':
                   'npi_testing_policy', 'npi_contact_tracing', 'npi_masks', 'auto_corr_ref']
     treatment_indices = [0, 1, 2, 3, 4, -1,-2]
     # treatment_indices = [-1]
-    fold_res = 'weekly_covid_within_n_blocks_res'
+    fold_res = 'weekly_covid_within_n_blocks_50_y_res'
     for m in [2500]:
-        for n_blocks in [2, 3, 4, 5]:
+        for n_blocks in [2,3,  4]:
             for ts in [True]:
                 for within_grouping in [True]:
                     for treat_idx in treatment_indices:
@@ -53,30 +57,34 @@ if __name__ == '__main__':
                                             pad_inches=0.05)
                                 plt.clf()
 
-    # dataset_names = ['lalonde']
-    # m=100
-    # for dname in dataset_names:
-    #     bench = pd.read_csv(f"{dname}_bench_1d.csv").values.squeeze()
-    #     power = round(calc_power(bench, 0.05), 3)
-    #     plt.hist(bench, bins=[i / 25 for i in range(0, 26)])
-    #     plt.xlabel('p-values')
-    #     plt.ylabel('Frequency')
-    #     plt.title(rf'Power($\alpha=0.05$) = {power}')
-    #     plt.savefig(f'{dname}_pvals_bench_{m}.jpg', bbox_inches='tight',
-    #                 pad_inches=0.05)
-    #     plt.clf()
-    #     for est in ['NCE_Q','real_TRE_Q']:
-    #         for sep in [True]:
-    #             res = torch.load(f'{dname}_pvals_{est}_{sep}_linear.pt')
-    #             pvals = res['pvals'].numpy()
-    #             power = round(calc_power(pvals,0.05),3)
+    job_res_name = 'lalonde_bdhsic'
+    # bench = pd.read_csv(f"lalonde_bench_1d_dummy.csv").values.squeeze()
+    # power = round(calc_power(bench, 0.05), 3)
+    # plt.hist(bench, bins=[i / 25 for i in range(0, 26)])
+    # plt.xlabel('p-values')
+    # plt.ylabel('Frequency')
+    # plt.title(rf'Power($\alpha=0.05$) = {power}')
+    # plt.savefig(f'{job_res_name}/lalonde_pvals_bench_dummy.jpg', bbox_inches='tight',
+    #             pad_inches=0.05)
+    # plt.clf()
+    # for est in ['NCE_Q','real_TRE_Q']:
+    #     for m in [100, 150]:
+    #         for var in [1, 2]:
+    #             for sep in [False]:
+    #                 for use_dummy_y in [True, False]:
+    #                     try:
+    #                         res = torch.load(f'{job_res_name}/lalonde_pvals_n={m}_{est}_{sep}_kernel={var}_dummy={use_dummy_y}.pt')
+    #                         pvals = res['pvals'].numpy()
+    #                         power = round(calc_power(pvals,0.05),3)
     #
-    #             plt.hist(pvals, bins=[i / 25 for i in range(0, 26)])
-    #             plt.xlabel('p-values')
-    #             plt.ylabel('Frequency')
-    #             plt.title(rf'Power($\alpha=0.05$) = {power}')
-    #             plt.savefig(f'{dname}_pvals_{est}_{sep}_linear.jpg', bbox_inches='tight',
-    #                         pad_inches=0.05)
-    #             plt.clf()
+    #                         plt.hist(pvals, bins=[i / 25 for i in range(0, 26)])
+    #                         plt.xlabel('p-values')
+    #                         plt.ylabel('Frequency')
+    #                         plt.title(rf'Power($\alpha=0.05$) = {power}')
+    #                         plt.savefig(f'{job_res_name}/lalonde_pvals_n={m}_{est}_{sep}_kernel={var}_dummy={use_dummy_y}.jpg', bbox_inches='tight',
+    #                                     pad_inches=0.05)
+    #                         plt.clf()
+    #                     except Exception as e:
+    #                         pass
 
 

@@ -53,11 +53,8 @@ def load_obj(name,folder):
     with open(f'{folder}' + name, 'rb') as f:
         return pickle.load(f)
 
-
-
 if __name__ == '__main__':
-    with open("covid_19_1/within_grouping.txt", "rb") as fp:
-        index_list = pickle.load(fp)
+
 
     input  = vars(parser.parse_args())
     counter = input['idx']
@@ -65,6 +62,9 @@ if __name__ == '__main__':
     FOLD_LOAD = input['job_folder']
     num_countries = input['num_cont']
     args = load_obj(f'job_{counter}.pkl',FOLD_LOAD+'/')
+    dataset_covid = args['dataset_covid']
+    with open(f"{dataset_covid}/within_grouping.txt", "rb") as fp:
+        index_list = pickle.load(fp)
     args['device'] = 0
     args['unique_job_idx'] = counter%ngpu
     n_blocks = args['n_blocks']
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     ts= args['ts']
     within_grouping = args['within_grouping']
     treatment = args['treatment']
-    X, Y, Z, ind_dict = torch.load(f'covid_19_1/data_treatment={treatment}.pt')
+    X, Y, Z, ind_dict = torch.load(f'{dataset_covid}/data_treatment={treatment}.pt')
     pval_list=[]
     sep=False
     est= args['estimator']
