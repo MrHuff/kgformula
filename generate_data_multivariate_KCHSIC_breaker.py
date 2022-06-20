@@ -38,7 +38,7 @@ if __name__ == '__main__':
     d_Z=[50]
     els = list(product(*[d_X,d_Y,d_Z,theta_vec,phi_vec]))
     for d_X,d_Y,d_Z, theta,phi in els: #Screwed up rip
-        for b_z in [0.0,0.05,0.1,0.15,0.2,0.25]:  # ,1e-3,1e-2,0.05,0.1,0.25,0.5,1
+        for b_z in [0.0,0.05,0.1,0.15,0.2,0.25,0.5,1.0]:  # ,1e-3,1e-2,0.05,0.1,0.25,0.5,1
             b_z = (d_Z ** 2) * b_z
             beta_xz = generate_sensible_variables_old(d_Z, b_z, const=0)  # What if X and Z indepent -> should be uniform, should sanity check that this actully is well behaved for all d_Z.
             for n in [10000]:

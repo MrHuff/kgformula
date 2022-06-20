@@ -83,7 +83,7 @@ def get_hist(ref_vals,name,pre_path,suffix,args,snr,ess,bxy,ks_val):
         plt.hist(ref_vals, bins=[i/25 for i in range(0,26)])
         plt.xlabel('p-values')
         plt.ylabel('Frequency')
-        plt.savefig(pre_path+f'{name}_{suffix}.jpg',bbox_inches = 'tight',
+        plt.savefig(pre_path+f'{name}.jpg',bbox_inches = 'tight',
     pad_inches = 0.05)
         plt.clf()
     except Exception as e:
@@ -111,6 +111,8 @@ def return_filenames(args):
         suffix = f'_qf=rule_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
     elif args['job_type'] == 'kc_rule_new':
         suffix = f'_qf=rule_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
+    elif args['job_type'] == 'kc_rule_correct_perm':
+        suffix = f'_qf=rule_qd={qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={bootstrap_runs}_n={required_n}'
 
     p_val_file = f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt'
     ref_val = f'./{data_dir}/{job_dir}/ref_val_array{suffix}.pt'
@@ -131,65 +133,69 @@ def data_dir_extract(data_dir):
 def calc_ess(w):
     return (w.sum()**2)/(w**2).sum()
 
-
-def calculate_one_row_contrast(j,base_dir):
-    levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
-    job_params = load_obj(j, folder=f'{base_dir}/')
-    try:
-        data_dir = job_params['data_dir']
-        job_dir = job_params['job_dir']
-        seeds_a = job_params['seeds_a']
-        seeds_b = job_params['seeds_b']
-        required_n = job_params['n']
-        if job_params['job_type']=='regression':
-            suffix = f'_linear_reg={seeds_a}_{seeds_b}_n={required_n}'
-        else:
-            bootstrap_runs = job_params['bootstrap_runs']
-            suffix = f'_hsic_s={seeds_a}_{seeds_b}_br={bootstrap_runs}_n={required_n}'
-
-        p_val_file = f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt'
-
-        pre_path = f'./{data_dir}/{job_dir}/'
-        dat_param = data_dir_extract(data_dir)
-        bxz = dat_param[-1]
-        d_Z = dat_param[3]
-        bxy = dat_param[0][1]
-        row = [job_params['n'], bxz, d_Z, bxy]
-        pval_dist = torch.load(p_val_file).numpy()
-        stat, pval = kstest(pval_dist, 'uniform')
-        get_hist(pval_dist, name='pvalhsit_', pre_path=pre_path, suffix=suffix, args=job_params, snr=0.0,
-                 ess=0.0, bxy=bxy, ks_val=pval)
-        row.append(pval)
-        row.append(stat)
-        custom_metric = pval_dist.mean() - 0.5
-        row.append(custom_metric)
-
-        h_0 = dat_param[0][1] == 0
-        results_size = []
-        for alpha in levels:
-            power = get_power(alpha, pval_dist)
-            results_size.append(power)
-        row = row + results_size
-        print('success')
-        return row
-    except Exception as e:
-        print(e)
+#
+# def calculate_one_row_contrast(j,base_dir):
+#     levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
+#     job_params = load_obj(j, folder=f'{base_dir}/')
+#     try:
+#         data_dir = job_params['data_dir']
+#         job_dir = job_params['job_dir']
+#         seeds_a = job_params['seeds_a']
+#         seeds_b = job_params['seeds_b']
+#         required_n = job_params['n']
+#         if job_params['job_type']=='regression':
+#             suffix = f'_linear_reg={seeds_a}_{seeds_b}_n={required_n}'
+#         else:
+#             bootstrap_runs = job_params['bootstrap_runs']
+#             suffix = f'_hsic_s={seeds_a}_{seeds_b}_br={bootstrap_runs}_n={required_n}'
+#
+#         p_val_file = f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt'
+#
+#         pre_path = f'./{data_dir}/{job_dir}/'
+#         dat_param = data_dir_extract(data_dir)
+#         bxz = dat_param[-1]
+#         d_Z = dat_param[3]
+#         bxy = dat_param[0][1]
+#         row = [job_params['n'], bxz, d_Z, bxy]
+#         pval_dist = torch.load(p_val_file).numpy()
+#         stat, pval = kstest(pval_dist, 'uniform')
+#         get_hist(pval_dist, name='pvalhsit_', pre_path=pre_path, suffix=suffix, args=job_params, snr=0.0,
+#                  ess=0.0, bxy=bxy, ks_val=pval)
+#         row.append(pval)
+#         row.append(stat)
+#         custom_metric = pval_dist.mean() - 0.5
+#         row.append(custom_metric)
+#
+#         h_0 = dat_param[0][1] == 0
+#         results_size = []
+#         for alpha in levels:
+#             power = get_power(alpha, pval_dist)
+#             results_size.append(power)
+#         row = row + results_size
+#         print('success')
+#         return row
+#     except Exception as e:
+#         print(e)
 
 
 def calculate_one_row(j,base_dir):
     levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
-    theta_dict = {1: 2.0,2:2.0, 3: 3.0, 15: 16.0, 50: 16.0}
-    job_params = load_obj(j, folder=f'{base_dir}/')
+    job_params = load_obj(f'job_{j}.pkl', folder=f'{base_dir}/')
+    j_chara=job_params['job_character']
     try:
-        p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate,validity_pval_filename,validity_val_filename,actual_validity_fname = return_filenames(job_params)
-        pre_path = f'./{data_dir}/{job_dir}/'
-        dat_param = data_dir_extract(data_dir)
-        bxz = dat_param[-1]
-        d_Z = dat_param[3]
+        result = load_obj(f'results_{j}.pickle', folder=f'{base_dir}_results/')
+        pval_dist = result['p_value_array'].numpy()
+        ref_vals=result['ref_metric_array'].numpy()
+        bxz=j_chara['beta_XZ']
+        d_Z = j_chara['d_Z']
+        bxy = j_chara['beta_xy'][1]
+        theta=j_chara['theta']
+        # p_val_file, ref_val, w_file, data_dir, job_dir, suffix, estimate,validity_pval_filename,validity_val_filename,actual_validity_fname = return_filenames(job_params)
+        pre_path = f'./{base_dir}_results/'
+
         b_z = (d_Z ** 2) * bxz
         b_z = generate_sensible_variables(d_Z, b_z, 0)
-        snr_xz = calc_snr(b_z, theta_dict[d_Z])
-        bxy = dat_param[0][1]
+        snr_xz = calc_snr(b_z, theta)
         try:
             sep = job_params['est_params']['separate']
         except Exception as e:
@@ -197,27 +203,19 @@ def calculate_one_row(j,base_dir):
             print('no sep')
         row = [job_params['n'], bxz, job_params['q_factor'], job_params['qdist'], job_params['est_params']['n_sample'],
                job_params['estimator'], d_Z, bxy, snr_xz,sep]
-        try:
-            eff_est, corr_coeff = get_w_plot(data_path=data_dir, est=estimate, w_est_path=w_file, args=job_params,
-                                             pre_path=pre_path, suffix=suffix)
-            eff_est = eff_est.item()
-        except:
-            eff_est, corr_coeff = 0,0
+        eff_est, corr_coeff = 0,0
         row.append(eff_est)
         row.append(corr_coeff)
-        pval_dist = torch.load(p_val_file).numpy()
         stat, pval = kstest(pval_dist, 'uniform')
-        get_hist(pval_dist, name='pvalhsit_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
+        get_hist(pval_dist, name=f'pvalhist_{j}', pre_path=pre_path, suffix='', args=job_params, snr=snr_xz,
                  ess=eff_est, bxy=bxy, ks_val=pval)
         row.append(pval)
         row.append(stat)
         custom_metric = pval_dist.mean() - 0.5
         row.append(custom_metric)
 
-        ref_vals = torch.load(ref_val).numpy()
-        get_hist(ref_vals, name='rvalhsit_', pre_path=pre_path, suffix=suffix, args=job_params, snr=snr_xz,
+        get_hist(ref_vals, name=f'rvalhist_{j}', pre_path=pre_path, suffix='', args=job_params, snr=snr_xz,
                  ess=eff_est, bxy=bxy, ks_val=pval)
-        h_0 = dat_param[0][1] == 0
         results_size = []
         for alpha in levels:
             power = get_power(alpha, pval_dist)
@@ -252,12 +250,11 @@ def multi_run_wrapper(args):
 def generate_csv_file_parfor(base_dir):
     import multiprocessing as mp
     pool = mp.Pool(mp.cpu_count())
-    jobs = os.listdir(base_dir)
-    jobs.sort()
+    jobs = [i for i in range(len(os.listdir(base_dir)))]
     df_data = pool.map(multi_run_wrapper, [(row,base_dir) for row in jobs])
+    pool.close()
     df_data = list(filter(None, df_data))
     # df_data = [pool.apply(calculate_one_row, args=(row, base_dir)) for row in jobs]
-    pool.close()
     levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
     columns  = ['n','$/beta_{xz}$','$c_q$','q_d','# perm','nce_style','d_Z','beta_xy','snr_xz','sep','EFF est w','true_w_q_corr','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
     df = pd.DataFrame(df_data,columns=columns)
@@ -265,26 +262,26 @@ def generate_csv_file_parfor(base_dir):
     df = df.sort_values('KS pval',ascending=False)
     df.to_csv(f'{base_dir}.csv')
 
-def generate_csv_contrast(base_dir):
-    jobs = os.listdir(base_dir)
-    jobs.sort()
-    df_data = []
-    for j in jobs:
-        row = calculate_one_row_contrast(j,base_dir)
-        if isinstance(row,list):
-            df_data.append(row)
-    levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
-    columns  = ['n','$/beta_{xz}$','d_Z','beta_xy','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
-    df = pd.DataFrame(df_data,columns=columns)
-    df = df.drop_duplicates()
-    df = df.sort_values('KS pval',ascending=False)
-    df.to_csv(f'{base_dir}.csv')
-    print(df.to_latex(escape=True))
+# def generate_csv_contrast(base_dir):
+#     jobs = os.listdir(base_dir)
+#     jobs.sort()
+#     df_data = []
+#     for j in jobs:
+#         row = calculate_one_row_contrast(j,base_dir)
+#         if isinstance(row,list):
+#             df_data.append(row)
+#     levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
+#     columns  = ['n','$/beta_{xz}$','d_Z','beta_xy','KS pval','KS stat','uniform-dev'] + [f'p_a={el}' for el in levels]
+#     df = pd.DataFrame(df_data,columns=columns)
+#     df = df.drop_duplicates()
+#     df = df.sort_values('KS pval',ascending=False)
+#     df.to_csv(f'{base_dir}.csv')
+#     print(df.to_latex(escape=True))
 
 if __name__ == '__main__':
-    generate_csv_file_parfor('hdm_breaker_fam_y=4_job_50_2')
+    # generate_csv_file_parfor('hdm_breaker_fam_y=4_job_50_2')
     # generate_csv_file_parfor('ablation_3d')
-    generate_csv_file_parfor('hdm_breaker_fam_y=1_job_50_2')
+    # generate_csv_file_parfor('hdm_breaker_fam_y=1_job_50_2')
     # generate_csv_file_parfor('hdm_breaker_fam_y=4_job')
     # generate_csv_file_parfor('hdm_breaker_fam_y=1_job')
     # generate_csv_file_parfor('kc_rule_1d_linear_2')
@@ -295,6 +292,6 @@ if __name__ == '__main__':
     # generate_csv_file_parfor('kc_rule_1d_linear')
     # generate_csv_file_parfor('do_null_binary_linear_kernel')
 
-    # generate_csv_file_parfor('kc_hsic_breaker')
+    generate_csv_file_parfor('kc_hsic_breaker_correct_train')
     # generate_csv_file_parfor('do_null_mix_sanity_4_est')
     # generate_csv_file_parfor('kchsic_breaker_fam_y=2_job')

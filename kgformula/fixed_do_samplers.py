@@ -61,7 +61,7 @@ def rnormCopula(N,cov):
     if cov.dim()==2:
         m = cov.shape[0]
         mean = torch.zeros(*(N,m))
-        L = torch.cholesky(cov)
+        L = torch.linalg.cholesky(cov)
         samples = mean +  torch.randn_like(mean)@L.t()
 
     elif cov.dim()==3:
@@ -147,9 +147,9 @@ def sim_multivariate_XYZ(oversamp,d_Z,n,beta_xy,beta_xz,yz=[0.5,0.0],fam_z=1,fam
         X = dat[:, 0:d_X]
     Y = dat[:, d_X:(d_X + d_Y), ]
     Z = dat[:, (d_X + d_Y):(d_X + d_Y + d_Z)]
-    plt.hist(X.numpy(),bins=40)
-    plt.savefig('marg_x_viz.png')
-    plt.clf()
+    # plt.hist(X.numpy(),bins=40)
+    # plt.savefig('marg_x_viz.png')
+    # plt.clf()
     a = beta_xy[0]
     b = beta_xy[1]  # Controls X y dependence
     if fam_y==1:

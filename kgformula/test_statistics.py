@@ -3,6 +3,11 @@ import random
 from kgformula.networks import *
 from kgformula.kernels import *
 import os
+import copy
+from sklearn.preprocessing import KBinsDiscretizer
+
+
+
 def get_binary_mask(X):
     #TODO: rewrite this a bit
     dim = X.shape[1]
@@ -86,33 +91,6 @@ def hsic_sanity_check_w(w,x,z,n_perms=250):
     p_val = hsic_test(x[idx_HSIC, :], z[idx_HSIC, :], n_perms)
     return p_val
 
-# class keops_RBFkernel(torch.nn.Module):
-#     def __init__(self,ls,x,y=None,device_id=0):
-#         super(keops_RBFkernel, self).__init__()
-#         self.device_id = device_id
-#         self.raw_lengthscale = torch.nn.Parameter(ls,requires_grad=False).contiguous()
-#         self.raw_lengthscale.requires_grad = False
-#         self.register_buffer('x', x.contiguous())
-#         self.shape = (x.shape[0],x.shape[0])
-#         if y is not None:
-#             self.register_buffer('y',y.contiguous())
-#         else:
-#             self.y = x
-#         self.gen_formula = None
-#
-#     def get_formula(self,D,ls_size):
-#         aliases = ['G_0 = Pm(0, ' + str(ls_size) + ')',
-#                    'X_0 = Vi(1, ' + str(D) + ')',
-#                    'Y_0 = Vj(2, ' + str(D) + ')',
-#                    ]
-#         formula = 'Exp(-G_0*SqNorm2(X_0 - Y_0))'
-#         return formula,aliases
-#
-#     def forward(self):
-#         if self.gen_formula is None:
-#             self.formula, self.aliases = self.get_formula(D=self.x.shape[1], ls_size=self.raw_lengthscale.shape[0])
-#             self.gen_formula = Genred(self.formula, self.aliases, reduction_op='Sum', axis=1, dtype='float32')
-#         return self.gen_formula(*[self.raw_lengthscale,self.x,self.y],backend='GPU',device_id=self.device_id)
 
 def get_i_not_j_indices(n):
     vec = np.arange(0, n)
@@ -156,12 +134,6 @@ class density_estimator():
         self.est_params = est_params
         self.type = type
         self.kernel_base = Kernel()
-        self.tmp_path = f'./tmp_folder_{secret_indx}/'
-        if os.path.exists(f'./tmp_folder_{secret_indx}/best_run.pt'):
-            os.remove(f'./tmp_folder_{secret_indx}/best_run.pt')
-
-        if not os.path.exists(self.tmp_path):
-            os.makedirs(self.tmp_path)
         if self.est_params['separate']:
 
             if self.type == 'random_uniform':
@@ -359,8 +331,7 @@ class density_estimator():
             if logloss.item()<self.best:
                 self.best = logloss.item()
                 self.counter=0
-                torch.save({'state_dict':self.model.state_dict(),
-                            'epoch':epoch},self.tmp_path+'best_run.pt')
+                self.best_model = copy.deepcopy(self.model)
             else:
                 self.counter+=1
             if self.counter>self.est_params['kill_counter']:
@@ -400,8 +371,7 @@ class density_estimator():
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.opt,factor=0.5, patience=1)
         self.counter = 0
         self.best = np.inf
-        torch.save({'state_dict': self.model_cat.state_dict(),
-                    'epoch': 0}, self.tmp_path + 'best_run_cat.pt')
+        self.best_model_cat = copy.deepcopy(self.model_cat)
         for epoch in range(self.est_params['max_its']):
             print(f'epoch {epoch+1}')
             self.dataloader.dataset.set_mode('train')
@@ -439,8 +409,7 @@ class density_estimator():
                 if total_err_val < self.best:
                     self.best =total_err_val
                     self.counter = 0
-                    torch.save({'state_dict': self.model_cat.state_dict(),
-                                'epoch': epoch}, self.tmp_path + 'best_run_cat.pt')
+                    self.best_model_cat=copy.deepcopy(self.model_cat)
                 else:
                     self.counter += 1
                 if self.counter > self.est_params['kill_counter']:
@@ -455,26 +424,12 @@ class density_estimator():
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.opt,factor=0.5, patience=1)
         self.counter = 0
         self.best = np.inf
-        torch.save({'state_dict': self.model.state_dict(),
-                    'epoch': 0}, self.tmp_path + 'best_run.pt')
+        self.best_model = copy.deepcopy(self.model)
         for i in range(self.est_params['max_its']):
             print(f'epoch {i+1}')
             self.train_loop()
             if self.validation_loop(i+1):
                 break
-
-    def load_best_model(self):
-        weights = torch.load(self.tmp_path + 'best_run.pt')
-        best_epoch = weights['epoch']
-        print(f'loading best epoch {best_epoch}')
-        self.model.load_state_dict(weights['state_dict'])
-
-    def load_best_model_cat(self):
-        weights = torch.load(self.tmp_path + 'best_run_cat.pt')
-        best_epoch = weights['epoch']
-        print(f'loading best epoch {best_epoch}')
-        self.model_cat.load_state_dict(weights['state_dict'])
-
     def model_eval(self,X,Z,X_q_test):
         if self.type in ['ones','random_uniform']:
             self.X_q_test = X_q_test
@@ -489,14 +444,14 @@ class density_estimator():
             if self.type == 'rulsif':
                 w = self.model.get_w(X, Z, self.X_q_test)
             else:
-                self.load_best_model()
+                self.model = self.best_model
                 w = self.model.get_w(X, Z,[])
         _w = w.cpu().squeeze().numpy()
         return w
 
     def model_eval_cat(self,X,Z,X_cont):
         with torch.no_grad():
-            self.load_best_model_cat()
+            self.model_cat=self.best_model_cat
             w = self.model_cat.get_w(X, Z,X_cont)
         _w = w.cpu().squeeze().numpy()
         return w
@@ -553,6 +508,15 @@ class density_estimator():
                 setattr(self,name,ker(data,data_2))
         return ls
 
+def permute(n_bins,og_indices,clusters):
+    permutation = copy.deepcopy(og_indices)
+    for i in range(n_bins):
+        mask = i==clusters
+        group = og_indices[mask]
+        permuted_group=np.random.permutation(group)
+        permutation[mask]=permuted_group
+    return permutation
+
 class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
     def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,seed=1):
         # torch.random.manual_seed(seed)
@@ -586,6 +550,7 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
             self.const_var_1_Y = self.k_X_X_q.sum(dim=1, keepdim=True)
             self.const_sum_Y = self.kernel_X_q.sum()
             self.a_2 = self.const_sum_Y * (self.w.t() @ self.const_var_1_X) / self.n ** 4
+            self.W = self.w @ self.w.t()
 
     def get_permuted2d(self,ker):
         idx = torch.randperm(self.n)
@@ -606,17 +571,11 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
 
     def permutation_calculate_weighted_statistic(self):
         with torch.no_grad():
-            if self.perm =='X':
-                kernel_X,idx = self.get_permuted2d(self.kernel_X)
-                a_1 = self.w.t() @ (kernel_X * self.kernel_Y) @ self.w / self.n ** 2
-                a_3 = self.w.t() @ (self.const_var_1_Y[idx, :] * self.const_var_1_X) / self.n ** 3
-                return self.n * (a_1 + self.a_2 - 2 * a_3)
-            else:
-                kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
-                a_1 = self.w.t() @ (self.kernel_X * kernel_Y) @ self.w / self.n ** 2
-                a_3 = self.w.t() @ (self.const_var_1_Y * self.const_var_1_X[idx, :]) / self.n ** 3
-                a_2 = self.const_sum_Y * (self.w.t() @ self.const_var_1_X[idx, :]) / self.n ** 4
-                return self.n * (a_1 + a_2 - 2 * a_3)
+            kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
+            a_1 = self.w.t() @ (self.kernel_X * kernel_Y) @ self.w / self.n ** 2
+            a_3 = self.w.t() @ (self.const_var_1_Y * kernel_Y@self.w) / self.n ** 3
+            a_2 = self.const_sum_Y * torch.sum(kernel_Y*self.W) / self.n ** 4
+            return self.n * (a_1 + a_2 - 2 * a_3)
 
     def kernel_ls_init(self, name, data):
         if self.variant == 1:
@@ -642,6 +601,30 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
             if ret.item()==0:
                 ret = torch.tensor(1.0)
             return ret
+
+
+class Q_weighted_HSIC_correct(Q_weighted_HSIC): # test-statistic seems to be to sensitive???
+    def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,seed=1):
+        super(Q_weighted_HSIC_correct, self).__init__(X,Y,w,X_q,cuda,device,half_mode,perm,variant,seed)
+        self.og_indices=np.arange(X.shape[0])
+        self.n_bins=X.shape[0]//20
+        self.binner = KBinsDiscretizer(n_bins=self.n_bins, encode='ordinal', strategy='uniform')
+        numpy_w=w.cpu().numpy()
+        self.clusters = self.binner.fit_transform(numpy_w[:,np.newaxis]).squeeze()
+
+    def get_permuted2d(self,ker):
+        idx = permute(self.n_bins,self.og_indices,self.clusters)
+        kernel_X = ker[:,idx]
+        kernel_X = kernel_X[idx,:]
+        return kernel_X,idx
+
+    def permutation_calculate_weighted_statistic(self):
+        with torch.no_grad():
+            kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
+            a_1 = self.w.t() @ (self.kernel_X * kernel_Y) @ self.w / self.n ** 2
+            a_3 = self.w.t() @ (self.const_var_1_Y * kernel_Y@self.w) / self.n ** 3
+            a_2 = self.const_sum_Y * torch.sum(kernel_Y*self.W) / self.n ** 4
+            return self.n * (a_1 + a_2 - 2 * a_3)
 
 class time_series_Q_hsic(Q_weighted_HSIC):
     def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,within_perm_vec=None,n_blocks=20):

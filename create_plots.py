@@ -487,6 +487,9 @@ if __name__ == '__main__':
 
     break_plot(ablation_3d,'bd_hsic_breaker')
 
+    ablation_3d = pd.read_csv('kc_hsic_breaker_correct_train.csv',index_col=0)
+    break_plot(ablation_3d,'bd_hsic_breaker_correct_perm')
+
     """
     hsic and quantile plot
     """

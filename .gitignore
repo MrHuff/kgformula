@@ -1,5 +1,6 @@
 *.aux
 *.log
+*.csv
 notes/gformulakerneltest.pdf
 *.png
 g_env/*

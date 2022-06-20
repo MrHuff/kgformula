@@ -1,5 +1,4 @@
 import argparse
-
 import torch
 from matplotlib import pyplot as plt
 import tqdm
@@ -15,6 +14,7 @@ from torch.distributions import *
 import os
 import random
 from scipy.stats import kendalltau,spearmanr,pearsonr
+import pickle
 print(os.environ)
 
 # from rpy2.robjects.packages import importr
@@ -514,6 +514,7 @@ class simulation_object():
                     del X,Y,Z,_w,w,X_q
             except Exception as e:
                 print('general_error', e)
+
         p_value_array = torch.tensor(p_value_list)
         torch.save(p_value_array,
                    f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt')
@@ -637,9 +638,9 @@ class simulation_object_rule_new(simulation_object):
         required_n = self.args['n']
         ks_data = []
         suffix = f'_qf=rule_qd={self.qdist}_m={mode}_s={seeds_a}_{seeds_b}_e={estimate}_est={estimator}_sp={split_data}_br={self.bootstrap_runs}_n={required_n}'
-        if not os.path.exists(f'./{data_dir}/{job_dir}'):
-            os.makedirs(f'./{data_dir}/{job_dir}')
-        if os.path.exists(f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt'):
+        if not os.path.exists(f'./{job_dir}_results'):
+            os.makedirs(f'./{job_dir}_results')
+        if os.path.exists(f'./{job_dir}_results/p_val_array{suffix}.pt'):
             return
         p_value_list = []
         reference_metric_list = []
@@ -715,29 +716,34 @@ class simulation_object_rule_new(simulation_object):
                     else:
                         _, _w = split(_w, n_half)
                         w =  _w
-                if i == 0:
-                    torch.save(w, f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
-                save_w = w.cpu().numpy()
-                if i % 10 == 0:
-                    print('est median: ', np.median(save_w))
-                    print('est std: ', np.std(save_w))
-                    plt.hist(save_w, bins=100)
-                    plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_{suffix}.png')
-                    plt.clf()
-                    print('ref median: ', np.median(_w.cpu().numpy()))
-                    print('ref std: ', np.std(_w.cpu().numpy()))
-                    plt.hist(self.reject_outliers(_w.cpu().numpy()), bins=100)
-                    plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_ref_{suffix}.png')
-                    plt.clf()
+
                 p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, i)
-                if i == 0:
-                    n, _, _ = plt.hist(_arr, bins=100)
-                    plt.vlines([reference_metric], ymin=0, ymax=n.max(), label='reference value', color='magenta')
-                    plt.savefig(f'./{data_dir}/{job_dir}/_arr_{i}_{suffix}.png')
-                    plt.clf()
                 print(f'seed {i} pval={p}')
                 p_value_list.append(p)
                 reference_metric_list.append(reference_metric)
+
+                """
+                DEBUG MODE
+                """
+                # if i == 0:
+                #     torch.save(w, f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
+                # if i % 10 == 0:
+                #     print('est median: ', np.median(save_w))
+                #     print('est std: ', np.std(save_w))
+                #     plt.hist(save_w, bins=100)
+                #     plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_{suffix}.png')
+                #     plt.clf()
+                #     print('ref median: ', np.median(_w.cpu().numpy()))
+                #     print('ref std: ', np.std(_w.cpu().numpy()))
+                #     plt.hist(self.reject_outliers(_w.cpu().numpy()), bins=100)
+                #     plt.savefig(f'./{data_dir}/{job_dir}/pval_hist_w_{i}_ref_{suffix}.png')
+                #     plt.clf()
+                # if i == 0:
+                #     n, _, _ = plt.hist(_arr, bins=100)
+                #     plt.vlines([reference_metric], ymin=0, ymax=n.max(), label='reference value', color='magenta')
+                #     plt.savefig(f'./{data_dir}/{job_dir}/_arr_{i}_{suffix}.png')
+                #     plt.clf()
+
                 if estimate and (estimator != 'real_weights'):
                     del d, X, Y, Z, _w, w, X_q
                 else:
@@ -746,25 +752,23 @@ class simulation_object_rule_new(simulation_object):
                 print(e)
 
         p_value_array = torch.tensor(p_value_list)
-        torch.save(p_value_array,
-                   f'./{data_dir}/{job_dir}/p_val_array{suffix}.pt')
         ref_metric_array = torch.tensor(reference_metric_list)
         q_fac_array = torch.tensor(q_fac_list)
-        torch.save(q_fac_array,
-                   f'./{data_dir}/{job_dir}/q_fac_array{suffix}.pt')
-        torch.save(ref_metric_array,
-                   f'./{data_dir}/{job_dir}/ref_val_array{suffix}.pt')
-        plt.hist(p_value_array.numpy(), bins=40)
-        plt.savefig(f'./{data_dir}/{job_dir}/pval_hist{suffix}.png')
-        plt.clf()
         ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
         print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
         ks_data.append([ks_stat, p_val_ks_test])
-
         df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
-        df.to_csv(f'./{data_dir}/{job_dir}/df{suffix}.csv')
         s = df.describe()
-        s.to_csv(f'./{data_dir}/{job_dir}/summary{suffix}.csv')
+        results_dict = {
+            'p_value_array':p_value_array,
+            'ref_metric_array':ref_metric_array,
+            'q_fac_array':q_fac_array,
+            'df':df,
+            's':s,
+        }
+        unique_job_idx=self.args['unique_job_idx']
+        with open(f'./{job_dir}_results/results_{unique_job_idx}.pickle', 'wb') as handle:
+            pickle.dump(results_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
         return
 
     def transform_data(self,x, y, z, country_subsets):
@@ -848,6 +852,24 @@ class simulation_object_rule_new(simulation_object):
         p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0,time_series_data=time_series_data,within_perm_vec=new_list,n_blocks=self.args['n_blocks'] if time_series_data else 0)
         print(p,reference_metric)
         return p, reference_metric
+
+class simulation_object_rule_perm(simulation_object_rule_new):
+    def __init__(self,args):
+        super(simulation_object_rule_new, self).__init__(args)
+
+    def perm_Q_test(self,X,Y,X_q,w,i,time_series_data=False,within_perm_vec=None,n_blocks=20):
+        if time_series_data:
+            c = time_series_Q_hsic(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y',variant=self.variant,within_perm_vec=within_perm_vec,n_blocks=n_blocks)
+        else:
+            c = Q_weighted_HSIC_correct(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i,variant=self.variant)
+        reference_metric = c.calculate_weighted_statistic().cpu().item()
+        list_of_metrics = []
+        for i in range(self.bootstrap_runs):
+            list_of_metrics.append(c.permutation_calculate_weighted_statistic().cpu().item())
+        array = torch.tensor(
+            list_of_metrics).float()  # seem to be extremely sensitive to lengthscale, i.e. could be sign flipper
+        p = calculate_pval_symmetric(array, reference_metric)  # comparison is fucking weird
+        return p,reference_metric,array
 
 
 class simulation_object_hsic():

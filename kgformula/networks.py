@@ -60,6 +60,7 @@ class nn_node(torch.nn.Module): #Add dropout layers, Do embedding layer as well!
             setattr(self,f'embedding_{i}',torch.nn.Embedding(nr_of_uniques,col_size))
             setattr(self,f'translate_dict_{i}',translate_dict)
             self.latent_col_list.append(col_size)
+        self.lnorm = torch.nn.LayerNorm(d_out)
         self.w = torch.nn.Linear(d_in+sum(self.latent_col_list),d_out)
         self.f = transformation
 
@@ -78,7 +79,7 @@ class nn_node(torch.nn.Module): #Add dropout layers, Do embedding layer as well!
                 o = getattr(self,f'embedding_{i}')(f)
                 cat_vals.append(o)
             X = torch.cat(cat_vals,dim=1)
-        return self.f(self.w(X))
+        return self.f(self.lnorm(self.w(X)))
 
 class output_block(torch.nn.Module):
     def __init__(self, input, output):
