@@ -224,7 +224,7 @@ def generate_job_params(n_list,net_width,net_layers,runs=1,seed_max=100,estimate
                                             counter+=1
 
 
-def generate_job_kchsic_breaker(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc',dirname=''):
+def generate_job_kchsic_breaker(n_list,net_width,net_layers,runs=1,seed_max=1000,estimate=False,directory='job_dir/',job_type='kc',dirname='',theta=4.0,phi=2.0):
     if not os.path.exists(directory):
         os.makedirs(directory)
     else:
@@ -234,8 +234,8 @@ def generate_job_kchsic_breaker(n_list,net_width,net_layers,runs=1,seed_max=1000
     DX=[3]
     DY=[3]
     DZ=[3]
-    THETA=[4.0]
-    PHI=[2.0]
+    THETA=[theta]
+    PHI=[phi]
     yz = [0.5, 0.0]
 
     for d_X, d_Y, d_Z, theta, phi in zip(DX,DY,DZ,THETA,PHI):
@@ -260,7 +260,8 @@ def generate_job_kchsic_breaker(n_list,net_width,net_layers,runs=1,seed_max=1000
                         val_rate = 0.2
                         h_str =data_dir
                         if estimate:
-                            models_to_run = zip(['real_weights','real_TRE_Q','NCE_Q',],[1,1,10])
+                            # models_to_run = zip(['real_weights','real_TRE_Q','NCE_Q',],[1,1,10])
+                            models_to_run = zip(['real_weights','NCE_Q'],[1,10])
                             # models_to_run = zip(['real_weights','random_uniform','NCE_Q'],[1,1,10])
                             # models_to_run = zip(['rulsif'],[1,1])
                         else:
@@ -292,14 +293,14 @@ def generate_job_kchsic_breaker(n_list,net_width,net_layers,runs=1,seed_max=1000
                                                                'width': width,
                                                                'layers':layers,
                                                                'mixed': False,
-                                                               'bs_ratio': 0.01,
+                                                               'bs_ratio': 0.1,
                                                                'val_rate': val_rate,
                                                                'n_sample': 250,
                                                                'criteria_limit': 0.05,
-                                                               'kill_counter': 2,
+                                                               'kill_counter': 5,
                                                                 'kappa':kappa,
                                                                'separate':False,
-                                                               'm': 4
+                                                               'm': 3
                                                                },
                                                 'estimator': model, #ones, 'NCE'
                                                 'runs': runs,
@@ -502,7 +503,7 @@ def generate_job_mixed(data_source,n_list,net_width,net_layers,runs=1,seed_max=1
                                                            'width': width,
                                                            'layers':layers,
                                                            'mixed': False,
-                                                           'bs_ratio': 1e-2,
+                                                           'bs_ratio': 1e-3,
                                                            'val_rate': val_rate,
                                                            'n_sample': 250,
                                                            'criteria_limit': 0.05,
@@ -524,8 +525,8 @@ def generate_job_mixed(data_source,n_list,net_width,net_layers,runs=1,seed_max=1
 if __name__ == '__main__':
     for fam_y in [1,4]:
         gen_hdm_breaker(n_list=[1000,5000,10000],net_layers=[3],net_width=[32],runs=1,seed_max=100,estimate=True,directory=f'hdm_breaker_fam_y={fam_y}_job_50_2',job_type='kc_rule_new',dirname=f'hdm_breaker_fam_y={fam_y}_100')
-    generate_job_kchsic_breaker(n_list=[],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_breaker_correct_train',job_type='kc_rule_correct_perm',dirname='do_null_100')
-    generate_job_kchsic_breaker(n_list=[],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_breaker_train',job_type='kc_rule_new',dirname='do_null_100')
+    # generate_job_kchsic_breaker(n_list=[],net_layers=[1],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_breaker_correct_train',job_type='kc_rule_correct_perm',dirname='kchsic_breaker_1_100')
+    generate_job_kchsic_breaker(n_list=[],net_layers=[1],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_hsic_breaker_correct_train_2',job_type='kc_rule_correct_perm',dirname='kchsic_breaker_100',theta=16.0,phi=2.0)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='kc_rule_new',job_type='kc_rule_new',exp_mode=1)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='linear',job_type='kc_rule_new',variant=2,exp_mode=1)
     # generate_job_params(n_list=[1000,5000,10000],net_layers=[2],net_width=[32],runs=1,seed_max=100,estimate=True,directory='break_marginal',job_type='kc_rule_new',exp_mode=2)

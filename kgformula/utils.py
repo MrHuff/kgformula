@@ -813,12 +813,8 @@ class simulation_object_rule_new(simulation_object):
             X_train,Y_train,Z_train,_=self.transform_data(X,Y,Z,train_chunk)
             X_test,Y_test,Z_test,new_list=self.transform_data(X,Y,Z,test_chunk)
 
-
-
-
         binary_mask_X = self.get_binary_mask(X)
         if len(cat_cols_z)==0:
-
             binary_mask_Z = self.get_binary_mask(Z)
         else:
             binary_mask_Z = torch.tensor(cat_cols_z['indicator'])
@@ -858,16 +854,18 @@ class simulation_object_rule_perm(simulation_object_rule_new):
         super(simulation_object_rule_new, self).__init__(args)
 
     def perm_Q_test(self,X,Y,X_q,w,i,time_series_data=False,within_perm_vec=None,n_blocks=20):
-        if time_series_data:
-            c = time_series_Q_hsic(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y',variant=self.variant,within_perm_vec=within_perm_vec,n_blocks=n_blocks)
-        else:
-            c = Q_weighted_HSIC_correct(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i,variant=self.variant)
+
+        #TODO: plot the weights here
+        c = Q_weighted_HSIC_correct(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i,variant=self.variant)
         reference_metric = c.calculate_weighted_statistic().cpu().item()
         list_of_metrics = []
         for i in range(self.bootstrap_runs):
             list_of_metrics.append(c.permutation_calculate_weighted_statistic().cpu().item())
         array = torch.tensor(
             list_of_metrics).float()  # seem to be extremely sensitive to lengthscale, i.e. could be sign flipper
+        #TODO get distribution of test, see what goes wrong!
+        # Data might be wrong or weights are stupid, did it work when you had true weights?! --Yes
+        # Then the estimation procedure might be off
         p = calculate_pval_symmetric(array, reference_metric)  # comparison is fucking weird
         return p,reference_metric,array
 

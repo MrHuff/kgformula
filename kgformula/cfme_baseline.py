@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from __future__ import division
 import numpy as np
 from sys import stdout
 from kgformula.kernels import *

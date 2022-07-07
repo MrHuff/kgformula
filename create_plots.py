@@ -484,11 +484,11 @@ if __name__ == '__main__':
     General break plot
     """
     ablation_3d = pd.read_csv('ablation_3d.csv',index_col=0)
-
-    break_plot(ablation_3d,'bd_hsic_breaker')
-
-    ablation_3d = pd.read_csv('kc_hsic_breaker_correct_train.csv',index_col=0)
-    break_plot(ablation_3d,'bd_hsic_breaker_correct_perm')
+    break_plot(ablation_3d,'bd_hsic_breaker_old')
+    ablation_3d = pd.read_csv('kc_hsic_breaker_correct_train_2.csv',index_col=0)
+    break_plot(ablation_3d,'bd_hsic_breaker_correct_perm_2')
+    # ablation_3d = pd.read_csv('kc_hsic_breaker_correct_train.csv',index_col=0)
+    # break_plot(ablation_3d,'bd_hsic_breaker_correct_perm')
 
     """
     hsic and quantile plot

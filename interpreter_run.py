@@ -20,6 +20,9 @@ def run_jobs(args):
         j = simulation_object_linear_regression(args)
     elif args['job_type']=='cfme':
         j = simulation_object_linear_regression(args)
+    #TODO: Permutation seems somewhat well behaved could be that the weights are just wrong so go through estimation procedure!
+    #TODO: Sign-flip wrong
+    #TODO: switched 0 and 1 in density ratio interpretation? 1 on top and 0 on bottom (You have it switched!)
     # elif args['job_type']=='old_causal_test':
     #     j = simulation_object_linear_regression(args)
     j.run()
@@ -32,6 +35,7 @@ if __name__ == '__main__':
     fold = input['job_folder']
     jobs = os.listdir(fold)
     job_params = load_obj(f'job_{idx}.pkl',folder=f'{fold}/')
+    print(job_params)
     job_params['device'] = 0
     job_params['unique_job_idx'] = idx
     run_jobs(args=job_params)

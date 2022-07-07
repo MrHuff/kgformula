@@ -292,6 +292,7 @@ if __name__ == '__main__':
     # generate_csv_file_parfor('kc_rule_1d_linear')
     # generate_csv_file_parfor('do_null_binary_linear_kernel')
 
-    generate_csv_file_parfor('kc_hsic_breaker_correct_train')
+    # generate_csv_file_parfor('kc_hsic_breaker_correct_train')
+    generate_csv_file_parfor('kc_hsic_breaker_correct_train_2')
     # generate_csv_file_parfor('do_null_mix_sanity_4_est')
     # generate_csv_file_parfor('kchsic_breaker_fam_y=2_job')

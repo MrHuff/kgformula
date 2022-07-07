@@ -124,7 +124,7 @@ class MLP(torch.nn.Module):
         for l in self.model:
             x = l(x)
         return x #+ (X.unsqueeze(-1)**2+Z.unsqueeze(-1)**2)
-
+    #TODO: Solution exists, just have to reproduce it and understand why it works!
     def forward(self,input):
         output = []
         for i in range(1):
@@ -138,7 +138,11 @@ class MLP(torch.nn.Module):
         return pred
 
     def get_w(self, x,z,empty=[]):
-        return torch.exp(-self.forward_val(torch.cat([x,z],dim=1)) )
+        # return self.forward_val(torch.cat([x,z],dim=1))
+        # return torch.exp(-self.forward_val(torch.cat([x,z],dim=1)) ) #SWITCHED! this will give you p(x|z)/q(x_q)
+        return torch.exp(-self.forward_val(torch.cat([x,z],dim=1)) ) #SWITCHED! this will give you p(x|z)/q(x_q)
+            # self.forward_val(torch.cat([x,z],dim=1))
+            # torch.exp(-self.forward_val(torch.cat([x,z],dim=1)) ) #SWITCHED!
 
 class TRE_net(torch.nn.Module):
     def __init__(self, dim, o, f, k, m,cat_marker,cat_size_list):
@@ -182,7 +186,7 @@ class logistic_regression(torch.nn.Module):
         return self.W(X)
 
     def get_w(self, x,z):
-        return torch.exp(self.forward(torch.cat([x,z],dim=1)))
+        return torch.exp(-self.forward(torch.cat([x,z],dim=1)))
 
 class cat_dataset(Dataset):
     def __init__(self,X,Z,bs=1.0,val_rate=0.01):
@@ -553,14 +557,23 @@ class chunk_iterator(): #joint = pos, pom = neg
         self.a_0=a_0
         self.a_m=a_m
 
+    def generate_pom_samples_old(self, n_):
+        vec = np.random.choice(self.n_pom, n_, replace=False)
+        c, d = self.X_pom[vec, :], self.Z_pom[:n_]
+        return c, d
+
+    def generate_pom_samples(self,n_):
+        vec=np.random.choice(self.n_pom,n_,replace=True)
+        perm_vec = np.random.permutation(vec)
+        c, d = self.X_pom[vec, :], self.Z_pom[perm_vec,:]
+        return c,d
     def __next__(self):
         ''''Returns the next value from team object's lists '''
         if self.mode=='train':
             if self._index < self.true_chunks:
                 a,b = self.it_X[self._index],self.it_Z[self._index]
                 n_ = a.shape[0]*self.kappa
-                pom_perm = torch.randperm(n_)
-                c,d = self.X_pom[pom_perm,:],self.Z_pom[:n_]
+                c,d=self.generate_pom_samples_old(n_)
                 data_out = [torch.cat([c, d], dim=1)]
                 if self.TRE:
                     bin_a = a[:, self.x_binary]

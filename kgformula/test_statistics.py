@@ -570,12 +570,13 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
             return self.n*(a_1+self.a_2-2*a_3).squeeze()
 
     def permutation_calculate_weighted_statistic(self):
-        with torch.no_grad():
+        with torch.no_grad(): #actually now it's not completely obvious whether you should permute X and w or just Y,it should in principle be the same...
             kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
             a_1 = self.w.t() @ (self.kernel_X * kernel_Y) @ self.w / self.n ** 2
             a_3 = self.w.t() @ (self.const_var_1_Y * kernel_Y@self.w) / self.n ** 3
             a_2 = self.const_sum_Y * torch.sum(kernel_Y*self.W) / self.n ** 4
             return self.n * (a_1 + a_2 - 2 * a_3)
+
 
     def kernel_ls_init(self, name, data):
         if self.variant == 1:
@@ -607,10 +608,18 @@ class Q_weighted_HSIC_correct(Q_weighted_HSIC): # test-statistic seems to be to 
     def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,seed=1):
         super(Q_weighted_HSIC_correct, self).__init__(X,Y,w,X_q,cuda,device,half_mode,perm,variant,seed)
         self.og_indices=np.arange(X.shape[0])
-        self.n_bins=X.shape[0]//20
-        self.binner = KBinsDiscretizer(n_bins=self.n_bins, encode='ordinal', strategy='uniform')
-        numpy_w=w.cpu().numpy()
+        self.n_bins= 2#min(X.shape[0]//20,120) #weights might be too clustered, or why would a smaller partitioning work???
+        #bi modality??
+        # self.binner = KBinsDiscretizer(n_bins=self.n_bins, encode='ordinal', strategy='uniform')
+        self.binner = KBinsDiscretizer(n_bins=self.n_bins, encode='ordinal', strategy='kmeans')
+        numpy_w=1./w.cpu().numpy() # so should group on inverse
         self.clusters = self.binner.fit_transform(numpy_w[:,np.newaxis]).squeeze()
+        # (unique, counts) = np.unique(self.clusters, return_counts=True)
+        # print(unique,counts)
+        #TODO revisit permutation...
+        #TODO get bins here to understand what's going on!
+        #TODO might have to permute weights with Y's
+    # Compare with binary case! Why does it work in that case!
 
     def get_permuted2d(self,ker):
         idx = permute(self.n_bins,self.og_indices,self.clusters)
@@ -626,6 +635,16 @@ class Q_weighted_HSIC_correct(Q_weighted_HSIC): # test-statistic seems to be to 
             a_2 = self.const_sum_Y * torch.sum(kernel_Y*self.W) / self.n ** 4
             return self.n * (a_1 + a_2 - 2 * a_3)
 
+        #TODO: This was a shit idea it's 100% not working
+        # with torch.no_grad():
+        #     kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
+        #     w=self.w[idx]
+        #     W=self.W[:,idx]
+        #     W= W[idx,:]
+        #     a_1 = w.t() @ (self.kernel_X * kernel_Y) @ w / self.n ** 2
+        #     a_3 = w.t() @ (self.const_var_1_Y * kernel_Y@w) / self.n ** 3
+        #     a_2 = self.const_sum_Y * torch.sum(kernel_Y*W) / self.n ** 4
+        #     return self.n * (a_1 + a_2 - 2 * a_3)
 class time_series_Q_hsic(Q_weighted_HSIC):
     def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,within_perm_vec=None,n_blocks=20):
         super(time_series_Q_hsic, self).__init__(X,Y,w,X_q,cuda,device,half_mode,perm,variant,1)
