@@ -25,6 +25,5 @@ For the real world experiments, do the following:
 
 1. Lalonde - Run lalonde_real_experiment.py
 2. Twins - Process the data using twins_preprocess.py, then run twins_real_experiment.py
-3. COVID - Preprocess the data using covid_19_test.py, then run covid_real_experiment.py and covid_real_experiment_2.py
 
 This repository will include the results needed to recreate the plots in the paper already.
