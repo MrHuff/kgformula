@@ -23,19 +23,18 @@ class old_statistic():
         self.ky.ls = ls_y
         self.kz=RBFKernel()
         self.kz.ls = ls_z
-        self.KX = self.kx.forward(self.X)
-        self.KZ = self.kz.forward(self.Z)
-        self.KY = self.ky.forward(self.Y_te)
-
-        self.kz_sum = self.KZ.sum(dim=1)
-        self.KX_test =self.kx.forward(self.X,self.X_te)
-        reg = torch.eye(self.n_tr).to(self.KX.device)*1e-3
+        self.KX = self.kx.forward(self.X).evaluate()
+        self.KZ = self.kz.forward(self.Z).evaluate()
+        self.KY = self.ky.forward(self.Y_te).evaluate()
+        self.KZ_test = self.kx.forward(self.Z,self.Z_te).evaluate()
+        self.KX_test =self.kx.forward(self.X,self.X_te).evaluate()
+        reg = torch.eye(self.n_tr).to(self.KX.device)*1e-2
         solve_mat = self.KX*self.KZ
-        solve_b = self.KX_test*self.kz_sum
+        solve_b = self.KX_test*self.KZ_test.sum(dim=1,keepdim=True).repeat(1,self.KX_test.shape[1])
         L = torch.linalg.cholesky(solve_mat+ reg)
         self.W = torch.cholesky_solve(solve_b,L)/self.n_tr
-        self.centered_W = self.W - torch.mean(self.W,dim=1)
-        self.W_mat = self.centered_W@self.centered_W.transpose()
+        self.centered_W = self.W.t() - torch.mean(self.W.t(),dim=1,keepdim=True)
+        self.W_mat = self.centered_W@self.centered_W.t()
         self.ref_stat = torch.sum(self.W_mat* self.KY).item()
 
     def get_permuted2d(self,ker):

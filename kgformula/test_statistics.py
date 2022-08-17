@@ -5,8 +5,7 @@ from kgformula.kernels import *
 import os
 import copy
 from sklearn.preprocessing import KBinsDiscretizer
-
-
+from kgformula.pytorch_kmeans import *
 
 def get_binary_mask(X):
     #TODO: rewrite this a bit
@@ -490,11 +489,6 @@ class density_estimator():
             ret = torch.sqrt(torch.median(d[d >= 0]))
             return ret
 
-    # def kernel_ls_init_keops(self,ls,data,data_2=None):
-    #     with torch.no_grad():
-    #         ker = keops_RBFkernel(ls=1/ls.unsqueeze(0),x=data,y=data_2,device_id=self.device)
-    #         return ker()
-
     def kernel_ls_init(self,name,data,data_2=None,ls=None):
         ker = RBFKernel()
         if ls is None:
@@ -576,7 +570,11 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
             a_3 = self.w.t() @ (self.const_var_1_Y * kernel_Y@self.w) / self.n ** 3
             a_2 = self.const_sum_Y * torch.sum(kernel_Y*self.W) / self.n ** 4
             return self.n * (a_1 + a_2 - 2 * a_3)
-
+            # kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
+            # a_1 = self.w.t() @ (self.kernel_X * kernel_Y) @ self.w / self.n ** 2
+            # a_3 = self.w.t() @ (self.const_var_1_Y * self.const_var_1_X[idx, :]) / self.n ** 3
+            # a_2 = self.const_sum_Y * (self.w.t() @ self.const_var_1_X[idx, :]) / self.n ** 4
+            # return self.n * (a_1 + a_2 - 2 * a_3)
 
     def kernel_ls_init(self, name, data):
         if self.variant == 1:
@@ -603,23 +601,46 @@ class Q_weighted_HSIC(): # test-statistic seems to be to sensitive???
                 ret = torch.tensor(1.0)
             return ret
 
-
 class Q_weighted_HSIC_correct(Q_weighted_HSIC): # test-statistic seems to be to sensitive???
-    def __init__(self,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,seed=1):
+    def __init__(self,train_data,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,seed=1):
         super(Q_weighted_HSIC_correct, self).__init__(X,Y,w,X_q,cuda,device,half_mode,perm,variant,seed)
-        self.og_indices=np.arange(X.shape[0])
-        self.n_bins= 2#min(X.shape[0]//20,120) #weights might be too clustered, or why would a smaller partitioning work???
-        #bi modality??
-        # self.binner = KBinsDiscretizer(n_bins=self.n_bins, encode='ordinal', strategy='uniform')
-        self.binner = KBinsDiscretizer(n_bins=self.n_bins, encode='ordinal', strategy='kmeans')
-        numpy_w=1./w.cpu().numpy() # so should group on inverse
-        self.clusters = self.binner.fit_transform(numpy_w[:,np.newaxis]).squeeze()
-        # (unique, counts) = np.unique(self.clusters, return_counts=True)
-        # print(unique,counts)
-        #TODO revisit permutation...
-        #TODO get bins here to understand what's going on!
-        #TODO might have to permute weights with Y's
-    # Compare with binary case! Why does it work in that case!
+        self.train_data=train_data
+        cme, L_mat_train = self.cme_estimation()
+        self.clusters,self.n_bins = self.rkhs_kmeans(cme,L_mat_train)
+        self.og_indices = np.arange(self.X.shape[0])
+        # T\perp X | e(X)
+        # T \perp X | p(X \mid p(X|Z))?
+        #TODO calculate conditional mean embedding and do binning my k-means!
+        # self.n_bins= 2 #min(X.shape[0]//20,120) #weights might be too clustered, or why would a smaller partitioning work???
+        # self.binner = KBinsDiscretizer(n_bins=self.n_bins, encode='ordinal', strategy='uniform')#try quantile
+        # numpy_w=1./w.cpu().numpy() # so should group on inverse
+        # self.clusters = self.binner.fit_transform(numpy_w[:,np.newaxis]).squeeze()
+        # Train or test clustering????
+
+    def cme_estimation(self):
+        #Rewrite this you don't need Z_test, only Z_train. Don't instanciate because it becomes wrong in that case. Only look at distributions
+        X=self.train_data['X_train']
+        Z=self.train_data['Z_train']
+        self.kernel_ls_init('Z', Z)
+        kx_train = self.ker_obj_X(X).evaluate()
+        solve_mat = kx_train + torch.eye(kx_train.shape[0]).to(kx_train.device) * 1e-2 #nxn
+        L = torch.linalg.cholesky(solve_mat)
+        ktrain_test = self.ker_obj_X(self.X,X).evaluate()  #k(x_train,X), n x m
+        W = torch.cholesky_solve(ktrain_test,L) #k(x_train,X), n x m # select from the columns?
+        L_mat_train = self.ker_obj_Z(Z).evaluate()
+        return W,L_mat_train
+
+    def rkhs_kmeans(self,W,L_mat_train):
+        clustering=[]
+        for num_clusters in range(2,10):
+            with torch.no_grad():
+                cluster_ids_x, cluster_centers = kmeans_RKHS(
+                    X=W,L_mat=L_mat_train , num_clusters=num_clusters, distance='euclidean', device=torch.device('cuda:0')
+                )
+                s=calculate_RKHS_silhoutte_score(W,cluster_ids_x,L_mat_train)
+                clustering.append({'num_clusters':num_clusters,'s':s.item(),'clustering':cluster_ids_x})
+        best_clust = sorted(clustering,key=lambda x: x['s'],reverse=True)[0]
+        return best_clust['clustering'].cpu().numpy(),best_clust['num_clusters']
 
     def get_permuted2d(self,ker):
         idx = permute(self.n_bins,self.og_indices,self.clusters)
@@ -629,6 +650,11 @@ class Q_weighted_HSIC_correct(Q_weighted_HSIC): # test-statistic seems to be to 
 
     def permutation_calculate_weighted_statistic(self):
         with torch.no_grad():
+            # kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
+            # a_1 = self.w.t() @ (self.kernel_X * kernel_Y) @ self.w / self.n ** 2
+            # a_3 = self.w.t() @ (self.const_var_1_Y * self.const_var_1_X[idx, :]) / self.n ** 3
+            # a_2 = self.const_sum_Y * (self.w.t() @ self.const_var_1_X[idx, :]) / self.n ** 4
+            # return self.n * (a_1 + a_2 - 2 * a_3)
             kernel_Y, idx = self.get_permuted2d(self.kernel_Y)
             a_1 = self.w.t() @ (self.kernel_X * kernel_Y) @ self.w / self.n ** 2
             a_3 = self.w.t() @ (self.const_var_1_Y * kernel_Y@self.w) / self.n ** 3

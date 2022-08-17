@@ -10,6 +10,8 @@ from kgformula.old_statistic import *
 import os
 import tqdm
 import pickle
+from scipy.stats import kstest
+
 def categorical_transformer(X,cat_cols,cont_cols):
     c = OrderedCategoricalLong()
     for el in cat_cols:
@@ -26,18 +28,18 @@ def categorical_transformer(X,cat_cols,cont_cols):
 class sklearn_propensity_estimator():
     def __init__(self, X_tr, T_tr, X_val, T_val, nn_params, bs=100, epochs=100, device='cuda:0', X_cat_tr=[],
                  X_cat_val=[]):
-        self.X  = X_tr
-        self.T  = T_tr.squeeze()
+        self.X  = X_tr.cpu().numpy()
+        self.T  = T_tr.squeeze().cpu().numpy()
         self.clf = LogisticRegressionCV(cv=10, random_state=0,verbose=False)
-        self.X_val = X_val
-        self.T_val = T_val.squeeze()
+        self.X_val = X_val.cpu().numpy()
+        self.T_val = T_val.squeeze().cpu().numpy()
         self.device = device
     def fit(self,tmp=None):
         self.clf.fit(self.X,self.T)
         self.best = self.clf.score(self.X_val,self.T_val)
 
     def predict(self,X,T=[],x_cat=[]):
-        return torch.from_numpy(self.clf.predict_proba(X)[:,-1]).float().to(self.device).unsqueeze(-1)
+        return torch.from_numpy(self.clf.predict_proba(X.cpu().numpy())[:,-1]).float().to(self.device).unsqueeze(-1)
 
 class baseline_test_class_incorrect():
     def __init__(self,X,T,Y,W,nn_params,training_params,cat_cols=[]):
@@ -99,8 +101,10 @@ class baseline_test_class_incorrect():
         self.perm_stats = perm_stats
         self.pval = self.calculate_pval_symmetric(self.perm_stats,self.tst_stat )
         output = [seed,self.pval,self.tst_stat]
-        return output+perm_stats.tolist()
+        return output#+perm_stats.tolist()
 class baseline_test_old(baseline_test_class_incorrect):
+
+    #Introduce both correct and incorrect permutation for reference!
     def __init__(self,X,T,Y,W,nn_params,training_params,cat_cols=[]):
         super(baseline_test_old, self).__init__(X,T,Y,W,nn_params,training_params,cat_cols)
 
@@ -110,7 +114,7 @@ class baseline_test_old(baseline_test_class_incorrect):
         self.perm_stats = perm_stats
         self.pval = self.calculate_pval_symmetric(self.perm_stats, self.tst_stat)
         output = [seed, self.pval, self.tst_stat]
-        return output + perm_stats.tolist()
+        return output #+ perm_stats.tolist()
 
 class kernel_baseline():
     def __init__(self,args):
@@ -127,20 +131,21 @@ class kernel_baseline():
         total_pvals = len(p_values)
         power = sum(p_values <= level) / total_pvals
         return power
-    def calc_summary_stats(self,pvals):
-        output=[]
-        ks_stat, ks_pval = kstest(pvals, 'uniform')
-        levels = [0.01, 0.05, 0.1]
-        for l in levels:
-            output.append(self.get_level(l,pvals))
-        output.append(ks_pval)
-        output.append(ks_stat)
-        return output
+    # def calc_summary_stats(self,pvals):
+    #     output=[]
+    #     ks_stat, ks_pval = kstest(pvals, 'uniform')
+    #     levels = [0.01, 0.05, 0.1]
+    #     for l in levels:
+    #         output.append(self.get_level(l,pvals))
+    #     output.append(ks_pval)
+    #     output.append(ks_stat)
+    #     return output
     def run(self):
         job_dir = self.args['job_dir']
         data_dir = self.args['data_dir']
         seeds_a = self.args['seeds_a']
         seeds_b = self.args['seeds_b']
+        self.job_character = self.args['job_character']
         self.qdist = self.args['qdist']
         self.bootstrap_runs = self.args['bootstrap_runs']
         self.train_params['oracle_weights']=False
@@ -148,13 +153,13 @@ class kernel_baseline():
         self.train_params['bs']=self.args['n']//4
         self.train_params['patience']=10
         self.train_params['permutations']=self.args['bootstrap_runs']
-        estimator = self.args['estimator']
+        estimator = self.args['job_type']
         if not os.path.exists(f'./{job_dir}_results'):
             os.makedirs(f'./{job_dir}_results')
         data_col = []
         c=0
-        summary_job_cols = ['pow_001','pow_005','pow_010','KS-pval','KS-stat']
-        columns = ['seed','pval','tst_stat']+[f'perm_{i}' for i in range(self.train_params['permutations'])]
+        # summary_job_cols = ['pow_001','pow_005','pow_010','KS-pval','KS-stat']
+        # columns = ['seed','pval','tst_stat']+[f'perm_{i}' for i in range(self.train_params['permutations'])]
         for i in tqdm.trange(seeds_a, seeds_b):
             X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
             X, Y, Z, _w = X.cuda(self.device), Y.cuda(self.device), Z.cuda(self.device), _w.cuda(self.device)
@@ -162,19 +167,32 @@ class kernel_baseline():
                 tst=baseline_test_class_incorrect(Z,X,Y,_w,nn_params={},training_params=self.train_params)
             elif estimator =='old_statistic':
                 tst=baseline_test_old(Z,X,Y,_w,nn_params={},training_params=self.train_params)
-            try:
-                out = tst.run_test(i)
-                data_col.append(out)
-            except Exception as e:
-                print(e)
-                c += 1
+            # try:
+            out = tst.run_test(i)
+            data_col.append(out)
+            # except Exception as e:
+            #     print(e)
+            #     c += 1
             if c > 10:
                 raise Exception('Dude something is seriously wrong with your data or the method please debug')
+        dat=np.array(data_col)
+        ks_data=[]
+        p_value_array = torch.tensor(dat[:,1])
+        ref_metric_array = torch.tensor(dat[:,2])
+        q_fac_array = torch.tensor([1.0]*100)
+        ks_stat, p_val_ks_test = kstest(p_value_array.numpy(), 'uniform')
+        print(f'KS test Uniform distribution test statistic: {ks_stat}, p-value: {p_val_ks_test}')
+        ks_data.append([ks_stat, p_val_ks_test])
+        df = pd.DataFrame(ks_data, columns=['ks_stat', 'p_val_ks_test'])
+        s = df.describe()
+        results_dict = {
+            'p_value_array':p_value_array,
+            'ref_metric_array':ref_metric_array,
+            'q_fac_array':q_fac_array,
+            'df':df,
+            's':s,
+        }
         unique_job_idx=self.args['unique_job_idx']
-        big_df = pd.DataFrame(data_col, columns=columns)
-        pvals = big_df['pval'].values
-        output = self.calc_summary_stats(pvals)
-        final_res = pd.DataFrame([output], columns=summary_job_cols)
-        big_df.to_csv(f'{job_dir}_results/big_df_{unique_job_idx}.csv')
-        final_res.to_csv(f'{job_dir}_results/final_res_{unique_job_idx}.csv')
+        with open(f'./{job_dir}_results/results_{unique_job_idx}.pickle', 'wb') as handle:
+            pickle.dump(results_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
         return

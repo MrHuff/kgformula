@@ -18,8 +18,8 @@ def run_jobs(args):
         j = simulation_object_hsic(args)
     elif args['job_type']=='regression':
         j = simulation_object_linear_regression(args)
-    elif args['job_type']=='cfme':
-        j = simulation_object_linear_regression(args)
+    elif args['job_type'] in ['cfme','old_statistic']:
+        j = kernel_baseline(args)
     #TODO: Permutation seems somewhat well behaved could be that the weights are just wrong so go through estimation procedure!
     #TODO: Sign-flip wrong
     #TODO: switched 0 and 1 in density ratio interpretation? 1 on top and 0 on bottom (You have it switched!)

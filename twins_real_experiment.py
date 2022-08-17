@@ -1,11 +1,9 @@
 import os
-# os.environ["CUDA_VISIBLE_DEVICES"]="5"
-import pandas as pd
 import torch
-from kgformula.utils import simulation_object_rule_new
+from kgformula.utils import simulation_object_rule_new,simulation_object_rule_perm
 
 
-job_res_name= 'twins_exp_no_sep'
+job_res_name= 'twins_exp_no_sep_perm'
 
 if not os.path.exists(job_res_name):
     os.makedirs(job_res_name)
@@ -54,7 +52,8 @@ for use_dummy_y in [True,False]:
                             y = Y[perm]
                         z = Z[perm]
                         try:
-                            sim_obj = simulation_object_rule_new(args=args) #Why getting nans?
+                            # sim_obj = simulation_object_rule_new(args=args) #Why getting nans?
+                            sim_obj = simulation_object_rule_perm(args=args) #Why getting nans?
                             pval, ref = sim_obj.run_data(x,y,z,ind_dict)
                         except Exception as e:
                             print (e)

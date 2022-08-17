@@ -229,8 +229,7 @@ def calculate_one_row(j,base_dir):
 
 
 def generate_csv_file(base_dir):
-    jobs = os.listdir(base_dir)
-    jobs.sort()
+    jobs = [i for i in range(len(os.listdir(base_dir)))]
     df_data = []
     for j in jobs:
         row = calculate_one_row(j,base_dir)
@@ -243,10 +242,8 @@ def generate_csv_file(base_dir):
     df = df.sort_values('KS pval',ascending=False)
     df.to_csv(f'{base_dir}.csv')
     print(df.to_latex(escape=True))
-
 def multi_run_wrapper(args):
    return calculate_one_row(*args)
-
 def generate_csv_file_parfor(base_dir):
     import multiprocessing as mp
     pool = mp.Pool(mp.cpu_count())
@@ -291,8 +288,27 @@ if __name__ == '__main__':
     # generate_csv_file_parfor('kc_rule_1d_linear_0.05')
     # generate_csv_file_parfor('kc_rule_1d_linear')
     # generate_csv_file_parfor('do_null_binary_linear_kernel')
-
-    # generate_csv_file_parfor('kc_hsic_breaker_correct_train')
-    generate_csv_file_parfor('kc_hsic_breaker_correct_train_2')
+    # generate_csv_file_parfor('kc_hsic_breaker_train_2')
+    # generate_csv_file_parfor('kc_hsic_breaker_correct_train_2')
+    # generate_csv_file_parfor('kc_hsic_breaker_correct_train_3')
+    # generate_csv_file_parfor('kc_hsic_breaker_correct_train_4')
+    # generate_csv_file_parfor('base_jobs_cont')
+    # generate_csv_file_parfor('base_jobs_cont_ref')
+    # generate_csv_file_parfor('debug_layernorm_base_jobs_cont')
+    # generate_csv_file_parfor('debug_layernorm_base_jobs_cont_ref')
+    # generate_csv_file_parfor('debug_4_base_jobs_cont')
+    # generate_csv_file_parfor('do_null_binary_perm')
+    # generate_csv_file_parfor('do_null_binary_linear_kernel_perm')
+    # generate_csv_file_parfor('do_null_mix_jobs')
+    # generate_csv_file_parfor('base_jobs_cont_ref')
+    # generate_csv_file_parfor('hdm_breaker_fam_y=1_job_perm')
+    # generate_csv_file_parfor('hdm_breaker_fam_y=4_job_perm')
     # generate_csv_file_parfor('do_null_mix_sanity_4_est')
     # generate_csv_file_parfor('kchsic_breaker_fam_y=2_job')
+    generate_csv_file_parfor('hdm_breaker_fam_y=1_job_perm_cluster')
+    generate_csv_file_parfor('hdm_breaker_fam_y=4_job_perm_cluster')
+    generate_csv_file_parfor('do_null_mix_jobs_cluster')
+    generate_csv_file_parfor('do_null_binary_linear_kernel_perm_cluster')
+    generate_csv_file_parfor('do_null_binary_perm_cluster')
+    generate_csv_file_parfor('base_jobs_cont_final_cluster')
+

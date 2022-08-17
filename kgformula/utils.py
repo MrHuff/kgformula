@@ -372,7 +372,7 @@ class simulation_object():
             p_values.append(p)
         return p_values
 
-    def perm_Q_test(self,X,Y,X_q,w,i,time_series_data=False,within_perm_vec=None,n_blocks=20):
+    def perm_Q_test(self,X,Y,X_q,w,i,time_series_data=False,within_perm_vec=None,n_blocks=20,other_dict={}):
 
         if time_series_data:
             c = time_series_Q_hsic(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y',variant=self.variant,within_perm_vec=within_perm_vec,n_blocks=n_blocks)
@@ -497,7 +497,7 @@ class simulation_object():
                         torch.save(w,f'./{data_dir}/{job_dir}/w_estimated{suffix}.pt')
                 else:
                     w = w_q
-                p,reference_metric,_arr = self.perm_Q_test(X_test,Y_test,X_q_test,w,i)
+                p,reference_metric,_arr = self.perm_Q_test(X_test,Y_test,X_q_test,w,i,other_dict={'X_train':X_train,'Z_train':Z_train})
                 if i==0:
                     n,_,_ = plt.hist(_arr, bins=100)
                     plt.vlines([reference_metric], ymin=0, ymax=n.max(), label='reference value',color='magenta')
@@ -646,9 +646,10 @@ class simulation_object_rule_new(simulation_object):
         reference_metric_list = []
         q_fac_list = []
 
+
         #Estimated weights incorrect or test-statistic being stupid
 
-        for i in tqdm.trange(seeds_a, seeds_b):
+        for i in range(seeds_a, seeds_b):
             try:
                 X, Y, Z, _w = torch.load(f'./{data_dir}/data_seed={i}.pt')
                 X, Y, Z, _w = X.cuda(self.device), Y.cuda(self.device), Z.cuda(self.device), _w.cuda(self.device)
@@ -717,7 +718,8 @@ class simulation_object_rule_new(simulation_object):
                         _, _w = split(_w, n_half)
                         w =  _w
 
-                p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, i)
+                p, reference_metric, _arr = self.perm_Q_test(X=X_test, Y=Y_test,
+                                                             X_q=X_q_test, w=w, i=i,other_dict={'X_train':X_train,'Z_train':Z_train})
                 print(f'seed {i} pval={p}')
                 p_value_list.append(p)
                 reference_metric_list.append(reference_metric)
@@ -845,7 +847,9 @@ class simulation_object_rule_new(simulation_object):
                               est_params=est_params, type=estimator, device=self.device,
                               secret_indx=self.args['unique_job_idx'],x_full=X,z_full=Z,cat_cols_z=cat_cols_z)
         w = d.return_weights(X_test, Z_test, X_q_test)
-        p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0,time_series_data=time_series_data,within_perm_vec=new_list,n_blocks=self.args['n_blocks'] if time_series_data else 0)
+        p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0,time_series_data=time_series_data,within_perm_vec=new_list,n_blocks=self.args['n_blocks'] if time_series_data else 0,
+                                                     other_dict={'X_train':X_train,'Y_train':Y_train,'Z_train':Z_train,
+                                                                 'X_q_train':X_q_train})
         print(p,reference_metric)
         return p, reference_metric
 
@@ -853,10 +857,10 @@ class simulation_object_rule_perm(simulation_object_rule_new):
     def __init__(self,args):
         super(simulation_object_rule_new, self).__init__(args)
 
-    def perm_Q_test(self,X,Y,X_q,w,i,time_series_data=False,within_perm_vec=None,n_blocks=20):
+    def perm_Q_test(self,X,Y,X_q,w,i,time_series_data=False,within_perm_vec=None,n_blocks=20,other_dict={}):
 
         #TODO: plot the weights here
-        c = Q_weighted_HSIC_correct(X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i,variant=self.variant)
+        c = Q_weighted_HSIC_correct(train_data=other_dict, X=X, Y=Y, X_q=X_q, w=w, cuda=self.cuda, device=self.device, perm='Y', seed=i,variant=self.variant)
         reference_metric = c.calculate_weighted_statistic().cpu().item()
         list_of_metrics = []
         for i in range(self.bootstrap_runs):

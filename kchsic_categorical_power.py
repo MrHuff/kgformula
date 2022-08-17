@@ -55,7 +55,7 @@ def extract_properties(job_params):
     properties= [alp,null,n,estimator,data_dir]
     return properties,load_path,suffix
 
-def post_process_jobs(bench_res_dir,job_dir,filt):
+def post_process_jobs(bench_res_dir,job_csv):
 
     # bench_res_dir = '1d_cat_pow_kchsic'
     # job_dir = 'do_null_binary_all_1d'
@@ -63,19 +63,19 @@ def post_process_jobs(bench_res_dir,job_dir,filt):
         os.makedirs(bench_res_dir)
     # print(benchmark_data)
 
-    jobs = os.listdir(job_dir)
-    df_dat = []
-    latex_plot_structure_1 = []
-    latex_plot_structure_2 = []
-    for j in jobs:
-        job_params = load_obj(j, folder=f'{job_dir}/')
-        props, load_path ,suffix = extract_properties(job_params)
-        df_dat.append(props)
-        p_vals = torch.load(load_path).cpu().numpy()
-        if props[1] == 'False':
-            for lvl in [0.01, 0.05, 0.1]:
-                pow = calc_power(p_vals, lvl)
-                props.append(pow)
+    # jobs = os.listdir(job_dir)
+    # df_dat = []
+    # latex_plot_structure_1 = []
+    # latex_plot_structure_2 = []
+    # for j in jobs:
+    #     job_params = load_obj(j, folder=f'{job_dir}/')
+    #     props, load_path ,suffix = extract_properties(job_params)
+    #     df_dat.append(props)
+    #     p_vals = torch.load(load_path).cpu().numpy()
+    #     if props[1] == 'False':
+    #         for lvl in [0.01, 0.05, 0.1]:
+    #             pow = calc_power(p_vals, lvl)
+    #             props.append(pow)
         # else:
         #     if props[-1]==f'{job_dir}_layers=1_width=32_True':
         #         super_suff =  suffix + f'_{props[0]}'
@@ -120,9 +120,16 @@ def post_process_jobs(bench_res_dir,job_dir,filt):
     df_hdm = pd.read_csv('1d_cat_pow/pow_and_calib.csv')
     df_hdm['data_dir'] = None
     df_hdm['estimator'] = 'HDM'
-    df_hdm = df_hdm[[ 'alp','null','n','estimator','data_dir','alp=0.01','alp=0.05','alp=0.1']]
-    df = pd.DataFrame(df_dat,columns= [ 'alp','null','n','estimator','data_dir','alp=0.01','alp=0.05','alp=0.1'])
-    df = df[(df['data_dir']==filt)]
+    df_hdm = df_hdm[[ 'alp','null','n','estimator','alp=0.01','alp=0.05','alp=0.1']]
+    df = pd.read_csv(job_csv)
+    df['alp']=df['beta_xy']
+    df['null']=False
+    df['estimator']= df['nce_style']
+    df['alp=0.01']=df['p_a=0.01']
+    df['alp=0.05']=df['p_a=0.05']
+    df['alp=0.1']=df['p_a=0.1']
+
+    # df = pd.DataFrame(df_dat,columns= [ 'alp','null','n','estimator','data_dir','alp=0.01','alp=0.05','alp=0.1'])
     df = pd.concat([df,df_hdm],axis=0)
 
     subset = df[(df['null']==False) | (df['null']=='False')]
@@ -130,8 +137,8 @@ def post_process_jobs(bench_res_dir,job_dir,filt):
 
 
 if __name__ == '__main__':
-    post_process_jobs('1d_cat_pow_kchsic','do_null_binary_all_1d','do_null_binary_all_1d_layers=1_width=32_True')
-    post_process_jobs('1d_cat_pow_kchsic_linear','do_null_binary_linear_kernel','do_null_binary_linear_kernel_layers=1_width=32_True')
+    post_process_jobs('binary_perm_plot','do_null_binary_perm.csv')
+    post_process_jobs('binary_perm_plot_linear','do_null_binary_linear_kernel_perm.csv')
 
 
 

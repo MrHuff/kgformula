@@ -111,11 +111,11 @@ def kernel_two_sample_test_nonuniform_gpu_incorrect(X, Y, w, kernel_function='rb
 class baseline_test_gpu_incorrect_og():
     def __init__(self,Y,e,T,permutations = 250,device='cuda:0'):
         if Y.shape[1]==1:
-            self.YY0 = torch.from_numpy(Y[T == 0]).unsqueeze(-1).float().to(device)
-            self.YY1 = torch.from_numpy(Y[T == 1]).unsqueeze(-1).float().to(device)
+            self.YY0 = Y[T == 0].unsqueeze(-1).float().to(device)
+            self.YY1 = Y[T == 1].unsqueeze(-1).float().to(device)
         else:
-            self.YY0 = torch.from_numpy(Y[(T == 0).squeeze(),:]).float().to(device)
-            self.YY1 = torch.from_numpy(Y[(T == 1).squeeze(),:]).float().to(device)
+            self.YY0 = Y[(T == 0).squeeze(),:].float().to(device)
+            self.YY1 = Y[(T == 1).squeeze(),:].float().to(device)
         # self.sigma2= np.median(pairwise_distances(self.YY0, self.YY1, metric='euclidean')) ** 2
         self.sigma2= general_ker_obj.get_median_ls(self.YY0,self.YY1)
         e_0 = e[T==0].float().to(device)

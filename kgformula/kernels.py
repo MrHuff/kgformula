@@ -26,7 +26,15 @@ class Kernel(torch.nn.Module):
 
     def covar_dist(self, x1, x2):
         return self.sq_dist(x1,x2).sqrt()
-
+    def get_median_ls(self,X,Y):
+        with torch.no_grad():
+            if X.shape[0]>5000:
+                idx = torch.randperm(2500)
+                X = X[idx,:]
+                Y = Y[idx,:]
+            d = self.covar_dist(x1=X,x2=Y)
+            ret = torch.sqrt(torch.median(d[d >= 0]))
+            return ret
 class RBFKernel(Kernel):
     def __init__(self,x1=None,x2=None):
         super(RBFKernel, self).__init__()

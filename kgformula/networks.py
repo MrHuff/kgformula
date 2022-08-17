@@ -573,7 +573,7 @@ class chunk_iterator(): #joint = pos, pom = neg
             if self._index < self.true_chunks:
                 a,b = self.it_X[self._index],self.it_Z[self._index]
                 n_ = a.shape[0]*self.kappa
-                c,d=self.generate_pom_samples_old(n_)
+                c,d=self.generate_pom_samples(n_)
                 data_out = [torch.cat([c, d], dim=1)]
                 if self.TRE:
                     bin_a = a[:, self.x_binary]

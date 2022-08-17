@@ -1,8 +1,8 @@
 import pandas as pd
 import torch
 import os
-from kgformula.utils import simulation_object_rule_new
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+from kgformula.utils import simulation_object_rule_new,simulation_object_rule_perm
+# os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 
 df = pd.read_csv("lalonde.csv")
@@ -26,7 +26,7 @@ print(Z.shape)
 cat_data = {'indicator':col_index_list,'index_lists':col_stats_list}
 n = X.shape[0]
 
-job_res_name= 'lalonde_bdhsic'
+job_res_name= 'lalonde_bdhsic_perm'
 
 if not os.path.exists(job_res_name):
     os.makedirs(job_res_name)
@@ -71,7 +71,7 @@ for use_dummy_y in [True,False]:
                             y = Y[perm]
                         z = Z[perm]
                         try:
-                            sim_obj = simulation_object_rule_new(args=args) #Why getting nans?
+                            sim_obj = simulation_object_rule_perm(args=args) #Why getting nans?
                             pval, ref = sim_obj.run_data(x,y,z,cat_data)
                         except Exception as e:
                             print (e)

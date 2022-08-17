@@ -405,11 +405,48 @@ if __name__ == '__main__':
     df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv',index_col=0)
     df_3 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
     # df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
-
     df = pd.concat([df_1,df_2,df_3],axis=0)
     df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
     # df = pd.concat([df,df_4],axis=0)
+    print(df)
+
     plot_2_est_weights(df,'cont_plots_est')
+
+    df = pd.read_csv('base_jobs_cont.csv', index_col=0)
+    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
+    plot_2_est_weights(df, 'cont_plots_est_new')
+
+    df = pd.read_csv('base_jobs_cont_ref.csv', index_col=0)
+    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
+    plot_2_est_weights(df, 'cont_plots_est_new_ref')
+
+    df = pd.read_csv('debug_base_jobs_cont.csv', index_col=0)
+    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
+    plot_2_est_weights(df, 'debug_cont_plots_est_new_ref')
+
+    df = pd.read_csv('debug_2_base_jobs_cont.csv', index_col=0)
+    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
+    plot_2_est_weights(df, 'debug_2_cont_plots_est_new_ref')
+
+    df = pd.read_csv('debug_3_base_jobs_cont.csv', index_col=0)
+    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
+    plot_2_est_weights(df, 'debug_3_cont_plots_est_new_ref')
+
+
+    df = pd.read_csv('debug_layernorm_base_jobs_cont.csv', index_col=0)
+    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
+    plot_2_est_weights(df, 'debug_layernorm_base_jobs_cont')
+
+
+    df = pd.read_csv('debug_layernorm_base_jobs_cont_ref.csv', index_col=0)
+    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
+    plot_2_est_weights(df, 'debug_layernorm_base_jobs_cont_ref')
+
+
+    df = pd.read_csv('debug_4_base_jobs_cont.csv', index_col=0)
+    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
+    plot_2_est_weights(df, 'debug_4_base_jobs_cont_plots')
+
     #
     """
     1d cont business linear
@@ -468,6 +505,12 @@ if __name__ == '__main__':
     fixed_reals = pd.read_csv('do_null_mix_real_test_0.05.csv',index_col=0)
     df = pd.concat([mixed_df,fixed_reals],axis=0)
     plot_3_est_weights(df,'mixed_sanity_3_est',mixed=True)
+
+
+    mixed_new = pd.read_csv('do_null_mix_jobs.csv',index_col=0)
+    plot_3_est_weights(df,'do_null_mix_jobs_plot',mixed=True)
+
+
     """
     Linear break plot
     """
@@ -485,10 +528,12 @@ if __name__ == '__main__':
     """
     ablation_3d = pd.read_csv('ablation_3d.csv',index_col=0)
     break_plot(ablation_3d,'bd_hsic_breaker_old')
-    ablation_3d = pd.read_csv('kc_hsic_breaker_correct_train_2.csv',index_col=0)
-    break_plot(ablation_3d,'bd_hsic_breaker_correct_perm_2')
-    # ablation_3d = pd.read_csv('kc_hsic_breaker_correct_train.csv',index_col=0)
-    # break_plot(ablation_3d,'bd_hsic_breaker_correct_perm')
+    ablation_3d = pd.read_csv('kc_hsic_breaker_correct_train_3.csv',index_col=0)
+    break_plot(ablation_3d,'bd_hsic_breaker_correct_perm_3')
+    ablation_3d = pd.read_csv('kc_hsic_breaker_train_2.csv',index_col=0)
+    break_plot(ablation_3d,'bd_hsic_breaker_correct_perm')
+    ablation_3d = pd.read_csv('kc_hsic_breaker_correct_train_4.csv',index_col=0)
+    break_plot(ablation_3d,'bd_hsic_breaker_correct_perm_4')
 
     """
     hsic and quantile plot
