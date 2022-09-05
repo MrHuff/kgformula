@@ -1,7 +1,7 @@
 import pandas as pd
 from generate_covid_real_experiment import treatments,treatment_indices
 from matplotlib import pyplot as plt
-from kchsic_categorical_power import *
+from bdhsic_categorical_power import *
 
 if __name__ == '__main__':
     for n in [5000]:

@@ -10,7 +10,7 @@ import seaborn as sns
 
 dict_method = {'NCE_Q': 'NCE-Q', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF','real_weights':'True weights','hdm':'HDM',
                'NCE_Q_linear':'NCE-Q, linear','random_uniform_linear': 'random uniform linear','rulsif_linear':'RuLSIF linear',
-               'real_TRE_Q_linear': 'TRE-Q linear','real_weights_linear': 'True weights linear'}
+               'real_TRE_Q_linear': 'TRE-Q linear','real_weights_linear': 'True weights linear','Singh et al.':'Singh et al.','CfME':'CfME'}
 
 font_size = 24
 plt.rcParams['font.size'] = font_size
@@ -58,8 +58,8 @@ def hex_to_rgb(value):
     lv = len(value)
     tup = [int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3)]
     return [t/255. for t in tup]
-color_palette = ["#3f90da", "#ffa90e", "#bd1f01", "#94a4a2", "#832db6", "#a96b59", "#e76300", "#b9ac70", "#717581", "#92dadd"]
-col_dict_1 = {'NCE_Q': "#3f90da", 'real_TRE_Q': "#ffa90e", 'random_uniform': "#bd1f01", 'rulsif': "#94a4a2",'real_weights':"#832db6",'hdm':"#a96b59"}
+color_palette = ["#3f90da", "#ffa90e", "#bd1f01", "#94a4a2", "#832db6", "#a96b59", "#e76300", "#b9ac70", "#717581", "#92dadd","#40b0a6"]
+col_dict_1 = {'NCE_Q': "#3f90da", 'real_TRE_Q': "#ffa90e", 'random_uniform': "#bd1f01", 'rulsif': "#94a4a2",'real_weights':"#832db6",'hdm':"#a96b59",'CfME':"#92dadd",'Singh et al.': '#40b0a6'}
 col_dict_2 = {'NCE_Q_linear': "#3f90da", 'real_TRE_Q_linear': "#ffa90e", 'random_uniform_linear': "#bd1f01", 'rulsif_linear': "#94a4a2",'real_weights_linear':"#832db6"}
 col_dict_3 = {'NCE-Q prod': "#e76300", 'TRE-Q prod': "#b9ac70",  'RuLSIF prod': "#717581"}
 col_dict = {**col_dict_1,**col_dict_2,**col_dict_3}
@@ -208,7 +208,7 @@ def plot_3_est_weights(csv,dir,mixed=True):
             subset_2 = subset[subset['n'] == n]
             col_index=0
             for _,method in enumerate(methods):
-                if method in ['real_weights','random_uniform']:
+                if method in ['real_weights','random_uniform','Singh et al.']:
                     sep_list=[False]
                 else:
                     sep_list=[True,False]
@@ -271,7 +271,7 @@ def plot_3_est_weights(csv,dir,mixed=True):
 def break_plot(df,dir,mixed=True):
     if not os.path.exists(dir):
         os.makedirs(dir)
-    methods = ['NCE_Q','real_weights','real_TRE_Q']
+    methods = ['NCE_Q','real_weights','real_TRE_Q','Singh et al.']
 
     for n in [1000,5000,10000]:
         for col_index,method in enumerate(methods):
@@ -282,7 +282,7 @@ def break_plot(df,dir,mixed=True):
                 # appendix_string  = ' prod' if sep else ' mix'
                 # format_string = dict_method[method] + appendix_string
             format_string = dict_method[method]
-            plt.plot('$/beta_{xz}$', 'p_a=0.05', data=subset_3, linestyle='-', label=rf'{format_string}',
+            plt.plot('$/beta_{xz}$', 'p_a=0.05', data=subset_3, linestyle='-',marker='*', label=rf'{format_string}',
                      c=col_dict[method])
 
             # plt.fill_between(subset_3['beta_xy'], a, b, alpha=0.1)
@@ -401,143 +401,71 @@ if __name__ == '__main__':
     """
     Cont business
     """
-    df_1 = pd.read_csv('kc_rule_3_test_3d.csv',index_col=0)
-    df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv',index_col=0)
-    df_3 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
-    # df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
-    df = pd.concat([df_1,df_2,df_3],axis=0)
-    df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
-    # df = pd.concat([df,df_4],axis=0)
-    print(df)
 
-    plot_2_est_weights(df,'cont_plots_est')
-
-    df = pd.read_csv('base_jobs_cont.csv', index_col=0)
-    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
-    plot_2_est_weights(df, 'cont_plots_est_new')
-
-    df = pd.read_csv('base_jobs_cont_ref.csv', index_col=0)
-    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
-    plot_2_est_weights(df, 'cont_plots_est_new_ref')
-
-    df = pd.read_csv('debug_base_jobs_cont.csv', index_col=0)
-    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
-    plot_2_est_weights(df, 'debug_cont_plots_est_new_ref')
-
-    df = pd.read_csv('debug_2_base_jobs_cont.csv', index_col=0)
-    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
-    plot_2_est_weights(df, 'debug_2_cont_plots_est_new_ref')
-
-    df = pd.read_csv('debug_3_base_jobs_cont.csv', index_col=0)
-    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
-    plot_2_est_weights(df, 'debug_3_cont_plots_est_new_ref')
+    # df_1 = pd.read_csv('base_jobs_cont_final_cluster.csv',index_col=0)
+    # df_2 = pd.read_csv('base_jobs_cont_final_old_statistic.csv',index_col=0)
+    # df_2['nce_style']='Singh et al.'
+    # df_4 = pd.read_csv('1d_cont_pow/pow_and_calib.csv',index_col=0)
+    # df_4['beta_xy']=df_4['alp']
+    # df_4['$/beta_{xz}$']=0.25
+    # df_4['nce_style']='hdm'
+    # df_4['d_Z']=1
+    # df_4 = df_4[['d_Z','n','beta_xy','nce_style','$/beta_{xz}$','p_a=0.001','p_a=0.01' ,'p_a=0.025' , 'p_a=0.05' ,'p_a=0.1','KS stat','KS pval']]
+    # df=pd.concat([df_1,df_2,df_4],axis=0).reset_index()
+    # print(df)
+    # plot_2_est_weights(df,'cont_plots_est_final_cluster')
 
 
-    df = pd.read_csv('debug_layernorm_base_jobs_cont.csv', index_col=0)
-    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
-    plot_2_est_weights(df, 'debug_layernorm_base_jobs_cont')
-
-
-    df = pd.read_csv('debug_layernorm_base_jobs_cont_ref.csv', index_col=0)
-    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
-    plot_2_est_weights(df, 'debug_layernorm_base_jobs_cont_ref')
-
-
-    df = pd.read_csv('debug_4_base_jobs_cont.csv', index_col=0)
-    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
-    plot_2_est_weights(df, 'debug_4_base_jobs_cont_plots')
-
-    #
-    """
-    1d cont business linear
-    # """
-    df_1 = pd.read_csv("kc_rule_1d_linear_0.5_3.csv",index_col=0)
-    df_1['nce_style'] = df_1['nce_style'].apply(lambda x: x+'_linear')
-    # df_2 = pd.read_csv('kc_rule_3_test_2.csv',index_col=0)
-    df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
-    # df = pd.concat([df_1,df_2,df_4],axis=0)
-    df = pd.concat([df_1,df_4],axis=0)
-    df = df.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
-    plot_2_est_weights(df,'cont_plots_est_1D_linear')
-    """
-    1d cont business
-    # """
-    #
-    df_1 = pd.read_csv('kc_rule_3_test_3d.csv', index_col=0)
-    df_2 = pd.read_csv('kc_rule_3_test_3d_2.csv', index_col=0)
-    df_3 = pd.read_csv('kc_rule_3_test_2.csv', index_col=0)
-    df_4 = pd.read_csv('cont_hdm_pow.csv',index_col=0)
-    df = pd.concat([df_1, df_2, df_3], axis=0)
-    df = df.groupby(['nce_style', 'd_Z', 'beta_xy', '$/beta_{xz}$', 'n'])['p_a=0.05'].min().reset_index()
-    df = pd.concat([df,df_4],axis=0)
-    plot_2_est_weights(df, 'cont_plots_est_1D')
-    #
-    #
-    #
-    # #
     for y_index in [1,4]:
-        hdm_break = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job.csv',index_col=0)
+        hdm_break = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_perm_cluster.csv',index_col=0)
         hdm_break = hdm_break.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+        hdm_break_old_stat = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_old_statistic.csv',index_col=0)
+        hdm_break_old_stat = hdm_break_old_stat.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
+        hdm_break_old_stat['nce_style']='Singh et al.'
         df_4 = pd.read_csv(f'break_hdm_pow_{y_index}.csv',index_col=0)
-        hdm_break = pd.concat([hdm_break,df_4],axis=0)
-        print(hdm_break)
+        hdm_break = pd.concat([hdm_break_old_stat,hdm_break,df_4],axis=0)
         plot_2_est_weights(hdm_break,f'hdm_break_y={y_index}')
-
-        hdm_break_1 = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_50.csv',index_col=0)
-        hdm_break_1 = hdm_break_1.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
-        hdm_break_1 = hdm_break_1[hdm_break_1['beta_xy']==0.001]
-
-        hdm_break_2 = pd.read_csv(f'hdm_breaker_fam_y={y_index}_job_50_2.csv',index_col=0)
-        hdm_break_2 = hdm_break_2.groupby(['nce_style','d_Z','beta_xy','$/beta_{xz}$','n'])['p_a=0.05'].min().reset_index()
-        # hdm_break = pd.concat([hdm_break,df_4],axis=0)
-        hdm_break_50 = pd.concat([hdm_break_1,hdm_break_2],axis=0)
-        print(hdm_break_50)
-        plot_2_est_weights(hdm_break_50,f'hdm_break_y={y_index}_50_2')
     #
     """
     MIXED PLOTS
     """
-    mixed_df = pd.read_csv('do_null_mix_sanity_3_est.csv',index_col=0)
-    bool_keep = (mixed_df['nce_style']=='real_weights') &  (mixed_df['d_Z']==50)
-    mixed_df = mixed_df[~bool_keep]
-    bool_keep = (mixed_df['nce_style']=='real_weights') &  (mixed_df['d_Z']==15)
-    mixed_df = mixed_df[~bool_keep]
-    fixed_reals = pd.read_csv('do_null_mix_real_test_0.05.csv',index_col=0)
-    df = pd.concat([mixed_df,fixed_reals],axis=0)
-    plot_3_est_weights(df,'mixed_sanity_3_est',mixed=True)
+
+    # mixed_new = pd.read_csv('do_null_mix_jobs_cluster.csv',index_col=0)
+    # mixed_old_statistic = pd.read_csv('do_null_mix_jobs_old_statistic.csv',index_col=0)
+    # mixed_old_statistic['nce_style']='Singh et al.'
+    # df=pd.concat([mixed_new,mixed_old_statistic],axis=0).reset_index()
+    # plot_3_est_weights(df,'do_null_mix_jobs_plot',mixed=True)
+    #
 
 
-    mixed_new = pd.read_csv('do_null_mix_jobs.csv',index_col=0)
-    plot_3_est_weights(df,'do_null_mix_jobs_plot',mixed=True)
+    #
+    # """
+    # Linear break plot
+    # """
+    df_2 = pd.read_csv('bdhsic_breaker_1d_regular_clust_perm.csv',index_col=0)
+    df_3 = pd.read_csv('bdhsic_breaker_1dlinear_old_statistic.csv',index_col=0)
+    df_3 = df_3[df_3['nce_style']=='real_weights']
+    df_3['nce_style']='Singh et al.'
+    df = pd.concat([df_2,df_3],axis=0)
+    break_plot(df,'1d_break')
 
+    df_2 = pd.read_csv('bdhsic_breaker_1dlinear_clust_perm.csv',index_col=0)
+    break_plot(df_2,'linear_break')
 
-    """
-    Linear break plot
-    """
-    df_1 = pd.read_csv('kc_rule_1d_linear_0.1.csv',index_col=0)
-    df_2 = pd.read_csv('kc_rule_1d_linear_0.05.csv',index_col=0)
-    df_3 = pd.read_csv('kc_rule_1d_linear_0.25.csv',index_col=0)
-    df_4 = pd.read_csv('kc_rule_1d_linear_0.5.csv',index_col=0)
-    df_5 = pd.read_csv('kc_rule_1d_linear_0.5_3.csv',index_col=0)
-    df = pd.concat([df_1,df_2,df_3,df_4,df_5],axis=0)
-    df = df[(df['beta_xy']==0.0)&(df['d_Z']==1)]
-    break_plot(df,'linear_break')
-
-    """
-    General break plot
-    """
-    ablation_3d = pd.read_csv('ablation_3d.csv',index_col=0)
-    break_plot(ablation_3d,'bd_hsic_breaker_old')
-    ablation_3d = pd.read_csv('kc_hsic_breaker_correct_train_3.csv',index_col=0)
-    break_plot(ablation_3d,'bd_hsic_breaker_correct_perm_3')
-    ablation_3d = pd.read_csv('kc_hsic_breaker_train_2.csv',index_col=0)
-    break_plot(ablation_3d,'bd_hsic_breaker_correct_perm')
-    ablation_3d = pd.read_csv('kc_hsic_breaker_correct_train_4.csv',index_col=0)
-    break_plot(ablation_3d,'bd_hsic_breaker_correct_perm_4')
-
-    """
-    hsic and quantile plot
-    """
-    plot_14_hsic('old_csvs/ind_jobs_hsic_2.csv','old_csvs/hsic_break_real.csv','plot_14')
-    plot_15_cond('rcit.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
-    plot_15_cond('rcot.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15_b')
+    #
+    # """
+    # General break plot
+    # """
+    # ablation = pd.read_csv('bdhsic_breaker_6_correct_clust_perm.csv',index_col=0)
+    # ablation_2 = pd.read_csv('bdhsic_breaker_6_correct_old_statistic.csv',index_col=0)
+    # ablation_2['nce_style']='Singh et al.'
+    # df=pd.concat([ablation,ablation_2],axis=0).reset_index()
+    # df = df[df['$/beta_{xz}$']<=2]
+    # break_plot(df,'bd_hsic_breaker_6')
+    #
+    # """
+    # hsic and quantile plot
+    # """
+    # plot_14_hsic('old_csvs/ind_jobs_hsic_2.csv','old_csvs/hsic_break_real.csv','plot_14')
+    # plot_15_cond('rcit.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15')
+    # plot_15_cond('rcot.csv','old_csvs/cond_jobs_kc_real_rule.csv','plot_15_b')

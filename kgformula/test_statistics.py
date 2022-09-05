@@ -605,8 +605,9 @@ class Q_weighted_HSIC_correct(Q_weighted_HSIC): # test-statistic seems to be to 
     def __init__(self,train_data,X,Y,w,X_q,cuda=False,device=0,half_mode=False,perm='Y',variant=1,seed=1):
         super(Q_weighted_HSIC_correct, self).__init__(X,Y,w,X_q,cuda,device,half_mode,perm,variant,seed)
         self.train_data=train_data
-        cme, L_mat_train = self.cme_estimation()
-        self.clusters,self.n_bins = self.rkhs_kmeans(cme,L_mat_train)
+        self.kernel_ls_init('Z', self.train_data['Z_train'])
+        cme,cme_test, L_mat_train = self.cme_estimation(self.train_data['Z_train'],self.train_data['Z_test'], self.train_data['X_train'])
+        self.clusters,self.n_bins = self.rkhs_kmeans(cme,L_mat_train,W_test=cme_test)
         self.og_indices = np.arange(self.X.shape[0])
         # T\perp X | e(X)
         # T \perp X | p(X \mid p(X|Z))?
@@ -617,27 +618,28 @@ class Q_weighted_HSIC_correct(Q_weighted_HSIC): # test-statistic seems to be to 
         # self.clusters = self.binner.fit_transform(numpy_w[:,np.newaxis]).squeeze()
         # Train or test clustering????
 
-    def cme_estimation(self):
+    def cme_estimation(self, X,X_te, Y): #Might wanna change this, I think dino might have confused the labels or I've missed a point.
         #Rewrite this you don't need Z_test, only Z_train. Don't instanciate because it becomes wrong in that case. Only look at distributions
-        X=self.train_data['X_train']
-        Z=self.train_data['Z_train']
-        self.kernel_ls_init('Z', Z)
+        # Z=self.train_data['X_train']0
+        # X=self.train_data['Z_train']
         kx_train = self.ker_obj_X(X).evaluate()
+        kx_solve =self.ker_obj_X(X,X_te).evaluate()
         solve_mat = kx_train + torch.eye(kx_train.shape[0]).to(kx_train.device) * 1e-2 #nxn
         L = torch.linalg.cholesky(solve_mat)
-        ktrain_test = self.ker_obj_X(self.X,X).evaluate()  #k(x_train,X), n x m
-        W = torch.cholesky_solve(ktrain_test,L) #k(x_train,X), n x m # select from the columns?
-        L_mat_train = self.ker_obj_Z(Z).evaluate()
-        return W,L_mat_train
+        W_tr = torch.cholesky_solve(kx_train,L) #k(x_train,X), n x m # select from the columns?
+        W_te= torch.cholesky_solve(kx_solve,L) #k(x_train,X), n x m # select from the columns?
+        L_mat_train = self.ker_obj_Z(Y).evaluate()
+        return W_tr.t(),W_te.t(),L_mat_train
 
-    def rkhs_kmeans(self,W,L_mat_train):
+    def rkhs_kmeans(self,W,L_mat_train,W_test):
         clustering=[]
-        for num_clusters in range(2,10):
+        for num_clusters in range(2,5):
             with torch.no_grad():
-                cluster_ids_x, cluster_centers = kmeans_RKHS(
+                _, cluster_centers = kmeans_RKHS(
                     X=W,L_mat=L_mat_train , num_clusters=num_clusters, distance='euclidean', device=torch.device('cuda:0')
                 )
-                s=calculate_RKHS_silhoutte_score(W,cluster_ids_x,L_mat_train)
+                cluster_ids_x=kmeans_rkhs_predict(W_test,cluster_centers,L_mat_train,device=torch.device('cuda:0'))
+                s=calculate_RKHS_silhoutte_score(W_test,cluster_ids_x,L_mat_train)
                 clustering.append({'num_clusters':num_clusters,'s':s.item(),'clustering':cluster_ids_x})
         best_clust = sorted(clustering,key=lambda x: x['s'],reverse=True)[0]
         return best_clust['clustering'].cpu().numpy(),best_clust['num_clusters']

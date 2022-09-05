@@ -645,8 +645,6 @@ class simulation_object_rule_new(simulation_object):
         p_value_list = []
         reference_metric_list = []
         q_fac_list = []
-
-
         #Estimated weights incorrect or test-statistic being stupid
 
         for i in range(seeds_a, seeds_b):
@@ -719,7 +717,7 @@ class simulation_object_rule_new(simulation_object):
                         w =  _w
 
                 p, reference_metric, _arr = self.perm_Q_test(X=X_test, Y=Y_test,
-                                                             X_q=X_q_test, w=w, i=i,other_dict={'X_train':X_train,'Z_train':Z_train})
+                                                             X_q=X_q_test, w=w, i=i,other_dict={'X_train':X_train,'Z_train':Z_train,'Z_test':Z_test})
                 print(f'seed {i} pval={p}')
                 p_value_list.append(p)
                 reference_metric_list.append(reference_metric)
@@ -849,7 +847,7 @@ class simulation_object_rule_new(simulation_object):
         w = d.return_weights(X_test, Z_test, X_q_test)
         p, reference_metric, _arr = self.perm_Q_test(X_test, Y_test, X_q_test, w, 0,time_series_data=time_series_data,within_perm_vec=new_list,n_blocks=self.args['n_blocks'] if time_series_data else 0,
                                                      other_dict={'X_train':X_train,'Y_train':Y_train,'Z_train':Z_train,
-                                                                 'X_q_train':X_q_train})
+                                                                 'X_q_train':X_q_train,'Z_test':Z_test})
         print(p,reference_metric)
         return p, reference_metric
 

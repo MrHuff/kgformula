@@ -179,10 +179,12 @@ def calc_ess(w):
 
 
 def calculate_one_row(j,base_dir):
-    levels = [1e-3, 1e-2,0.025, 0.05, 1e-1]
-    job_params = load_obj(f'job_{j}.pkl', folder=f'{base_dir}/')
-    j_chara=job_params['job_character']
+
     try:
+        levels = [1e-3, 1e-2, 0.025, 0.05, 1e-1]
+        job_params = load_obj(f'job_{j}.pkl', folder=f'{base_dir}/')
+        print(job_params)
+        j_chara = job_params['job_character']
         result = load_obj(f'results_{j}.pickle', folder=f'{base_dir}_results/')
         pval_dist = result['p_value_array'].numpy()
         ref_vals=result['ref_metric_array'].numpy()
@@ -222,10 +224,11 @@ def calculate_one_row(j,base_dir):
             results_size.append(power)
         row = row + results_size
 
-        print('success')
+        # print('success')
         return row
     except Exception as e:
         print(e)
+        print(j)
 
 
 def generate_csv_file(base_dir):
@@ -305,10 +308,27 @@ if __name__ == '__main__':
     # generate_csv_file_parfor('hdm_breaker_fam_y=4_job_perm')
     # generate_csv_file_parfor('do_null_mix_sanity_4_est')
     # generate_csv_file_parfor('kchsic_breaker_fam_y=2_job')
-    generate_csv_file_parfor('hdm_breaker_fam_y=1_job_perm_cluster')
-    generate_csv_file_parfor('hdm_breaker_fam_y=4_job_perm_cluster')
-    generate_csv_file_parfor('do_null_mix_jobs_cluster')
-    generate_csv_file_parfor('do_null_binary_linear_kernel_perm_cluster')
-    generate_csv_file_parfor('do_null_binary_perm_cluster')
-    generate_csv_file_parfor('base_jobs_cont_final_cluster')
+    # generate_csv_file_parfor('hdm_breaker_fam_y=1_job_perm_cluster')
+    # generate_csv_file_parfor('hdm_breaker_fam_y=4_job_perm_cluster')
+    # generate_csv_file_parfor('do_null_mix_jobs_cluster')
+    # generate_csv_file_parfor('do_null_binary_linear_kernel_perm_cluster')
+    # generate_csv_file_parfor('do_null_binary_perm_cluster')
+    # generate_csv_file_parfor('base_jobs_cont_final_cluster')
+    # generate_csv_file_parfor('bdhsic_breaker_correct_clust_perm')
+    # generate_csv_file_parfor('bdhsic_breaker_6_correct_clust_perm')
+    generate_csv_file_parfor('bdhsic_breaker_1dlinear_clust_perm')
+    generate_csv_file_parfor('bdhsic_breaker_1d_regular_clust_perm')
+
+    """
+    Baselines
+    """
+    # generate_csv_file_parfor('do_null_binary_bench_cfme')
+    # generate_csv_file_parfor('do_null_binary_bench_old_statistic')
+    # generate_csv_file_parfor('do_null_mix_jobs_old_statistic')
+    # generate_csv_file_parfor('bdhsic_breaker_correct_old_statistic')
+    # generate_csv_file_parfor('bdhsic_breaker_6_correct_old_statistic')
+    # generate_csv_file_parfor('base_jobs_cont_final_old_statistic')
+    generate_csv_file_parfor('bdhsic_breaker_1dlinear_old_statistic')
+    # for fam_y in [1,4]:
+    #     generate_csv_file_parfor(f'hdm_breaker_fam_y={fam_y}_job_old_statistic')
 

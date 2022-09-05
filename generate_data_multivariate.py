@@ -12,7 +12,6 @@ import pandas as pd
 import seaborn as sns
 import sklearn
 from matplotlib import rc
-rc('text', usetex=True)
 mpl.rcParams['font.size'] = 40
 
 mpl.use('Agg')
@@ -190,7 +189,7 @@ def calc_ess(w):
 def calc_snr(beta_xz,theta):
     s_var = sum([el ** 2 for el in beta_xz])
     snr = s_var / theta ** 2
-    print(snr)
+    # print(snr)
     return snr
 
 if __name__ == '__main__':
@@ -221,7 +220,8 @@ if __name__ == '__main__':
                     if not os.path.exists(f'./{data_dir}/'):
                         os.makedirs(f'./{data_dir}/')
                     for i in range(seeds):
-                        jobs.append([data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fam_x,fam_z,fam_y,sanity])
+                        if not os.path.exists(f'./{data_dir}/data_seed={i}.pt'):
+                            jobs.append([data_dir,n,d_Z,beta_xz,beta_xy,i,yz,d_X,d_Y,phi,theta,fam_x,fam_z,fam_y,sanity])
     import torch.multiprocessing as mp
     pool = mp.Pool(mp.cpu_count())
     pool.map(multiprocess_wrapper, [row for row in jobs])

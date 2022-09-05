@@ -27,34 +27,31 @@ def calc_power(vec, level=.05):
     return pow
 
 
-bench_res_dir = '1d_cat_pow'
-benchmark_data = pd.read_csv('hdm_bench_syntehtic.csv')
+bench_res_dir = '1d_cont_pow'
+benchmark_data = pd.read_csv('hdm_bench_syntehtic_cont.csv')
 if not os.path.exists(bench_res_dir):
     os.makedirs(bench_res_dir)
 # print(benchmark_data)
 bench_extract_cols = list(str(el) for el in range(1,101))
-# bench_submat_false = benchmark_data[benchmark_data['null']==False]
-# for n in [1000,5000,10000]:
-#     for alp in [0.00,0.02,0.04,0.06,0.08,0.10]:
+
 
 pow_and_calib = []
 for i,row in benchmark_data.iterrows():
     data_row = []
     p_vals = row[bench_extract_cols].values.astype(float).squeeze()
-    if row['null']==False:
-        for lvl in [0.01,0.05,0.1]:
-            pow = calc_power(p_vals,lvl)
-            data_row.append(pow)
-    else:
-        _,p_val_ks_test = kstest(p_vals,'uniform')
-        data_row = [p_val_ks_test]*3
+    for lvl in [0.001,0.01,0.025,0.05,0.1]:
+        pow = calc_power(p_vals,lvl)
+        data_row.append(pow)
+    stat,p_val_ks_test = kstest(p_vals,'uniform')
+    data_row.append(stat)
+    data_row.append(p_val_ks_test)
     pow_and_calib.append(data_row)
 
-df_calib_pow = pd.DataFrame(pow_and_calib,columns=['alp=0.01','alp=0.05','alp=0.1'])
+df_calib_pow = pd.DataFrame(pow_and_calib,columns=['p_a=0.001','p_a=0.01' ,'p_a=0.025' , 'p_a=0.05' ,'p_a=0.1','KS stat','KS pval'])
 big_df = pd.concat([benchmark_data,df_calib_pow],axis=1)
 big_df.to_csv(f"{bench_res_dir}/pow_and_calib.csv")
-subset = big_df[big_df['null']==False]
-plot_power(subset,bench_res_dir,'pow_plot')
+# subset = big_df[big_df['null']==False]
+# plot_power(subset,bench_res_dir,'pow_plot')
 
 
 

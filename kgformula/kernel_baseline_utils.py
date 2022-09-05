@@ -167,12 +167,12 @@ class kernel_baseline():
                 tst=baseline_test_class_incorrect(Z,X,Y,_w,nn_params={},training_params=self.train_params)
             elif estimator =='old_statistic':
                 tst=baseline_test_old(Z,X,Y,_w,nn_params={},training_params=self.train_params)
-            # try:
-            out = tst.run_test(i)
-            data_col.append(out)
-            # except Exception as e:
-            #     print(e)
-            #     c += 1
+            try:
+                out = tst.run_test(i)
+                data_col.append(out)
+            except Exception as e:
+                print(e)
+                c += 1
             if c > 10:
                 raise Exception('Dude something is seriously wrong with your data or the method please debug')
         dat=np.array(data_col)
@@ -196,3 +196,23 @@ class kernel_baseline():
         with open(f'./{job_dir}_results/results_{unique_job_idx}.pickle', 'wb') as handle:
             pickle.dump(results_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
         return
+
+    def run_data(self,X,Y,Z):
+        self.job_character = self.args['job_character']
+        self.qdist = self.args['qdist']
+        self.bootstrap_runs = self.args['bootstrap_runs']
+        self.train_params['oracle_weights'] = False
+        self.train_params['epochs'] = 100
+        self.train_params['bs'] = self.args['n'] // 4
+        self.train_params['patience'] = 10
+        self.train_params['permutations'] = self.args['bootstrap_runs']
+        estimator = self.args['job_type']
+        X, Y, Z = X.cuda(self.device), Y.cuda(self.device), Z.cuda(self.device)
+        _w = torch.ones(X.shape[0]).cuda(self.device)
+        if estimator == 'cfme':
+            tst = baseline_test_class_incorrect(Z, X, Y, _w, nn_params={}, training_params=self.train_params)
+        elif estimator == 'old_statistic':
+            tst = baseline_test_old(Z, X, Y, _w, nn_params={}, training_params=self.train_params)
+        s,pval,ref = tst.run_test(0)
+        return pval,ref
+

@@ -34,8 +34,9 @@ if __name__ == '__main__':
                     if not os.path.exists(f'./{data_dir}/'):
                         os.makedirs(f'./{data_dir}/')
                     for i in range(seeds):
-                        jobs.append(
-                            [data_dir, n, d_Z, beta_xz, beta_xy, i, yz, d_X, d_Y, phi, theta, fam_x, fam_z, fam_y, sanity,null])
+                        if not os.path.exists(f'./{data_dir}/data_seed={i}.pt'):
+                            jobs.append(
+                                [data_dir, n, d_Z, beta_xz, beta_xy, i, yz, d_X, d_Y, phi, theta, fam_x, fam_z, fam_y, sanity,null])
     # for el in jobs:
     #     gen_job_wrapper(el)
     import torch.multiprocessing as mp

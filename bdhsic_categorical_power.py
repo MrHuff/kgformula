@@ -6,13 +6,6 @@ from post_process import *
 from scipy.stats import kstest
 from create_plots import *
 
-dict_method = {'NCE_Q': 'Classifier', 'real_TRE_Q': 'TRE-Q', 'random_uniform': 'random uniform', 'rulsif': 'RuLSIF','real_weights': 'Real weights'}
-
-color_palette = ["#3f90da", "#ffa90e", "#bd1f01", "#94a4a2", "#832db6", "#a96b59", "#e76300", "#b9ac70", "#717581", "#92dadd"]
-col_dict_1 = {'NCE_Q': "#3f90da", 'real_TRE_Q': "#ffa90e", 'random_uniform': "#bd1f01", 'rulsif': "#94a4a2",'real_weights':"#832db6",'HDM':"#a96b59"}
-col_dict_2 = {'NCE_Q_linear': "#3f90da", 'real_TRE_Q_linear': "#ffa90e", 'random_uniform_linear': "#bd1f01", 'rulsif_linear': "#94a4a2",'real_weights_linear':"#832db6"}
-col_dict_3 = {'NCE-Q prod': "#e76300", 'TRE-Q prod': "#b9ac70",  'RuLSIF prod': "#717581"}
-col_dict = {**col_dict_1,**col_dict_2,**col_dict_3}
 def plot_power(raw_df,dir,name,ests):
     for d in [1]:
         for n in [1000, 5000, 10000]:
@@ -39,7 +32,14 @@ def calc_power(vec, level=.05):
     n = vec.shape[0]
     pow = np.sum(vec<=level)/n
     return pow
-
+def transform_df(df):
+    df['alp'] = df['beta_xy']
+    df['null'] = False
+    df['estimator'] = df['nce_style']
+    df['alp=0.01'] = df['p_a=0.01']
+    df['alp=0.05'] = df['p_a=0.05']
+    df['alp=0.1'] = df['p_a=0.1']
+    return df
 def extract_properties(job_params):
     data_dir = job_params['job_dir']
     n = job_params['n']
@@ -56,7 +56,6 @@ def extract_properties(job_params):
     return properties,load_path,suffix
 
 def post_process_jobs(bench_res_dir,job_csv):
-
     # bench_res_dir = '1d_cat_pow_kchsic'
     # job_dir = 'do_null_binary_all_1d'
     if not os.path.exists(bench_res_dir):
@@ -116,29 +115,28 @@ def post_process_jobs(bench_res_dir,job_csv):
     #             counter = 0
     # doc.generate_tex()
 
-
     df_hdm = pd.read_csv('1d_cat_pow/pow_and_calib.csv')
     df_hdm['data_dir'] = None
-    df_hdm['estimator'] = 'HDM'
+    df_hdm['estimator'] = 'hdm'
     df_hdm = df_hdm[[ 'alp','null','n','estimator','alp=0.01','alp=0.05','alp=0.1']]
+    df_old = pd.read_csv('do_null_binary_bench_old_statistic.csv')
+    df_old = transform_df(df_old)
+    df_old['estimator']='Singh et al.'
+    df_cfme = pd.read_csv('do_null_binary_bench_cfme.csv')
+    df_cfme = transform_df(df_cfme)
+    df_cfme['estimator']='CfME'
     df = pd.read_csv(job_csv)
-    df['alp']=df['beta_xy']
-    df['null']=False
-    df['estimator']= df['nce_style']
-    df['alp=0.01']=df['p_a=0.01']
-    df['alp=0.05']=df['p_a=0.05']
-    df['alp=0.1']=df['p_a=0.1']
-
-    # df = pd.DataFrame(df_dat,columns= [ 'alp','null','n','estimator','data_dir','alp=0.01','alp=0.05','alp=0.1'])
-    df = pd.concat([df,df_hdm],axis=0)
-
-    subset = df[(df['null']==False) | (df['null']=='False')]
-    plot_power(subset,bench_res_dir,'power_plot_sep',subset['estimator'].unique().tolist())
-
+    df = transform_df(df)
+    df = pd.concat([df,df_hdm,df_cfme,df_old],axis=0)
+    # df = pd.concat([df,df_hdm],axis=0)
+    # subset = df[(df['null']==False) | (df['null']=='False')]
+    plot_power(df,bench_res_dir,'power_plot_sep',df['estimator'].unique().tolist())
 
 if __name__ == '__main__':
-    post_process_jobs('binary_perm_plot','do_null_binary_perm.csv')
-    post_process_jobs('binary_perm_plot_linear','do_null_binary_linear_kernel_perm.csv')
+    post_process_jobs('binary_perm_plot','do_null_binary_perm_cluster.csv')
+    # post_process_jobs('binary_perm_plot_linear','do_null_binary_linear_kernel_perm_cluster.csv')
+    # post_process_jobs('binary_perm_plot_cfme','do_null_binary_bench_cfme.csv')
+    # post_process_jobs('binary_perm_plot_old_statistic','do_null_binary_bench_old_statistic.csv')
 
 
 

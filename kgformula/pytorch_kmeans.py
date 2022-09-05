@@ -21,6 +21,39 @@ def initialize(X, num_clusters, seed):
     initial_state = X[indices]
     return initial_state
 
+def kmeans_rkhs_predict(
+        X,
+        cluster_centers,
+        L_test,
+        distance='euclidean',
+        device=torch.device('cpu'),
+        gamma_for_soft_dtw=0.001,
+        tqdm_flag=True
+):
+    """
+    predict using cluster centers
+    :param X: (torch.tensor) matrix
+    :param cluster_centers: (torch.tensor) cluster centers
+    :param distance: (str) distance [options: 'euclidean', 'cosine'] [default: 'euclidean']
+    :param device: (torch.device) device [default: 'cpu']
+    :param gamma_for_soft_dtw: approaches to (hard) DTW as gamma -> 0
+    :return: (torch.tensor) cluster ids
+    """
+    if tqdm_flag:
+        print(f'predicting on {device}..')
+
+    pairwise_distance_function = partial(pairwise_distance_rkhs,L=L_test, device=device, tqdm_flag=tqdm_flag)
+
+    # convert to float
+    X = X.float()
+
+    # transfer to device
+    X = X.to(device)
+
+    dis = pairwise_distance_function(X, cluster_centers)
+    choice_cluster = torch.argmin(dis, dim=1)
+
+    return choice_cluster.cpu()
 
 def kmeans_RKHS(
         X,
@@ -50,12 +83,7 @@ def kmeans_RKHS(
     if tqdm_flag:
         print(f'running k-means on {device}..')
 
-    if distance == 'euclidean':
-        pairwise_distance_function = partial(pairwise_distance, device=device, tqdm_flag=tqdm_flag)
-    elif distance == 'cosine':
-        pairwise_distance_function = partial(pairwise_cosine, device=device)
-    else:
-        raise NotImplementedError
+    pairwise_distance_function = partial(pairwise_distance_rkhs, L=L_mat, device=device, tqdm_flag=tqdm_flag)
 
     # convert to float
     X = X.float()
@@ -125,8 +153,10 @@ def kmeans_RKHS(
 
     return choice_cluster.cpu(), initial_state.cpu()
 
-def calculate_RKHS_silhoutte_score(W,cluster_assignment,L):
+def calculate_RKHS_silhoutte_score(W,cluster_assignment,L): #TODO scalability issues
     clusters = torch.unique(cluster_assignment)
+    if len(clusters)==1:
+        return torch.tensor([0.0])
     A = []
     k= Kernel()
     for c in clusters:
@@ -140,7 +170,8 @@ def calculate_RKHS_silhoutte_score(W,cluster_assignment,L):
             # dist =  torch.sum(torch.sum((mat @ L) * mat,dim=-1).squeeze(),dim=-1)/(clust_size-1)
             # concat_list.append(dist)
         # big_vec = torch.concat(concat_list,dim=0)
-        big_vec = k.sq_dist(subset,subset).sum(-1)/(clust_size-1)
+        big_vec = k.sq_dist(subset, subset).sum(-1) / (clust_size - 1)
+        # big_vec =pairwise_distance_rkhs(subset,subset,L,device=torch.device('cuda:0'))/(clust_size-1)
         A.append(big_vec)
     A = torch.concat(A,dim=0)
     B = []
@@ -160,6 +191,8 @@ def calculate_RKHS_silhoutte_score(W,cluster_assignment,L):
             #     inner_concat_list.append(dist)
             # big_vec = torch.concat(concat_list, dim=0)
             big_vec = k.sq_dist(subset,subset_ref).sum(-1) / (clust_size - 1)
+            # big_vec= pairwise_distance_rkhs(subset,subset_ref,L,device=torch.device('cuda:0'))/(clust_size-1)
+
             concat_list.append(big_vec.unsqueeze(-1))
         all_clust_vec,_ = torch.concat(concat_list,dim=1).min(dim=1)
         B.append(all_clust_vec)
@@ -312,10 +345,10 @@ def pairwise_distance(data1, data2, device=torch.device('cpu'), tqdm_flag=True):
     # transfer to device
     data1, data2 = data1.to(device), data2.to(device)
 
-    # N*1*M
+    # N_1*1*M
     A = data1.unsqueeze(dim=1)
 
-    # 1*N*M
+    # 1*N_2*M
     B = data2.unsqueeze(dim=0)
 
     dis = (A - B) ** 2.0
@@ -323,7 +356,24 @@ def pairwise_distance(data1, data2, device=torch.device('cpu'), tqdm_flag=True):
     dis = dis.sum(dim=-1).squeeze()
     return dis
 
+def pairwise_distance_rkhs(data1, data2,L, device=torch.device('cpu'), tqdm_flag=True):
+    if tqdm_flag:
+        print(f'device is :{device}')
 
+    # transfer to device
+    data1, data2 = data1.to(device), data2.to(device)
+
+    # N*1*M
+    A = data1.unsqueeze(dim=1)
+
+    # 1*N*M
+    B = data2.unsqueeze(dim=0)
+    W=(A-B).unsqueeze(2) #N1xN2x1xM
+    dis = (W@L)*W
+
+    # return N*N matrix for pairwise distance
+    dis = dis.sum(dim=-1).squeeze()
+    return dis
 def pairwise_cosine(data1, data2, device=torch.device('cpu')):
     # transfer to device
     data1, data2 = data1.to(device), data2.to(device)

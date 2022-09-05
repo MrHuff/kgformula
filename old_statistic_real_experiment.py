@@ -1,27 +1,37 @@
 import os
 import torch
-from kgformula.utils import simulation_object_rule_new,simulation_object_rule_perm
+from kgformula.kernel_baseline_utils import *
 
 
-job_res_name= 'twins_exp_no_sep_final_perm'
+job_res_name= 'old_statistic_real_world_data'
 
 if not os.path.exists(job_res_name):
     os.makedirs(job_res_name)
 
-X,Y,Z,ind_dict = torch.load('twins.pt')
-n = X.shape[0]
 
-for use_dummy_y in [True,False]:
-    for m in [5000]:
-        for var in [1,2]:
-            for est in ['NCE_Q','real_TRE_Q']:
-                for sep in [False]:
-                    args = {
-                            'job_character':{},
-                            'qdist':2,
+for dat_name in ['twins','lalonde']:
+    if dat_name=='twins':
+        X, Y, Z, ind_dict = torch.load(f'{dat_name}.pt')
+        m_list=[5000]
+    else:
+        df = pd.read_csv("lalonde.csv")
+        X = torch.from_numpy(df['treat'].values).unsqueeze(-1).float()
+        Y = torch.from_numpy(df['re78'].values).unsqueeze(-1).float()
+        Z_df = df[['age', 'education', 'black', 'hispanic', 'married', 'nodegree', 're74', 're75']]
+        Z = torch.from_numpy(Z_df.values).float()
+        m_list =[100,150,200]
+    n=X.shape[0]
+    for m in m_list:
+        for use_dummy_y in [True,False]:
+            for var in [1]:
+                for est in ['real_weights']:
+                    args = {'qdist':2,
+                            'job_character': {},
                             'bootstrap_runs':250,
+                            'job_type':'old_statistic',
                             'est_params': {'lr': 1e-3, #use really small LR for TRE. Ok what the fuck is going on...
                                                                        'max_its': 100,
+
                                                                        'width': 32,
                                                                        'layers':2,
                                                                        'mixed': False,
@@ -30,11 +40,9 @@ for use_dummy_y in [True,False]:
                                                                        'n_sample': 250,
                                                                        'criteria_limit': 0.05,
                                                                        'kill_counter': 2,
-                                                                        'kappa':10 if est=='NCE_Q' else 1,
-                                                                       'm': 4,
-                                                                       'separate': sep
                                            },
                             'estimator': est,
+
                             'cuda': True,
                             'device': 'cuda:0',
                             'n':10000,
@@ -54,14 +62,13 @@ for use_dummy_y in [True,False]:
                             y = Y[perm]
                         z = Z[perm]
                         try:
-                            # sim_obj = simulation_object_rule_new(args=args) #Why getting nans?
-                            sim_obj = simulation_object_rule_perm(args=args) #Why getting nans?
-                            pval, ref = sim_obj.run_data(x,y,z,ind_dict)
+                            sim_obj =  kernel_baseline(args) #Why getting nans?
+                            pval, ref = sim_obj.run_data(x,y,z)
                         except Exception as e:
                             print (e)
                         pval_list.append(pval)
                     pvals = torch.tensor(pval_list)
-                    torch.save({'pvals':pvals,'config':args},f'{job_res_name}/twins_pvals_{est}_{sep}_{m}_{use_dummy_y}_kernel={var}.pt')
+                    torch.save({'pvals':pvals,'config':args},f'{job_res_name}/{dat_name}_{use_dummy_y}_{m}_pvals.pt')
 
 
 
